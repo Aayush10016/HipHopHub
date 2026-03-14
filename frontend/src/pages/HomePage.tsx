@@ -1,0 +1,658 @@
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import ArtistProfile from '../components/ArtistProfile'
+import GameComponent from '../components/GameComponent'
+import AINewsFeed from '../components/AINewsFeed'
+import './HomePage.css'
+
+interface Song {
+    id: number
+    title: string
+    previewUrl?: string
+    artistName?: string
+    coverUrl?: string
+    youtubeUrl?: string
+    album?: {
+        title: string
+        coverImageUrl?: string
+        coverUrl?: string
+        youtubeUrl?: string
+        artist?: {
+            name: string
+        }
+    }
+}
+
+interface Artist {
+    id: number
+    name: string
+    imageUrl?: string
+    monthlyListeners?: number
+    genre?: string
+    bio?: string
+}
+
+interface Album {
+    id: number
+    title: string
+    releaseDate?: string
+    coverImageUrl?: string
+    coverUrl?: string
+    youtubeUrl?: string
+    artist?: {
+        name: string
+    }
+}
+
+interface SongOfDayResponse {
+    song?: {
+        id?: number
+        title?: string
+        previewUrl?: string
+        album?: string
+        artist?: string
+        coverUrl?: string
+        youtubeUrl?: string
+    }
+}
+
+const isValidDate = (date?: string) => {
+    if (!date) return false
+    return !Number.isNaN(new Date(date).getTime())
+}
+
+const formatDate = (date?: string) => {
+    if (!isValidDate(date)) return 'Date unavailable'
+    return new Date(date as string).toLocaleDateString()
+}
+
+const toYouTubeSearch = (query: string) => `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`
+
+const mapSongOfDayResponse = (payload: SongOfDayResponse): Song | null => {
+    const source = payload?.song
+    if (!source?.id || !source?.title) return null
+    return {
+        id: source.id,
+        title: source.title,
+        previewUrl: source.previewUrl,
+        youtubeUrl: source.youtubeUrl,
+        artistName: source.artist,
+        coverUrl: source.coverUrl,
+        album: {
+            title: source.album || 'Unknown Album',
+            coverUrl: source.coverUrl,
+            artist: {
+                name: source.artist || 'Unknown Artist'
+            }
+        }
+    }
+}
+
+export default function HomePage() {
+    const navigate = useNavigate()
+    const [activeTab, setActiveTab] = useState('songOfDay')
+    const [searchQuery, setSearchQuery] = useState('')
+    const [songOfDay, setSongOfDay] = useState<Song | null>(null)
+    const [topSongs, setTopSongs] = useState<Song[]>([])
+    const [recentReleases, setRecentReleases] = useState<Album[]>([])
+    const [upcomingReleases, setUpcomingReleases] = useState<Album[]>([])
+    const [artists, setArtists] = useState<Artist[]>([])
+    const [selectedArtistId, setSelectedArtistId] = useState<number | null>(null)
+    const [selectedArtist, setSelectedArtist] = useState<Artist | null>(null)
+    const [loading, setLoading] = useState(true)
+    const [isSongPlaying, setIsSongPlaying] = useState(false)
+    const [topSongPlayingId, setTopSongPlayingId] = useState<number | null>(null)
+    const [topSongCurrentTime, setTopSongCurrentTime] = useState<Record<number, number>>({})
+    const [artistImageErrorMap, setArtistImageErrorMap] = useState<Record<number, boolean>>({})
+
+    useEffect(() => {
+        let isMounted = true
+        const timeoutId = setTimeout(() => setLoading(false), 2500)
+
+        const fetchSongOfDay = async () => {
+            try {
+                const res = await fetch('/api/recommendations/song-of-the-day')
+                if (res.ok) {
+                    const mapped = mapSongOfDayResponse(await res.json())
+                    if (mapped?.previewUrl) {
+                        return mapped
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to fetch song of the day:', err)
+            }
+
+            try {
+                const res = await fetch('/api/songs/random/dhh')
+                if (res.ok) {
+                    const data = await res.json()
+                    if (data?.id && data?.previewUrl) {
+                        return data as Song
+                    }
+                }
+            } catch (err) {
+                console.error('Fallback fetch failed for /api/songs/random/dhh:', err)
+            }
+
+            return null
+        }
+
+        const loadData = async () => {
+            try {
+                const [song, artistsRes, latestRes, upcomingRes, topSongsRes] = await Promise.all([
+                    fetchSongOfDay(),
+                    fetch('/api/artists?scope=dhh'),
+                    fetch('/api/albums/latest?scope=dhh'),
+                    fetch('/api/albums/upcoming?scope=dhh'),
+                    fetch('/api/songs/top/dhh?days=30&limit=30')
+                ])
+
+                if (!isMounted) return
+
+                setSongOfDay(song)
+
+                if (artistsRes.ok) {
+                    const artistData = await artistsRes.json()
+                    setArtists(artistData || [])
+                } else {
+                    setArtists([])
+                }
+
+                if (latestRes.ok) {
+                    setRecentReleases((await latestRes.json()) || [])
+                } else {
+                    setRecentReleases([])
+                }
+
+                if (upcomingRes.ok) {
+                    setUpcomingReleases((await upcomingRes.json()) || [])
+                } else {
+                    setUpcomingReleases([])
+                }
+
+                if (topSongsRes.ok) {
+                    const songs = (await topSongsRes.json()) as Song[]
+                    const withPreviews = (songs || []).filter(song => !!song.previewUrl)
+                    setTopSongs(withPreviews)
+                } else {
+                    setTopSongs([])
+                }
+            } catch (err) {
+                console.error('Failed to load home page data:', err)
+                if (!isMounted) return
+                setSongOfDay(null)
+                setArtists([])
+                setRecentReleases([])
+                setUpcomingReleases([])
+                setTopSongs([])
+            } finally {
+                if (!isMounted) return
+                setLoading(false)
+                clearTimeout(timeoutId)
+            }
+        }
+
+        loadData()
+
+        return () => {
+            isMounted = false
+            clearTimeout(timeoutId)
+        }
+    }, [])
+
+    useEffect(() => {
+        setIsSongPlaying(false)
+    }, [songOfDay?.id])
+
+    useEffect(() => {
+        setTopSongPlayingId(null)
+        setTopSongCurrentTime({})
+    }, [topSongs])
+
+    const filteredArtists = useMemo(() => {
+        const uniqueByName = Array.from(
+            new Map(artists.map(artist => [artist.name.toLowerCase(), artist])).values()
+        )
+        return uniqueByName.filter(artist =>
+            artist.name.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+    }, [artists, searchQuery])
+
+    const resolveSongCover = (song: Song | null) => {
+        if (!song) return undefined
+        return song.coverUrl || song.album?.coverImageUrl || song.album?.coverUrl
+    }
+
+    const resolveSongArtist = (song: Song | null) => {
+        if (!song) return 'Unknown Artist'
+        return song.artistName || song.album?.artist?.name || 'Unknown Artist'
+    }
+
+    const formatPreviewClock = (seconds: number) => {
+        const safe = Math.max(0, Math.min(30, Math.floor(seconds)))
+        return `0:${String(safe).padStart(2, '0')}`
+    }
+
+    const openDirectSongYoutube = async (song: Song | null) => {
+        if (!song) return
+
+        let targetUrl = song.youtubeUrl || toYouTubeSearch(`${resolveSongArtist(song)} ${song.title} official audio`)
+
+        try {
+            const res = await fetch(`/api/youtube/song/${song.id}`)
+            if (res.ok) {
+                const payload = await res.json()
+                if (payload?.url) {
+                    targetUrl = payload.url
+                }
+            }
+        } catch (err) {
+            console.error(`Failed to resolve direct YouTube URL for song ${song.id}:`, err)
+        }
+
+        window.open(targetUrl, '_blank', 'noopener,noreferrer')
+    }
+
+    const openDirectAlbumYoutube = async (album: Album) => {
+        let targetUrl = album.youtubeUrl || toYouTubeSearch(`${album.artist?.name || ''} ${album.title} full album`)
+
+        try {
+            const res = await fetch(`/api/youtube/album/${album.id}`)
+            if (res.ok) {
+                const payload = await res.json()
+                if (payload?.url) {
+                    targetUrl = payload.url
+                }
+            }
+        } catch (err) {
+            console.error(`Failed to resolve direct YouTube URL for album ${album.id}:`, err)
+        }
+
+        window.open(targetUrl, '_blank', 'noopener,noreferrer')
+    }
+
+    const toggleTopSongPreview = async (song: Song) => {
+        if (!song.previewUrl) return
+
+        const currentAudio = document.getElementById(`top-song-preview-${song.id}`) as HTMLAudioElement | null
+        if (!currentAudio) return
+
+        if (topSongPlayingId !== null && topSongPlayingId !== song.id) {
+            const previous = document.getElementById(`top-song-preview-${topSongPlayingId}`) as HTMLAudioElement | null
+            if (previous) {
+                previous.pause()
+                previous.currentTime = 0
+            }
+        }
+
+        if (topSongPlayingId === song.id && !currentAudio.paused) {
+            currentAudio.pause()
+            setTopSongPlayingId(null)
+            return
+        }
+
+        try {
+            await currentAudio.play()
+            setTopSongPlayingId(song.id)
+        } catch (err) {
+            console.error(`Failed to play top song preview ${song.id}:`, err)
+        }
+    }
+
+    const handleArtistClick = (artist: Artist) => {
+        setSelectedArtistId(artist.id)
+        setSelectedArtist(artist)
+        setActiveTab('artistProfile')
+    }
+
+    const handleSearchKeyPress = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' && filteredArtists.length > 0) {
+            handleArtistClick(filteredArtists[0])
+        }
+    }
+
+    if (loading && artists.length === 0) {
+        return <div className="loading-page">Loading HipHopHub...</div>
+    }
+
+    return (
+        <div className="home-page">
+            <header className="home-header">
+                <div className="header-container">
+                    <div className="brand-block">
+                        <p className="brand-pill">Neon Mode</p>
+                        <h1 className="header-logo">HipHopHub</h1>
+                    </div>
+
+                    <div className="header-center">
+                        <input
+                            type="text"
+                            className="search-bar"
+                            placeholder="Search artists or jump to a profile..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onKeyDown={handleSearchKeyPress}
+                        />
+                    </div>
+
+                    <div className="header-actions">
+                        <button className="btn btn-small btn-secondary" onClick={() => navigate('/login')}>Log In</button>
+                        <button className="btn btn-small btn-primary" onClick={() => navigate('/signup')}>Sign Up</button>
+                    </div>
+                </div>
+            </header>
+
+            <div className="tabs-container">
+                <div className="tabs">
+                    <button className={`tab ${activeTab === 'songOfDay' ? 'active' : ''}`} onClick={() => setActiveTab('songOfDay')}>
+                        Spotlight
+                    </button>
+                    <button className={`tab ${activeTab === 'topSongs' ? 'active' : ''}`} onClick={() => setActiveTab('topSongs')}>
+                        Top Songs
+                    </button>
+                    <button className={`tab ${activeTab === 'recentReleases' ? 'active' : ''}`} onClick={() => setActiveTab('recentReleases')}>
+                        Recent
+                    </button>
+                    <button className={`tab ${activeTab === 'upcoming' ? 'active' : ''}`} onClick={() => setActiveTab('upcoming')}>
+                        Upcoming
+                    </button>
+                    <button className={`tab ${activeTab === 'artists' ? 'active' : ''}`} onClick={() => setActiveTab('artists')}>
+                        Artists
+                    </button>
+                    <button className={`tab ${activeTab === 'news' ? 'active' : ''}`} onClick={() => setActiveTab('news')}>
+                        News / AI
+                    </button>
+                    <button className={`tab ${activeTab === 'game' ? 'active' : ''}`} onClick={() => setActiveTab('game')}>
+                        Play
+                    </button>
+                    {selectedArtistId && (
+                        <button className={`tab ${activeTab === 'artistProfile' ? 'active' : ''}`} onClick={() => setActiveTab('artistProfile')}>
+                            Artist Profile
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            <main className="home-content">
+                <div className="container">
+                    {activeTab === 'songOfDay' && (
+                        <div className="song-of-day-section fade-in">
+                            <div className="section-header">
+                                <h2 className="section-title">Song of the Day</h2>
+                                <span className="pill small">30s preview</span>
+                            </div>
+                            {songOfDay ? (
+                                <div className="song-of-day-card card">
+                                    <div className="song-cover">
+                                        {resolveSongCover(songOfDay) ? (
+                                            <img src={resolveSongCover(songOfDay)} alt={songOfDay.title} />
+                                        ) : (
+                                            <div className="song-cover-placeholder">No cover</div>
+                                        )}
+                                    </div>
+                                    <div className="song-info">
+                                        <h3 className="song-title">{songOfDay.title}</h3>
+                                        <p className="song-artist">{resolveSongArtist(songOfDay)}</p>
+                                        <p className="song-album">{songOfDay.album?.title || 'Unknown Album'}</p>
+                                        {songOfDay.previewUrl ? (
+                                            <div className="song-player-controls">
+                                                <button className="big-play" onClick={() => {
+                                                    const audioEl = document.getElementById('song-of-day-player') as HTMLAudioElement | null
+                                                    if (audioEl) {
+                                                        audioEl.paused ? audioEl.play() : audioEl.pause()
+                                                    }
+                                                }}>
+                                                    {isSongPlaying ? 'Pause' : 'Play'}
+                                                </button>
+                                                <div className="player-bar">
+                                                    <div className="player-progress">
+                                                        <div className="player-progress-fill" />
+                                                    </div>
+                                                    <div className="player-meta">
+                                                        <span>Preview</span>
+                                                        <span>0:30</span>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openDirectSongYoutube(songOfDay)}
+                                                    className="yt-link-btn"
+                                                >
+                                                    Play on YT
+                                                </button>
+                                                <audio
+                                                    id="song-of-day-player"
+                                                    src={songOfDay.previewUrl}
+                                                    preload="none"
+                                                    onPlay={() => setIsSongPlaying(true)}
+                                                    onPause={() => setIsSongPlaying(false)}
+                                                    onEnded={() => setIsSongPlaying(false)}
+                                                />
+                                            </div>
+                                        ) : (
+                                            <span className="preview-unavailable">Preview unavailable</span>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <p className="empty-message">No playable Song of the Day is available yet.</p>
+                            )}
+                        </div>
+                    )}
+
+                    {activeTab === 'topSongs' && (
+                        <div className="top-songs-section fade-in">
+                            <div className="section-header">
+                                <h2 className="section-title">Top DHH Songs</h2>
+                                <p className="section-sub">Top previewable tracks from the last 30 days</p>
+                            </div>
+                            {topSongs.length > 0 ? (
+                                <div className="songs-grid">
+                                    {topSongs.map((song) => {
+                                        const cover = resolveSongCover(song)
+                                        return (
+                                            <div key={song.id} className="song-card card">
+                                                <div className="song-card-top">
+                                                    <h4>{song.title}</h4>
+                                                    <p>{resolveSongArtist(song)}</p>
+                                                </div>
+                                                <div className="song-card-media">
+                                                    {cover && <img className="song-thumb" src={cover} alt={song.title} />}
+                                                    {song.previewUrl ? (
+                                                        <div className="top-song-player">
+                                                            <div className="top-song-controls">
+                                                                <button
+                                                                    type="button"
+                                                                    className="top-song-play-btn"
+                                                                    onClick={() => toggleTopSongPreview(song)}
+                                                                >
+                                                                    {topSongPlayingId === song.id ? 'Pause' : 'Play'}
+                                                                </button>
+                                                                <div className="top-song-progress-wrap">
+                                                                    <div className="top-song-progress-track">
+                                                                        <div
+                                                                            className="top-song-progress-fill"
+                                                                            style={{
+                                                                                width: `${Math.min(100, ((topSongCurrentTime[song.id] || 0) / 30) * 100)}%`
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                    <div className="top-song-time">
+                                                                        <span>{formatPreviewClock(topSongCurrentTime[song.id] || 0)}</span>
+                                                                        <span>0:30</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <audio
+                                                                id={`top-song-preview-${song.id}`}
+                                                                preload="none"
+                                                                src={song.previewUrl}
+                                                                className="song-preview"
+                                                                onTimeUpdate={(e) => {
+                                                                    const next = Math.min(30, (e.currentTarget as HTMLAudioElement).currentTime)
+                                                                    setTopSongCurrentTime(prev => ({ ...prev, [song.id]: next }))
+                                                                }}
+                                                                onPlay={() => setTopSongPlayingId(song.id)}
+                                                                onPause={() => setTopSongPlayingId(prev => (prev === song.id ? null : prev))}
+                                                                onEnded={() => setTopSongPlayingId(prev => (prev === song.id ? null : prev))}
+                                                            />
+                                                        </div>
+                                                    ) : (
+                                                        <span className="preview-unavailable">Preview unavailable</span>
+                                                    )}
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openDirectSongYoutube(song)}
+                                                    className="yt-link-btn"
+                                                >
+                                                    Play on YT
+                                                </button>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            ) : (
+                                <p className="empty-message">No DHH songs found for the last 30 days.</p>
+                            )}
+                        </div>
+                    )}
+
+                    {activeTab === 'recentReleases' && (
+                        <div className="recent-releases-section fade-in">
+                            <div className="section-header">
+                                <h2 className="section-title">Recent Releases</h2>
+                                <p className="section-sub">Last 30 days</p>
+                            </div>
+                            {recentReleases.length > 0 ? (
+                                <div className="releases-grid">
+                                    {recentReleases.map((album) => (
+                                        <div key={album.id} className="album-card card">
+                                            <div className="album-cover">
+                                                {album.coverImageUrl || album.coverUrl ? (
+                                                    <img src={album.coverImageUrl || album.coverUrl} alt={album.title} />
+                                                ) : (
+                                                    <div className="album-cover-placeholder">No cover</div>
+                                                )}
+                                            </div>
+                                            <h4>{album.title}</h4>
+                                            <p>{album.artist?.name}</p>
+                                            <p className="release-date">{formatDate(album.releaseDate)}</p>
+                                            <button
+                                                type="button"
+                                                onClick={() => openDirectAlbumYoutube(album)}
+                                                className="yt-link-btn"
+                                            >
+                                                Play on YT
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="empty-message">No DHH releases in the last 30 days.</p>
+                            )}
+                        </div>
+                    )}
+
+                    {activeTab === 'upcoming' && (
+                        <div className="recent-releases-section fade-in">
+                            <div className="section-header">
+                                <h2 className="section-title">Upcoming Albums</h2>
+                                <span className="pill small">AI radar</span>
+                            </div>
+                            {upcomingReleases.length > 0 ? (
+                                <div className="releases-grid">
+                                    {upcomingReleases.map(album => (
+                                        <div key={album.id} className="album-card card">
+                                            <div className="album-cover">
+                                                {album.coverImageUrl || album.coverUrl ? (
+                                                    <img src={album.coverImageUrl || album.coverUrl} alt={album.title} />
+                                                ) : (
+                                                    <div className="album-cover-placeholder">No cover</div>
+                                                )}
+                                            </div>
+                                            <h4>{album.title}</h4>
+                                            <p>{album.artist?.name}</p>
+                                            <p className="release-date">{formatDate(album.releaseDate)}</p>
+                                            <button
+                                                type="button"
+                                                onClick={() => openDirectAlbumYoutube(album)}
+                                                className="yt-link-btn"
+                                            >
+                                                Play on YT
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="empty-message">No upcoming DHH albums are available yet.</p>
+                            )}
+                        </div>
+                    )}
+
+                    {activeTab === 'artists' && (
+                        <div className="artists-section fade-in">
+                            <div className="section-header">
+                                <h2 className="section-title">Featured Artists</h2>
+                                <p className="section-sub">Tap to open 8-tab profiles</p>
+                            </div>
+                            {filteredArtists.length > 0 ? (
+                                <div className="artists-grid">
+                                    {filteredArtists.map((artist) => (
+                                        <div
+                                            key={artist.id}
+                                            className="artist-card card"
+                                            onClick={() => handleArtistClick(artist)}
+                                        >
+                                            <div className="artist-image">
+                                                {artist.imageUrl && !artistImageErrorMap[artist.id] ? (
+                                                    <img
+                                                        src={`/api/images/artist/${artist.id}`}
+                                                        alt={artist.name}
+                                                        onError={() => setArtistImageErrorMap(prev => ({ ...prev, [artist.id]: true }))}
+                                                    />
+                                                ) : (
+                                                    <div className="artist-initial">{artist.name.charAt(0)}</div>
+                                                )}
+                                            </div>
+                                            <h3>{artist.name}</h3>
+                                            {artist.monthlyListeners && artist.monthlyListeners > 0 ? (
+                                                <p className="listeners">{(artist.monthlyListeners / 1000000).toFixed(1)}M listeners</p>
+                                            ) : (
+                                                <p className="listeners">{artist.genre || 'Artist'}</p>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="empty-message">No artists available yet</p>
+                            )}
+                        </div>
+                    )}
+
+                    {activeTab === 'news' && (
+                        <AINewsFeed />
+                    )}
+
+                    {activeTab === 'game' && (
+                        <div className="game-section fade-in">
+                            <h2 className="section-title">DHH Guessing Game</h2>
+                            <p className="game-description">Guess the artist from a 30-second preview and climb the leaderboard.</p>
+                            <GameComponent mode="global" />
+                        </div>
+                    )}
+
+                    {activeTab === 'artistProfile' && selectedArtistId && (
+                        <div className="artist-profile-section fade-in">
+                            <ArtistProfile
+                                artistId={selectedArtistId}
+                                initialArtist={selectedArtist || undefined}
+                                onBack={() => { setSelectedArtistId(null); setSelectedArtist(null); setActiveTab('artists') }}
+                            />
+                        </div>
+                    )}
+                </div>
+            </main>
+        </div>
+    )
+}

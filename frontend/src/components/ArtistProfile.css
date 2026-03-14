@@ -1,0 +1,501 @@
+.artist-profile {
+    padding: var(--space-2xl) 0;
+}
+
+.back-btn {
+    margin-bottom: var(--space-xl);
+}
+
+/* ========== ARTIST HEADER ========== */
+.artist-header {
+    display: flex;
+    gap: var(--space-2xl);
+    margin-bottom: var(--space-2xl);
+    padding: var(--space-2xl);
+    background: rgba(17, 24, 39, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-lg);
+}
+
+.artist-header-image {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 3px solid rgba(88, 197, 217, 0.6);
+    flex-shrink: 0;
+}
+
+.artist-header-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.artist-initial-large {
+    width: 100%;
+    height: 100%;
+    background: var(--gradient-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 5rem;
+    font-weight: 900;
+    color: white;
+}
+
+.artist-header-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.artist-name {
+    font-size: 3rem;
+    font-weight: 900;
+    margin-bottom: var(--space-sm);
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.artist-genre {
+    font-size: 1.25rem;
+    color: var(--accent-pink);
+    margin-bottom: var(--space-xs);
+}
+
+.artist-stats {
+    font-size: 1.125rem;
+    color: var(--text-secondary);
+}
+
+/* ========== PROFILE TABS ========== */
+.profile-tabs {
+    display: flex;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-2xl);
+    overflow-x: auto;
+    padding-bottom: var(--space-sm);
+}
+
+.profile-tab {
+    padding: var(--space-sm) var(--space-lg);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-md);
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.3s ease;
+}
+
+.profile-tab:hover {
+    background: rgba(88, 197, 217, 0.1);
+    border-color: rgba(88, 197, 217, 0.55);
+    color: var(--accent-blue);
+}
+
+.profile-tab.active {
+    background: var(--gradient-primary);
+    color: #0b1420;
+    border-color: transparent;
+    box-shadow: var(--shadow-blue);
+}
+
+/* ========== PROFILE CONTENT ========== */
+.profile-content {
+    min-height: 400px;
+}
+
+/* Overview Section */
+.overview-section h3 {
+    font-size: 2rem;
+    margin-bottom: var(--space-lg);
+}
+
+.bio-card {
+    padding: var(--space-xl);
+    margin-bottom: var(--space-xl);
+}
+
+.bio-card h3 {
+    font-size: 1.5rem;
+    margin-bottom: var(--space-md);
+    color: var(--accent-blue);
+}
+
+.bio-card p {
+    line-height: 1.8;
+    color: var(--text-primary);
+}
+
+.overview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-lg);
+}
+
+.overview-card {
+    padding: var(--space-xl);
+    text-align: center;
+}
+
+.overview-card h4 {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-sm);
+}
+
+.overview-stat {
+    font-size: 3rem;
+    font-weight: 900;
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Songs List */
+.songs-section h3,
+.albums-section h3,
+.eps-section h3,
+.singles-section h3,
+.tours-section h3,
+.facts-section h3,
+.game-section h3 {
+    font-size: 2rem;
+    margin-bottom: var(--space-xl);
+    color: var(--accent-blue);
+}
+
+.songs-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+.song-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-lg);
+    padding: var(--space-md);
+}
+
+.song-number {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    min-width: 40px;
+}
+
+.artist-song-cover {
+    width: 74px;
+    height: 74px;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+}
+
+.artist-song-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.artist-song-cover-placeholder {
+    width: 100%;
+    height: 100%;
+    background: var(--gradient-secondary);
+}
+
+.song-details {
+    flex: 1;
+}
+
+.song-details h4 {
+    font-size: 1.125rem;
+    margin-bottom: var(--space-xs);
+    color: var(--text-primary);
+}
+
+.song-duration {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.artist-song-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    flex-wrap: wrap;
+    min-width: 320px;
+}
+
+.artist-song-player {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    min-width: 220px;
+}
+
+.artist-song-progress-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 140px;
+}
+
+.artist-song-progress-track {
+    width: 100%;
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    overflow: hidden;
+}
+
+.artist-song-progress-fill {
+    height: 100%;
+    background: var(--gradient-primary);
+    transition: width 120ms linear;
+}
+
+.artist-song-time {
+    display: flex;
+    justify-content: space-between;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+}
+
+.artist-song-player .song-preview {
+    display: none;
+}
+
+.song-play-btn {
+    padding: 0.55rem 1rem;
+    border: 1px solid rgba(94, 212, 122, 0.35);
+    background: rgba(94, 212, 122, 0.12);
+    color: var(--accent-lime);
+    border-radius: var(--radius-pill);
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.song-play-btn:hover {
+    border-color: rgba(0, 240, 255, 0.45);
+    color: var(--accent-cyan);
+}
+
+.yt-link-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 0.9rem;
+    border-radius: var(--radius-pill);
+    border: 1px solid rgba(0, 240, 255, 0.35);
+    background: rgba(0, 240, 255, 0.1);
+    color: var(--accent-cyan);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.yt-link-btn:hover {
+    border-color: rgba(57, 255, 20, 0.45);
+    color: var(--accent-lime);
+}
+
+/* Albums Grid */
+.albums-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--space-lg);
+}
+
+.album-item {
+    padding: var(--space-md);
+    text-align: center;
+}
+
+.album-cover {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    margin-bottom: var(--space-md);
+}
+
+.album-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.album-placeholder {
+    width: 100%;
+    height: 100%;
+    background: var(--gradient-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+}
+
+.album-item h4 {
+    font-size: 1.125rem;
+    margin-bottom: var(--space-xs);
+    color: var(--text-primary);
+}
+
+.album-item p {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+
+/* Tours List */
+.tours-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+}
+
+.tour-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-lg);
+    padding: var(--space-lg);
+}
+
+.tour-date {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 80px;
+    height: 80px;
+    background: var(--gradient-primary);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 18px rgba(14, 25, 42, 0.35);
+    flex-shrink: 0;
+}
+
+.tour-day {
+    font-size: 2rem;
+    font-weight: 900;
+    color: white;
+}
+
+.tour-month {
+    font-size: 0.875rem;
+    color: white;
+    text-transform: uppercase;
+}
+
+.tour-details {
+    flex: 1;
+}
+
+.tour-details h4 {
+    font-size: 1.25rem;
+    margin-bottom: var(--space-xs);
+    color: var(--text-primary);
+}
+
+.tour-details p {
+    color: var(--text-secondary);
+}
+
+/* Fun Facts */
+.facts-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+}
+
+.fact-item {
+    display: flex;
+    gap: var(--space-lg);
+    padding: var(--space-lg);
+    align-items: flex-start;
+}
+
+.fact-emoji {
+    font-size: 2rem;
+    flex-shrink: 0;
+}
+
+.fact-item p {
+    font-size: 1.125rem;
+    line-height: 1.6;
+    color: var(--text-primary);
+}
+
+/* Game Section */
+.game-description {
+    font-size: 1.125rem;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-xl);
+}
+
+/* Loading & Error States */
+.loading-profile,
+.error-profile {
+    min-height: 400px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: var(--text-secondary);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .artist-header {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    .artist-header-image {
+        width: 150px;
+        height: 150px;
+    }
+
+    .artist-name {
+        font-size: 2rem;
+    }
+
+    .profile-tabs {
+        gap: var(--space-xs);
+    }
+
+    .profile-tab {
+        padding: var(--space-xs) var(--space-md);
+        font-size: 0.875rem;
+    }
+
+    .albums-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    }
+
+    .tour-item {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .song-item {
+        flex-wrap: wrap;
+    }
+
+    .artist-song-actions {
+        min-width: 100%;
+    }
+}
