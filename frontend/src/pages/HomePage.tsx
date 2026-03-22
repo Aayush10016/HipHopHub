@@ -3,6 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import ArtistProfile from '../components/ArtistProfile'
 import GameComponent from '../components/GameComponent'
 import AINewsFeed from '../components/AINewsFeed'
+import CompleteLyricGame from '../components/CompleteLyricGame'
+import ArcadeLeaderboard from '../components/ArcadeLeaderboard'
+import ArtistBlitzGame from '../components/ArtistBlitzGame'
+import SceneDecoderGame from '../components/SceneDecoderGame'
+import CoverShuffleGame from '../components/CoverShuffleGame'
 import './HomePage.css'
 
 interface Song {
@@ -56,6 +61,16 @@ interface SongOfDayResponse {
     }
 }
 
+interface NewsStory {
+    id: string
+    title: string
+    summary: string
+    tag: string
+    category: string
+    time: string
+    source?: string
+}
+
 const isValidDate = (date?: string) => {
     if (!date) return false
     return !Number.isNaN(new Date(date).getTime())
@@ -96,6 +111,7 @@ export default function HomePage() {
     const [topSongs, setTopSongs] = useState<Song[]>([])
     const [recentReleases, setRecentReleases] = useState<Album[]>([])
     const [upcomingReleases, setUpcomingReleases] = useState<Album[]>([])
+    const [releaseRadar, setReleaseRadar] = useState<NewsStory[]>([])
     const [artists, setArtists] = useState<Artist[]>([])
     const [selectedArtistId, setSelectedArtistId] = useState<number | null>(null)
     const [selectedArtist, setSelectedArtist] = useState<Artist | null>(null)
@@ -104,24 +120,12 @@ export default function HomePage() {
     const [topSongPlayingId, setTopSongPlayingId] = useState<number | null>(null)
     const [topSongCurrentTime, setTopSongCurrentTime] = useState<Record<number, number>>({})
     const [artistImageErrorMap, setArtistImageErrorMap] = useState<Record<number, boolean>>({})
+    const [selectedGame, setSelectedGame] = useState<'guess' | 'rapid' | 'lyric' | 'blitz' | 'decoder' | 'cover'>('guess')
 
     useEffect(() => {
         let isMounted = true
-        const timeoutId = setTimeout(() => setLoading(false), 2500)
 
         const fetchSongOfDay = async () => {
-            try {
-                const res = await fetch('/api/recommendations/song-of-the-day')
-                if (res.ok) {
-                    const mapped = mapSongOfDayResponse(await res.json())
-                    if (mapped?.previewUrl) {
-                        return mapped
-                    }
-                }
-            } catch (err) {
-                console.error('Failed to fetch song of the day:', err)
-            }
-
             try {
                 const res = await fetch('/api/songs/random/dhh')
                 if (res.ok) {
@@ -139,7 +143,7 @@ export default function HomePage() {
 
         const loadData = async () => {
             try {
-                const [song, artistsRes, latestRes, upcomingRes, topSongsRes] = await Promise.all([
+                const results = await Promise.allSettled([
                     fetchSongOfDay(),
                     fetch('/api/artists?scope=dhh'),
                     fetch('/api/albums/latest?scope=dhh'),
@@ -149,34 +153,41 @@ export default function HomePage() {
 
                 if (!isMounted) return
 
-                setSongOfDay(song)
+                const [songResult, artistsResult, latestResult, upcomingResult, topSongsResult] = results
 
-                if (artistsRes.ok) {
-                    const artistData = await artistsRes.json()
-                    setArtists(artistData || [])
-                } else {
+                if (songResult.status === 'fulfilled') {
+                    setSongOfDay(songResult.value)
+                }
+
+                if (artistsResult.status === 'fulfilled' && artistsResult.value.ok) {
+                    const artistData = await artistsResult.value.json()
+                    if (isMounted) setArtists(artistData || [])
+                } else if (artistsResult.status === 'rejected') {
                     setArtists([])
                 }
 
-                if (latestRes.ok) {
-                    setRecentReleases((await latestRes.json()) || [])
-                } else {
+                if (latestResult.status === 'fulfilled' && latestResult.value.ok) {
+                    const latestData = await latestResult.value.json()
+                    if (isMounted) setRecentReleases(latestData || [])
+                } else if (latestResult.status === 'rejected') {
                     setRecentReleases([])
                 }
 
-                if (upcomingRes.ok) {
-                    setUpcomingReleases((await upcomingRes.json()) || [])
-                } else {
+                if (upcomingResult.status === 'fulfilled' && upcomingResult.value.ok) {
+                    const upcomingData = await upcomingResult.value.json()
+                    if (isMounted) setUpcomingReleases(upcomingData || [])
+                } else if (upcomingResult.status === 'rejected') {
                     setUpcomingReleases([])
                 }
 
-                if (topSongsRes.ok) {
-                    const songs = (await topSongsRes.json()) as Song[]
+                if (topSongsResult.status === 'fulfilled' && topSongsResult.value.ok) {
+                    const songs = (await topSongsResult.value.json()) as Song[]
                     const withPreviews = (songs || []).filter(song => !!song.previewUrl)
-                    setTopSongs(withPreviews)
-                } else {
+                    if (isMounted) setTopSongs(withPreviews)
+                } else if (topSongsResult.status === 'rejected') {
                     setTopSongs([])
                 }
+
             } catch (err) {
                 console.error('Failed to load home page data:', err)
                 if (!isMounted) return
@@ -185,10 +196,10 @@ export default function HomePage() {
                 setRecentReleases([])
                 setUpcomingReleases([])
                 setTopSongs([])
+                setReleaseRadar([])
             } finally {
                 if (!isMounted) return
                 setLoading(false)
-                clearTimeout(timeoutId)
             }
         }
 
@@ -196,9 +207,43 @@ export default function HomePage() {
 
         return () => {
             isMounted = false
-            clearTimeout(timeoutId)
         }
     }, [])
+
+    useEffect(() => {
+        const controller = new AbortController()
+        fetch('/api/game/random-song', { signal: controller.signal }).catch(() => undefined)
+        return () => controller.abort()
+    }, [])
+
+    useEffect(() => {
+        if (activeTab !== 'upcoming' || upcomingReleases.length > 0 || releaseRadar.length > 0) {
+            return
+        }
+
+        let cancelled = false
+
+        fetch('/api/ai-news')
+            .then(res => res.ok ? res.json() : null)
+            .then(payload => {
+                if (cancelled || !payload) return
+                const stories = (payload?.stories || []) as NewsStory[]
+                setReleaseRadar(
+                    stories
+                        .filter(story => story.category === 'Releases')
+                        .filter(story => story.time.toLowerCase().startsWith('in ')
+                            || /upcoming|soon|announce|tease|expected/i.test(`${story.title} ${story.summary}`))
+                        .slice(0, 6)
+                )
+            })
+            .catch(err => {
+                console.error('Failed to load release radar fallback:', err)
+            })
+
+        return () => {
+            cancelled = true
+        }
+    }, [activeTab, upcomingReleases.length, releaseRadar.length])
 
     useEffect(() => {
         setIsSongPlaying(false)
@@ -311,16 +356,11 @@ export default function HomePage() {
         }
     }
 
-    if (loading && artists.length === 0) {
-        return <div className="loading-page">Loading HipHopHub...</div>
-    }
-
     return (
         <div className="home-page">
             <header className="home-header">
                 <div className="header-container">
                     <div className="brand-block">
-                        <p className="brand-pill">Neon Mode</p>
                         <h1 className="header-logo">HipHopHub</h1>
                     </div>
 
@@ -382,60 +422,88 @@ export default function HomePage() {
                                 <span className="pill small">30s preview</span>
                             </div>
                             {songOfDay ? (
-                                <div className="song-of-day-card card">
-                                    <div className="song-cover">
-                                        {resolveSongCover(songOfDay) ? (
-                                            <img src={resolveSongCover(songOfDay)} alt={songOfDay.title} />
-                                        ) : (
-                                            <div className="song-cover-placeholder">No cover</div>
-                                        )}
-                                    </div>
-                                    <div className="song-info">
-                                        <h3 className="song-title">{songOfDay.title}</h3>
-                                        <p className="song-artist">{resolveSongArtist(songOfDay)}</p>
-                                        <p className="song-album">{songOfDay.album?.title || 'Unknown Album'}</p>
-                                        {songOfDay.previewUrl ? (
-                                            <div className="song-player-controls">
-                                                <button className="big-play" onClick={() => {
-                                                    const audioEl = document.getElementById('song-of-day-player') as HTMLAudioElement | null
-                                                    if (audioEl) {
-                                                        audioEl.paused ? audioEl.play() : audioEl.pause()
-                                                    }
-                                                }}>
-                                                    {isSongPlaying ? 'Pause' : 'Play'}
-                                                </button>
-                                                <div className="player-bar">
-                                                    <div className="player-progress">
-                                                        <div className="player-progress-fill" />
+                                <div className="spotlight-layout">
+                                    <div className="song-of-day-card card">
+                                        <div className="song-cover">
+                                            {resolveSongCover(songOfDay) ? (
+                                                <img src={resolveSongCover(songOfDay)} alt={songOfDay.title} />
+                                            ) : (
+                                                <div className="song-cover-placeholder">No cover</div>
+                                            )}
+                                        </div>
+                                        <div className="song-info">
+                                            <h3 className="song-title">{songOfDay.title}</h3>
+                                            <p className="song-artist">{resolveSongArtist(songOfDay)}</p>
+                                            <p className="song-album">{songOfDay.album?.title || 'Unknown Album'}</p>
+                                            {songOfDay.previewUrl ? (
+                                                <div className="song-player-controls">
+                                                    <button className="big-play" onClick={() => {
+                                                        const audioEl = document.getElementById('song-of-day-player') as HTMLAudioElement | null
+                                                        if (audioEl) {
+                                                            audioEl.paused ? audioEl.play() : audioEl.pause()
+                                                        }
+                                                    }}>
+                                                        {isSongPlaying ? 'Pause' : 'Play'}
+                                                    </button>
+                                                    <div className="player-bar">
+                                                        <div className="player-progress">
+                                                            <div className="player-progress-fill" />
+                                                        </div>
+                                                        <div className="player-meta">
+                                                            <span>Preview</span>
+                                                            <span>0:30</span>
+                                                        </div>
                                                     </div>
-                                                    <div className="player-meta">
-                                                        <span>Preview</span>
-                                                        <span>0:30</span>
-                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => openDirectSongYoutube(songOfDay)}
+                                                        className="yt-link-btn"
+                                                    >
+                                                        Play on YT
+                                                    </button>
+                                                    <audio
+                                                        id="song-of-day-player"
+                                                        src={songOfDay.previewUrl}
+                                                        preload="none"
+                                                        onPlay={() => setIsSongPlaying(true)}
+                                                        onPause={() => setIsSongPlaying(false)}
+                                                        onEnded={() => setIsSongPlaying(false)}
+                                                    />
                                                 </div>
+                                            ) : (
+                                                <span className="preview-unavailable">Preview unavailable</span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="spotlight-rail card">
+                                        <div className="spotlight-rail-head">
+                                            <h3>Today&apos;s Top 5</h3>
+                                            <span>Fresh picks</span>
+                                        </div>
+                                        <div className="spotlight-list">
+                                            {topSongs.slice(0, 5).map((song, index) => (
                                                 <button
+                                                    key={song.id}
                                                     type="button"
-                                                    onClick={() => openDirectSongYoutube(songOfDay)}
-                                                    className="yt-link-btn"
+                                                    className="spotlight-row"
+                                                    onClick={() => openDirectSongYoutube(song)}
                                                 >
-                                                    Play on YT
+                                                    <span className="spotlight-rank">0{index + 1}</span>
+                                                    <span className="spotlight-copy">
+                                                        <strong>{song.title}</strong>
+                                                        <small>{resolveSongArtist(song)}</small>
+                                                    </span>
                                                 </button>
-                                                <audio
-                                                    id="song-of-day-player"
-                                                    src={songOfDay.previewUrl}
-                                                    preload="none"
-                                                    onPlay={() => setIsSongPlaying(true)}
-                                                    onPause={() => setIsSongPlaying(false)}
-                                                    onEnded={() => setIsSongPlaying(false)}
-                                                />
-                                            </div>
-                                        ) : (
-                                            <span className="preview-unavailable">Preview unavailable</span>
-                                        )}
+                                            ))}
+                                            {topSongs.length === 0 && (
+                                                <div className="spotlight-empty">Top songs are still syncing.</div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             ) : (
-                                <p className="empty-message">No playable Song of the Day is available yet.</p>
+                                <p className="empty-message">{loading ? 'Loading spotlight...' : 'No playable Song of the Day is available yet.'}</p>
                             )}
                         </div>
                     )}
@@ -444,7 +512,7 @@ export default function HomePage() {
                         <div className="top-songs-section fade-in">
                             <div className="section-header">
                                 <h2 className="section-title">Top DHH Songs</h2>
-                                <p className="section-sub">Top previewable tracks from the last 30 days</p>
+                                <p className="section-sub">Recent playable DHH cuts, prioritized by the last 30 days</p>
                             </div>
                             {topSongs.length > 0 ? (
                                 <div className="songs-grid">
@@ -513,7 +581,7 @@ export default function HomePage() {
                                     })}
                                 </div>
                             ) : (
-                                <p className="empty-message">No DHH songs found for the last 30 days.</p>
+                                <p className="empty-message">{loading ? 'Loading top songs...' : 'No DHH songs found for the last 30 days.'}</p>
                             )}
                         </div>
                     )}
@@ -549,7 +617,7 @@ export default function HomePage() {
                                     ))}
                                 </div>
                             ) : (
-                                <p className="empty-message">No DHH releases in the last 30 days.</p>
+                                <p className="empty-message">{loading ? 'Loading recent releases...' : 'No DHH releases in the last 30 days.'}</p>
                             )}
                         </div>
                     )}
@@ -584,8 +652,19 @@ export default function HomePage() {
                                         </div>
                                     ))}
                                 </div>
+                            ) : releaseRadar.length > 0 ? (
+                                <div className="releases-grid">
+                                    {releaseRadar.map((story) => (
+                                        <div key={story.id} className="album-card card">
+                                            <div className="album-cover album-cover-placeholder">News</div>
+                                            <h4>{story.title}</h4>
+                                            <p>{story.tag}</p>
+                                            <p className="release-date">{story.time}</p>
+                                        </div>
+                                    ))}
+                                </div>
                             ) : (
-                                <p className="empty-message">No upcoming DHH albums are available yet.</p>
+                                <p className="empty-message">{loading ? 'Loading upcoming releases...' : 'No upcoming DHH albums are available yet.'}</p>
                             )}
                         </div>
                     )}
@@ -625,7 +704,7 @@ export default function HomePage() {
                                     ))}
                                 </div>
                             ) : (
-                                <p className="empty-message">No artists available yet</p>
+                                <p className="empty-message">{loading ? 'Loading artists...' : 'No artists available yet'}</p>
                             )}
                         </div>
                     )}
@@ -636,9 +715,94 @@ export default function HomePage() {
 
                     {activeTab === 'game' && (
                         <div className="game-section fade-in">
-                            <h2 className="section-title">DHH Guessing Game</h2>
-                            <p className="game-description">Guess the artist from a 30-second preview and climb the leaderboard.</p>
-                            <GameComponent mode="global" />
+                            <div className="section-header">
+                                <div>
+                                    <h2 className="section-title">Play</h2>
+                                    <p className="game-description">Three game slots for replayable DHH sessions. The first two are live now.</p>
+                                </div>
+                            </div>
+
+                            <div className="game-hub-grid">
+                                <button
+                                    type="button"
+                                    className={`game-mode-card card ${selectedGame === 'guess' ? 'active' : ''}`}
+                                    onClick={() => setSelectedGame('guess')}
+                                >
+                                    <span className="game-mode-kicker">Live now</span>
+                                    <h3>Guess The Track</h3>
+                                    <p>Listen to the preview, name the song, and post leaderboard points.</p>
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`game-mode-card card ${selectedGame === 'rapid' ? 'active' : ''}`}
+                                    onClick={() => setSelectedGame('rapid')}
+                                >
+                                    <span className="game-mode-kicker">Live now</span>
+                                    <h3>Rapid Fire</h3>
+                                    <p>Locked 10-second runs, no pause control, lives, combos, and auto-next pressure.</p>
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`game-mode-card card ${selectedGame === 'lyric' ? 'active' : ''}`}
+                                    onClick={() => setSelectedGame('lyric')}
+                                >
+                                    <span className="game-mode-kicker">Beta live</span>
+                                    <h3>Complete The Lyric</h3>
+                                    <p>Hook-card challenge mode with artist and song hints plus lower-score assist.</p>
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`game-mode-card card ${selectedGame === 'blitz' ? 'active' : ''}`}
+                                    onClick={() => setSelectedGame('blitz')}
+                                >
+                                    <span className="game-mode-kicker">Live now</span>
+                                    <h3>Artist Blitz</h3>
+                                    <p>Timed multiple-choice rounds based on title recognition and cover-reading speed.</p>
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`game-mode-card card ${selectedGame === 'decoder' ? 'active' : ''}`}
+                                    onClick={() => setSelectedGame('decoder')}
+                                >
+                                    <span className="game-mode-kicker">Live now</span>
+                                    <h3>Scene Decoder</h3>
+                                    <p>Artist-city knowledge sprint built for people who actually know the culture map.</p>
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`game-mode-card card ${selectedGame === 'cover' ? 'active' : ''}`}
+                                    onClick={() => setSelectedGame('cover')}
+                                >
+                                    <span className="game-mode-kicker">Live now</span>
+                                    <h3>Cover Shuffle</h3>
+                                    <p>Cover recognition race where you pick the right title before the minute ends.</p>
+                                </button>
+                            </div>
+
+                            {selectedGame === 'lyric' ? (
+                                <>
+                                    <CompleteLyricGame />
+                                    <ArcadeLeaderboard mode="COMPLETE_THE_LYRIC" title="Lyric Mode Leaderboard" />
+                                </>
+                            ) : selectedGame === 'blitz' ? (
+                                <ArtistBlitzGame />
+                            ) : selectedGame === 'decoder' ? (
+                                <SceneDecoderGame />
+                            ) : selectedGame === 'cover' ? (
+                                <CoverShuffleGame />
+                            ) : (
+                                <>
+                                    <p className="game-description">
+                                        {selectedGame === 'guess'
+                                            ? 'Guess the artist from a 30-second preview and climb the leaderboard.'
+                                            : 'Rapid Fire now runs as a short-lock arcade mode with 10-second audio windows and no pause escape.'}
+                                    </p>
+                                    <GameComponent mode="global" variant={selectedGame === 'rapid' ? 'rapid' : 'guess'} />
+                                    {selectedGame === 'rapid' && (
+                                        <ArcadeLeaderboard mode="RAPID_FIRE" title="Rapid Fire Leaderboard" />
+                                    )}
+                                </>
+                            )}
                         </div>
                     )}
 

@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: hiphophub-api
+    runtime: docker
+    dockerfilePath: backend/Dockerfile
+    dockerContext: backend
+    plan: free
+    envVars:
+      - key: PORT
+        value: "8080"
+      - key: SPRING_PROFILES_ACTIVE
+        value: render
+      - key: LASTFM_API_KEY
+        sync: false
+      - key: LASTFM_API_SECRET
+        sync: false

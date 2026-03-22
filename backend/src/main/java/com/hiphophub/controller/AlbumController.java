@@ -67,10 +67,22 @@ public class AlbumController {
      */
     @GetMapping("/latest")
     public List<AlbumDTO> getLatestReleases(@RequestParam(defaultValue = "all") String scope) {
-        LocalDate thirtyDaysAgo = LocalDate.now().minusDays(30);
-        return applyScope(albumRepository.findLatestReleases(thirtyDaysAgo), scope).stream()
-                .map(this::toDTO)
-                .collect(Collectors.toList());
+        List<Integer> windows = List.of(30, 60, 90, 180, 365);
+        for (Integer windowDays : windows) {
+            List<AlbumDTO> matches = applyScope(albumRepository.findLatestReleases(LocalDate.now().minusDays(windowDays)), scope)
+                    .stream()
+                    .sorted(Comparator
+                            .comparing((Album album) -> album.getReleaseDate() != null ? album.getReleaseDate() : LocalDate.MIN)
+                            .reversed()
+                            .thenComparing(Album::getId, Comparator.reverseOrder()))
+                    .map(this::toDTO)
+                    .collect(Collectors.toList());
+            if (!matches.isEmpty()) {
+                return matches;
+            }
+        }
+
+        return List.of();
     }
 
     /**

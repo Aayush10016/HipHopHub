@@ -15,8 +15,10 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -28,12 +30,16 @@ import org.springframework.stereotype.Service;
 @Service
 public class MusicImportService {
 
+    private record ArtistOverride(String genre, String bio) {
+    }
+
     private static final Logger log = LoggerFactory.getLogger(MusicImportService.class);
 
     @Value("${music.import.track.limit:25}")
     private int trackLimit;
 
     private static final String LASTFM_PLACEHOLDER_TOKEN = "2a96cbd8b46e442fc41c2b86b821562f";
+    private static final Map<String, ArtistOverride> ARTIST_OVERRIDES = buildArtistOverrides();
 
     @Autowired
     private ArtistRepository artistRepository;
@@ -64,6 +70,7 @@ public class MusicImportService {
         Optional<DeezerArtistDTO> deezerArtist = deezerService.searchBestArtist(artistName);
 
         if (info == null && deezerArtist.isEmpty()) {
+            applyCuratedOverrides(artist, artistName);
             return artist;
         }
 
@@ -99,6 +106,8 @@ public class MusicImportService {
             artist.setMonthlyListeners(deezerFans);
         }
 
+        applyCuratedOverrides(artist, artistName);
+
         return artistRepository.save(artist);
     }
 
@@ -126,6 +135,8 @@ public class MusicImportService {
         if ((artist.getMonthlyListeners() == null || artist.getMonthlyListeners() <= 0) && deezerFans > 0) {
             artist.setMonthlyListeners(deezerFans);
         }
+
+        applyCuratedOverrides(artist, artistName);
 
         return artistRepository.save(artist);
     }
@@ -206,6 +217,8 @@ public class MusicImportService {
             artist.setGenre("Hip Hop");
         }
 
+        applyCuratedOverrides(artist, artistName);
+
         artist = artistRepository.save(artist);
         saveTracksForArtist(artist, tracks);
         reclassifyLikelyFeatureAlbums(artist);
@@ -238,6 +251,8 @@ public class MusicImportService {
                 artist.setGenre(primaryGenre);
             }
         }
+
+        applyCuratedOverrides(artist, artistName);
 
         artist = artistRepository.save(artist);
         saveTracksForArtist(artist, tracks);
@@ -786,6 +801,83 @@ public class MusicImportService {
                 albumRepository.save(album);
             }
         }
+    }
+
+    private void applyCuratedOverrides(Artist artist, String requestedArtistName) {
+        if (artist == null) {
+            return;
+        }
+
+        String key = normalizeKey(firstNonBlank(artist.getName(), requestedArtistName));
+        ArtistOverride override = ARTIST_OVERRIDES.get(key);
+        if (override == null) {
+            return;
+        }
+
+        if (shouldOverrideGenre(artist.getGenre(), override.genre())) {
+            artist.setGenre(override.genre());
+        }
+
+        if (shouldOverrideBio(artist.getBio(), override.bio())) {
+            artist.setBio(override.bio());
+        }
+    }
+
+    private static Map<String, ArtistOverride> buildArtistOverrides() {
+        Map<String, ArtistOverride> overrides = new HashMap<>();
+        overrides.put("divine", new ArtistOverride("Desi Hip-Hop",
+                "DIVINE is a Mumbai rapper who helped push Indian hip-hop into the mainstream with street-rooted writing, cinematic storytelling, and the Gully Gang movement."));
+        overrides.put("ikka", new ArtistOverride("Desi Hip-Hop",
+                "Ikka is a Delhi rapper, songwriter, and hitmaker known for balancing hard rap records with major crossover hooks across independent and film music."));
+        overrides.put("king", new ArtistOverride("Desi Hip-Hop",
+                "King is a Delhi artist whose catalog blends rap, melody, and pop songwriting, making him one of the most commercially visible names from the DHH ecosystem."));
+        overrides.put("karma", new ArtistOverride("Desi Hip-Hop",
+                "Karma is a Dehradun rapper recognized for technical bars, sharp flows, and a battle-ready writing style that made him a consistent DHH mainstay."));
+        overrides.put("gravity", new ArtistOverride("Desi Hip-Hop",
+                "Gravity is a Mumbai rapper known for fast cadences, dense rhyme patterns, and sci-fi-leaning concepts that stand out in India’s underground rap scene."));
+        overrides.put("paradox", new ArtistOverride("Desi Hip-Hop",
+                "Paradox is an Indian rapper and performer who broke out through battle-rap energy, melodic instincts, and high-visibility live appearances."));
+        overrides.put("raga", new ArtistOverride("Desi Hip-Hop",
+                "Raga is a Delhi rapper with an aggressive voice, street-heavy writing, and a catalog shaped by cypher culture, diss records, and high-impact singles."));
+        overrides.put("bella", new ArtistOverride("Desi Hip-Hop",
+                "Bella is an Indian rapper and singer known for emotionally direct writing, melodic hooks, and a versatile catalog that moves between rap records and introspective songs."));
+        overrides.put("panther", new ArtistOverride("Desi Hip-Hop",
+                "Panther is a Delhi-based rapper whose music leans on punchlines, swagger, and fast-paced bars built for cyphers, battles, and club-ready singles."));
+        overrides.put("naamsujal", new ArtistOverride("Desi Hip-Hop",
+                "Naam Sujal is a rising Indian rapper whose visibility grew through performance-led rap platforms and a fast-expanding youth audience."));
+        overrides.put("nanku", new ArtistOverride("Desi Hip-Hop",
+                "Nanku is an Indian artist working across rap, alt-pop, and melodic songwriting with a catalog that comfortably crosses underground and accessible sounds."));
+        overrides.put("siyaahi", new ArtistOverride("Desi Hip-Hop",
+                "Siyaahi is an Ahmedabad rapper tied closely to India’s independent hip-hop circuit, known for nimble flows, collaborative work, and left-field production choices."));
+        overrides.put("vichaar", new ArtistOverride("Desi Hip-Hop",
+                "Vichaar is an Indian hip-hop artist associated with lyrically dense underground records and collaborative releases across the newer DHH wave."));
+        overrides.put("bharg", new ArtistOverride("Desi Hip-Hop",
+                "Bharg is an Indian rapper and producer whose work moves between sharp rap writing, melodic experimentation, and modern independent production."));
+        overrides.put("dhanji", new ArtistOverride("Desi Hip-Hop",
+                "Dhanji is an Ahmedabad rapper known for eccentric flows, off-center writing, and a catalog that pushes beyond standard desi rap templates."));
+        overrides.put("yashraj", new ArtistOverride("Desi Hip-Hop",
+                "YashRaj is a Mumbai rapper and songwriter known for polished flows, melodic control, and a modern sound shaped by both underground and streaming-era DHH."));
+        overrides.put("prabhdeep", new ArtistOverride("Desi Hip-Hop",
+                "Prabh Deep is a Delhi rapper and singer whose work blends Punjabi identity, social reflection, and futuristic production into one of DHH’s strongest discographies."));
+        overrides.put("thesiege", new ArtistOverride("Desi Hip-Hop",
+                "The Siege is a Mumbai rapper whose catalog leans dark, theatrical, and introspective, with a strong foothold in India's underground rap scene."));
+        overrides.put("deemc", new ArtistOverride("Desi Hip-Hop",
+                "Dee MC is an Indian rapper and songwriter known for battle-rooted confidence, sharp bilingual writing, and years of visibility across the wider hip-hop ecosystem."));
+        overrides.put("nazz", new ArtistOverride("Desi Hip-Hop",
+                "Nazz is an Indian rapper who built a following through direct writing, internet-native punchlines, and quick-turnaround independent singles."));
+        overrides.put("lashcurry", new ArtistOverride("Desi Hip-Hop",
+                "Lashcurry is a rising Indian rapper from the newer DHH wave, recognized for technical cadences, freestyle energy, and youth-heavy digital reach."));
+        overrides.put("epriyer", new ArtistOverride("Desi Hip-Hop",
+                "EPR Iyer is an Indian rapper celebrated for dense writing, socio-political themes, and one of the most technically demanding flows in the scene."));
+        overrides.put("kaambhaari", new ArtistOverride("Desi Hip-Hop",
+                "Kaam Bhaari is a Mumbai rapper associated with gritty street writing and the city's original gully rap breakthrough period."));
+        overrides.put("shahrule", new ArtistOverride("Desi Hip-Hop",
+                "Shah Rule is a Mumbai artist whose catalog blends rap, melody, and polished songwriting aimed at both scene credibility and wide replay value."));
+        overrides.put("kidshot", new ArtistOverride("Desi Hip-Hop",
+                "Kidshot is a battle-tested Indian rapper known for aggressive punchlines, cypher-ready energy, and a strong roots-in-the-scene reputation."));
+        overrides.put("vijaydk", new ArtistOverride("Desi Hip-Hop",
+                "Vijay DK is a Mumbai rapper with a fast-rising local following, known for street-first records, slang-heavy writing, and strong youth appeal."));
+        return overrides;
     }
 
     private void deleteEmptyAlbums(Artist artist) {

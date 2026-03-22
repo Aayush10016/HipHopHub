@@ -9,6 +9,7 @@ import com.hiphophub.repository.ArtistRepository;
 import com.hiphophub.repository.TourRepository;
 import com.hiphophub.service.MusicImportService;
 import com.hiphophub.util.DhhArtistClassifier;
+import org.springframework.data.domain.PageRequest;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -54,18 +55,24 @@ public class ArtistController {
      * Get all artists
      */
     @GetMapping
-    public List<Artist> getAllArtists(@RequestParam(defaultValue = "all") String scope) {
+    public List<Artist> getAllArtists(
+            @RequestParam(defaultValue = "all") String scope,
+            @RequestParam(required = false) Integer limit) {
         List<Artist> artists = artistRepository.findAll().stream()
                 .sorted(Comparator.comparing(Artist::getName, String.CASE_INSENSITIVE_ORDER))
                 .collect(Collectors.toList());
 
-        if (!"dhh".equalsIgnoreCase(scope)) {
-            return artists;
+        if ("dhh".equalsIgnoreCase(scope)) {
+            artists = artists.stream()
+                    .filter(artist -> DhhArtistClassifier.isDhhArtist(artist.getName(), artist.getGenre()))
+                    .collect(Collectors.toList());
         }
 
-        return artists.stream()
-                .filter(artist -> DhhArtistClassifier.isDhhArtist(artist.getName(), artist.getGenre()))
-                .collect(Collectors.toList());
+        if (limit != null && limit > 0) {
+            return artists.stream().limit(limit).collect(Collectors.toList());
+        }
+
+        return artists;
     }
 
     /**

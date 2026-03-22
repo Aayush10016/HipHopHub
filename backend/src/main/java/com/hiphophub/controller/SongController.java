@@ -9,10 +9,14 @@ import com.hiphophub.model.Song;
 import com.hiphophub.repository.SongRepository;
 import com.hiphophub.util.DhhArtistClassifier;
 import com.hiphophub.util.YouTubeLinkBuilder;
+import org.springframework.data.domain.PageRequest;
 import java.time.LocalDate;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.ArrayList;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -30,9 +34,16 @@ public class SongController {
 
     private static final String DEFAULT_COVER =
             "https://images.unsplash.com/photo-1511379938547-c1f69419868d?auto=format&fit=crop&w=800&q=80";
+    private static final Duration RANDOM_CACHE_TTL = Duration.ofMinutes(3);
 
     @Autowired
     private SongRepository songRepository;
+
+    private volatile List<Song> cachedPlayableSongs = List.of();
+    private volatile Instant cachedPlayableSongsAt;
+
+    private volatile List<Song> cachedDhhPlayableSongs = List.of();
+    private volatile Instant cachedDhhPlayableSongsAt;
 
     @GetMapping
     public List<SongDTO> getAllSongs() {
@@ -50,23 +61,21 @@ public class SongController {
 
     @GetMapping("/random")
     public ResponseEntity<SongDTO> getRandomSong() {
-        List<Song> songsToChooseFrom = findPlayableSongs(songRepository.findAll());
-        if (songsToChooseFrom.isEmpty()) {
+        List<Song> pool = getPlayableSongPool(false);
+        if (pool.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
-
-        Song randomSong = songsToChooseFrom.get(ThreadLocalRandom.current().nextInt(songsToChooseFrom.size()));
+        Song randomSong = pool.get(ThreadLocalRandom.current().nextInt(pool.size()));
         return ResponseEntity.ok(convertToDTO(randomSong));
     }
 
     @GetMapping("/random/dhh")
     public ResponseEntity<SongDTO> getRandomDhhSong() {
-        List<Song> dhhSongs = findDhhPlayableSongs(songRepository.findAll());
-        if (dhhSongs.isEmpty()) {
-            return ResponseEntity.notFound().build();
+        List<Song> pool = getPlayableSongPool(true);
+        if (pool.isEmpty()) {
+            return getRandomSong();
         }
-
-        Song randomSong = dhhSongs.get(ThreadLocalRandom.current().nextInt(dhhSongs.size()));
+        Song randomSong = pool.get(ThreadLocalRandom.current().nextInt(pool.size()));
         return ResponseEntity.ok(convertToDTO(randomSong));
     }
 
@@ -76,13 +85,29 @@ public class SongController {
             @RequestParam(defaultValue = "20") int limit) {
         int normalizedDays = Math.max(1, Math.min(days, 365));
         int normalizedLimit = Math.max(1, Math.min(limit, 100));
-        LocalDate fromDate = LocalDate.now().minusDays(normalizedDays);
+        List<Integer> windows = List.of(normalizedDays, 60, 90, 180, 365);
+        PageRequest pageRequest = PageRequest.of(0, Math.max(normalizedLimit * 8, 80));
 
-        return findDhhPlayableSongs(songRepository.findAll()).stream()
-                .filter(song -> song.getAlbum() != null && song.getAlbum().getReleaseDate() != null)
-                .filter(song -> !song.getAlbum().getReleaseDate().isBefore(fromDate))
+        for (Integer windowDays : windows) {
+            List<SongDTO> matches = songRepository.findPlayableSongsReleasedAfter(LocalDate.now().minusDays(windowDays), pageRequest).stream()
+                    .filter(this::isDhhSong)
+                    .sorted(Comparator
+                            .comparing((Song song) -> song.getAlbum().getReleaseDate())
+                            .reversed()
+                            .thenComparing(Song::getId, Comparator.reverseOrder()))
+                    .limit(normalizedLimit)
+                    .map(this::convertToDTO)
+                    .collect(Collectors.toList());
+
+            if (!matches.isEmpty()) {
+                return matches;
+            }
+        }
+
+        return songRepository.findLatestPlayableSongs(PageRequest.of(0, Math.max(normalizedLimit * 8, 80))).stream()
+                .filter(this::isDhhSong)
                 .sorted(Comparator
-                        .comparing((Song song) -> song.getAlbum().getReleaseDate())
+                        .comparing((Song song) -> releaseDateOrMin(song.getAlbum()))
                         .reversed()
                         .thenComparing(Song::getId, Comparator.reverseOrder()))
                 .limit(normalizedLimit)
@@ -138,15 +163,48 @@ public class SongController {
     private List<Song> findDhhPlayableSongs(List<Song> songs) {
         return songs.stream()
                 .filter(this::isPlayableSong)
-                .filter(song -> {
-                    Album album = song.getAlbum();
-                    if (album == null || album.getArtist() == null) {
-                        return false;
-                    }
-                    Artist artist = album.getArtist();
-                    return DhhArtistClassifier.isDhhArtist(artist.getName(), artist.getGenre());
-                })
+                .filter(this::isDhhSong)
                 .toList();
+    }
+
+    private boolean isDhhSong(Song song) {
+        Album album = song.getAlbum();
+        if (album == null || album.getArtist() == null) {
+            return false;
+        }
+        Artist artist = album.getArtist();
+        return DhhArtistClassifier.isDhhArtist(artist.getName(), artist.getGenre());
+    }
+
+    private List<Song> getPlayableSongPool(boolean dhhOnly) {
+        Instant now = Instant.now();
+        if (dhhOnly) {
+            if (cachedDhhPlayableSongsAt != null
+                    && Duration.between(cachedDhhPlayableSongsAt, now).compareTo(RANDOM_CACHE_TTL) < 0
+                    && !cachedDhhPlayableSongs.isEmpty()) {
+                return cachedDhhPlayableSongs;
+            }
+        } else {
+            if (cachedPlayableSongsAt != null
+                    && Duration.between(cachedPlayableSongsAt, now).compareTo(RANDOM_CACHE_TTL) < 0
+                    && !cachedPlayableSongs.isEmpty()) {
+                return cachedPlayableSongs;
+            }
+        }
+
+        List<Song> refreshed = new ArrayList<>(songRepository.findLatestPlayableSongs(PageRequest.of(0, 600)).stream()
+                .filter(this::isPlayableSong)
+                .filter(song -> !dhhOnly || isDhhSong(song))
+                .toList());
+
+        if (dhhOnly) {
+            cachedDhhPlayableSongs = refreshed;
+            cachedDhhPlayableSongsAt = now;
+        } else {
+            cachedPlayableSongs = refreshed;
+            cachedPlayableSongsAt = now;
+        }
+        return refreshed;
     }
 
     private boolean isPlayableSong(Song song) {

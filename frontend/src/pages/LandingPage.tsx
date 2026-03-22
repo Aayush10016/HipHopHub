@@ -3,18 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import './LandingPage.css'
 
 const marqueeItems = [
-    'AI hip-hop news wire',
-    'Upcoming drops radar',
-    '8-tab artist universes',
-    'Guess-the-track game',
-    'Tour & ticket alerts',
-    'Lyric + lore trivia'
-]
-
-const vibeTiles = [
-    { title: 'Desi Heat Check', desc: 'Today s top 5 tracks + snippets', accent: 'lime' },
-    { title: 'Underground Scanner', desc: 'Spotlight on next-up MCs', accent: 'cyan' },
-    { title: 'Beef Alert', desc: 'Instant updates on rap conversations', accent: 'amber' }
+    'Underground artist radar',
+    'Lyric + lore trivia',
+    'Playable track previews',
+    'Artist universes',
+    'Tour and release tracking',
+    'Guess-the-track game'
 ]
 
 const DEFAULT_COVER = 'https://images.unsplash.com/photo-1464375117522-1311d6a5b81f?auto=format&fit=crop&w=1200&q=80'
@@ -50,6 +44,25 @@ interface LandingFallbackResponse {
     songName?: string
     artistName?: string
     previewUrl?: string
+}
+
+interface LandingArtist {
+    id: number
+    name: string
+    monthlyListeners?: number
+    bio?: string
+}
+
+interface LandingTriviaItem {
+    title: string
+    lead: string
+    body: string
+}
+
+interface LandingOverviewResponse {
+    track?: RandomSongResponse
+    undergroundArtists?: LandingArtist[]
+    trivia?: LandingTriviaItem[]
 }
 
 let cachedLandingTrack: LandingTrack | null = null
@@ -148,16 +161,41 @@ export default function LandingPage() {
     const [isPlaying, setIsPlaying] = useState(false)
     const [autoplayBlocked, setAutoplayBlocked] = useState(false)
     const [isMuted, setIsMuted] = useState(true)
+    const [undergroundArtists, setUndergroundArtists] = useState<LandingArtist[]>([])
+    const [triviaItems, setTriviaItems] = useState<LandingTriviaItem[]>([])
     const audioRef = useRef<HTMLAudioElement | null>(null)
 
     useEffect(() => {
         let cancelled = false
 
-        getLandingTrack().then(track => {
-            if (!cancelled) {
-                setSelectedTrack(track)
+        const loadLandingData = async () => {
+            try {
+                const overviewRes = await fetch('/api/landing/overview')
+                if (overviewRes.ok) {
+                    const payload = (await overviewRes.json()) as LandingOverviewResponse
+                    const overviewTrack = payload.track ? normalizeRandomSong(payload.track) : null
+                    if (!cancelled && overviewTrack) {
+                        setSelectedTrack(overviewTrack)
+                    }
+                    if (!cancelled) {
+                        setUndergroundArtists((payload.undergroundArtists || []).slice(0, 3))
+                        setTriviaItems((payload.trivia || []).slice(0, 1))
+                    }
+                    if (overviewTrack) {
+                        return
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to fetch landing overview:', err)
             }
-        })
+
+            const fallbackTrack = await getLandingTrack()
+            if (!cancelled) {
+                setSelectedTrack(fallbackTrack)
+            }
+        }
+
+        void loadLandingData()
 
         return () => {
             cancelled = true
@@ -174,6 +212,7 @@ export default function LandingPage() {
 
         const attemptPlay = async () => {
             try {
+                audio.currentTime = 0
                 await audio.play()
                 if (!disposed) {
                     setAutoplayBlocked(false)
@@ -194,17 +233,26 @@ export default function LandingPage() {
             void attemptPlay()
         }
 
+        const handleCanPlay = () => {
+            void attemptPlay()
+        }
+
+        audio.autoplay = true
+        audio.preload = 'auto'
+        audio.playsInline = true
         audio.muted = true
         setIsMuted(true)
         audio.currentTime = 0
         audio.load()
         void attemptPlay()
+        audio.addEventListener('canplay', handleCanPlay, { once: true })
 
         window.addEventListener('pointerdown', handleFirstInteraction, { once: true })
         window.addEventListener('keydown', handleFirstInteraction, { once: true })
 
         return () => {
             disposed = true
+            audio.removeEventListener('canplay', handleCanPlay)
             window.removeEventListener('pointerdown', handleFirstInteraction)
             window.removeEventListener('keydown', handleFirstInteraction)
         }
@@ -272,6 +320,9 @@ export default function LandingPage() {
                 ref={audioRef}
                 className="background-audio"
                 src={selectedTrack?.previewUrl || ''}
+                autoPlay
+                playsInline
+                preload="auto"
                 muted={isMuted}
                 onPlay={() => setIsPlaying(true)}
                 onPause={() => setIsPlaying(false)}
@@ -311,9 +362,6 @@ export default function LandingPage() {
                             onClick={() => navigate('/home')}
                         >
                             Enter HipHopHub
-                        </button>
-                        <button className="btn btn-secondary ghost" onClick={() => navigate('/home')}>
-                            View live prototype
                         </button>
                     </div>
 
@@ -371,13 +419,54 @@ export default function LandingPage() {
                         </div>
                     </div>
 
-                    <div className="vibe-stack">
-                        {vibeTiles.map(tile => (
-                            <div key={tile.title} className={`vibe-card ${tile.accent}`}>
-                                <div className="vibe-title">{tile.title}</div>
-                                <div className="vibe-desc">{tile.desc}</div>
+                    <div className="landing-data-grid">
+                        <div className="landing-panel">
+                            <div className="landing-panel-head">
+                                <h3>Underground Scanner</h3>
+                                <span>Daily rotation of next-up artists</span>
                             </div>
-                        ))}
+                            <div className="landing-list">
+                                {undergroundArtists.map((artist) => (
+                                    <button
+                                        key={artist.id}
+                                        type="button"
+                                        className="landing-list-row"
+                                        onClick={() => navigate('/home')}
+                                    >
+                                        <span className="landing-rank">{artist.name.charAt(0)}</span>
+                                        <span className="landing-copy">
+                                            <strong>{artist.name}</strong>
+                                            <small>{((artist.monthlyListeners || 0) / 1000).toFixed(0)}K listeners</small>
+                                            {artist.bio && (
+                                                <small>{`${artist.bio.split('.')[0].slice(0, 72)}${artist.bio.split('.')[0].length > 72 ? '...' : ''}`}</small>
+                                            )}
+                                        </span>
+                                    </button>
+                                ))}
+                                {undergroundArtists.length === 0 && (
+                                    <div className="landing-empty">Artist radar is syncing.</div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="landing-panel">
+                            <div className="landing-panel-head">
+                                <h3>Lyric + Lore Trivia</h3>
+                                <span>One daily scene card</span>
+                            </div>
+                            <div className="trivia-list">
+                                {triviaItems.map((item) => (
+                                    <div key={`${item.title}-${item.lead}`} className="trivia-item">
+                                        <strong>{item.title}</strong>
+                                        <span>{item.lead}</span>
+                                        <p>{item.body}</p>
+                                    </div>
+                                ))}
+                                {triviaItems.length === 0 && (
+                                    <div className="landing-empty">Trivia cards are syncing.</div>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>

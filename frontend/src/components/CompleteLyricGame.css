@@ -1,0 +1,160 @@
+.lyric-game {
+    margin-top: 1rem;
+    padding: 1.5rem;
+}
+
+.lyric-game-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.lyric-game-head h3 {
+    margin-bottom: 0.35rem;
+}
+
+.lyric-game-head p {
+    margin: 0;
+    color: var(--text-secondary);
+}
+
+.lyric-score {
+    padding: 0.55rem 0.85rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    font-weight: 800;
+}
+
+.lyric-status-row,
+.lyric-result-actions,
+.lyric-summary-grid {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.lyric-status-row {
+    margin-bottom: 0.9rem;
+}
+
+.lyric-summary-grid {
+    margin: 1rem 0 1.25rem;
+}
+
+.lyric-summary-card {
+    min-width: 140px;
+    padding: 1rem;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.lyric-summary-card strong {
+    display: block;
+    font-size: 1.4rem;
+    margin-bottom: 0.25rem;
+}
+
+.lyric-summary-card span {
+    color: var(--text-secondary);
+}
+
+.lyric-timer-track {
+    height: 8px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.06);
+    margin-bottom: 1rem;
+}
+
+.lyric-timer-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #e7d6b7, #c87a42);
+    transition: width 1s linear;
+}
+
+.lyric-clue-box {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.lyric-chip,
+.lyric-hint-btn {
+    width: fit-content;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-secondary);
+    border: none;
+    font-weight: 700;
+    text-transform: capitalize;
+}
+
+.lyric-chip.strong {
+    color: var(--text-primary);
+}
+
+.lyric-hint-btn {
+    cursor: pointer;
+}
+
+.lyric-prompt {
+    font-size: clamp(1.9rem, 4vw, 2.8rem);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+}
+
+.lyric-prompt-note {
+    margin: 0;
+    color: var(--text-muted);
+}
+
+.lyric-form {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.lyric-input {
+    flex: 1;
+    padding: 1rem 1.1rem;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--text-primary);
+}
+
+.lyric-result {
+    margin-top: 1rem;
+    padding: 1rem;
+    border-radius: 18px;
+}
+
+.lyric-result.correct {
+    background: rgba(94, 212, 122, 0.1);
+    border: 1px solid rgba(94, 212, 122, 0.35);
+}
+
+.lyric-result.incorrect {
+    background: rgba(200, 122, 66, 0.1);
+    border: 1px solid rgba(200, 122, 66, 0.35);
+}
+
+.lyric-result p {
+    margin: 0.35rem 0;
+    color: var(--text-secondary);
+}
+
+@media (max-width: 768px) {
+    .lyric-form {
+        flex-direction: column;
+    }
+}

@@ -8,11 +8,16 @@ import com.hiphophub.repository.SongRepository;
 import com.hiphophub.repository.UserRepository;
 import com.hiphophub.util.DhhArtistClassifier;
 import com.hiphophub.util.YouTubeLinkBuilder;
+import org.springframework.data.domain.PageRequest;
 import java.time.LocalDateTime;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +42,7 @@ public class GameController {
 
     private static final String DEFAULT_COVER_URL =
             "https://images.unsplash.com/photo-1511379938547-c1f69419868d?auto=format&fit=crop&w=800&q=80";
+    private static final Duration GAME_POOL_TTL = Duration.ofMinutes(3);
 
     @Autowired
     private SongRepository songRepository;
@@ -47,22 +53,22 @@ public class GameController {
     @Autowired
     private UserRepository userRepository;
 
+    private volatile List<Song> cachedGlobalGameSongs = List.of();
+    private volatile Instant cachedGlobalGameSongsAt;
+    private final Map<Long, List<Song>> cachedArtistGameSongs = new ConcurrentHashMap<>();
+    private final Map<Long, Instant> cachedArtistGameSongsAt = new ConcurrentHashMap<>();
+
     /**
      * GET /api/game/random-song
      * Get a random song for the game
      */
     @GetMapping("/random-song")
     public ResponseEntity<Map<String, Object>> getRandomSong() {
-        List<Song> playableDhhSongs = songRepository.findAll().stream()
-                .filter(this::isPlayableSong)
-                .filter(this::isDhhSong)
-                .toList();
-
-        if (playableDhhSongs.isEmpty()) {
+        List<Song> pool = getGlobalGamePool();
+        if (pool.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
-
-        Song song = playableDhhSongs.get(ThreadLocalRandom.current().nextInt(playableDhhSongs.size()));
+        Song song = pool.get(ThreadLocalRandom.current().nextInt(pool.size()));
         return ResponseEntity.ok(buildGameSongResponse(song));
     }
 
@@ -72,9 +78,12 @@ public class GameController {
      */
     @GetMapping("/random-song/artist/{artistId}")
     public ResponseEntity<Map<String, Object>> getRandomSongByArtist(@PathVariable Long artistId) {
-        return songRepository.findRandomSongByArtist(artistId)
-                .map(song -> ResponseEntity.ok(buildGameSongResponse(song)))
-                .orElse(ResponseEntity.notFound().build());
+        List<Song> pool = getArtistGamePool(artistId);
+        if (pool.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        Song song = pool.get(ThreadLocalRandom.current().nextInt(pool.size()));
+        return ResponseEntity.ok(buildGameSongResponse(song));
     }
 
     /**
@@ -154,6 +163,41 @@ public class GameController {
     private boolean isDhhSong(Song song) {
         return DhhArtistClassifier.isDhhArtist(song.getAlbum().getArtist().getName(),
                 song.getAlbum().getArtist().getGenre());
+    }
+
+    private List<Song> getGlobalGamePool() {
+        Instant now = Instant.now();
+        if (cachedGlobalGameSongsAt != null
+                && Duration.between(cachedGlobalGameSongsAt, now).compareTo(GAME_POOL_TTL) < 0
+                && !cachedGlobalGameSongs.isEmpty()) {
+            return cachedGlobalGameSongs;
+        }
+
+        List<Song> refreshed = new ArrayList<>(songRepository.findLatestPlayableSongs(PageRequest.of(0, 600)).stream()
+                .filter(this::isPlayableSong)
+                .filter(this::isDhhSong)
+                .toList());
+        cachedGlobalGameSongs = refreshed;
+        cachedGlobalGameSongsAt = now;
+        return refreshed;
+    }
+
+    private List<Song> getArtistGamePool(Long artistId) {
+        Instant now = Instant.now();
+        Instant cachedAt = cachedArtistGameSongsAt.get(artistId);
+        List<Song> cached = cachedArtistGameSongs.getOrDefault(artistId, List.of());
+        if (cachedAt != null
+                && Duration.between(cachedAt, now).compareTo(GAME_POOL_TTL) < 0
+                && !cached.isEmpty()) {
+            return cached;
+        }
+
+        List<Song> refreshed = new ArrayList<>(songRepository.findByAlbumArtistId(artistId).stream()
+                .filter(this::isPlayableSong)
+                .toList());
+        cachedArtistGameSongs.put(artistId, refreshed);
+        cachedArtistGameSongsAt.put(artistId, now);
+        return refreshed;
     }
 
     private String resolveAlbumCover(Song song) {

@@ -81,13 +81,16 @@ public class AINewsService {
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(6))
             .build();
+    private volatile AINewsResponse cachedResponse;
+    private volatile Instant cachedAt;
 
     private static final int MAX_ITEMS = 12;
     private static final int MIN_ITEMS = 8;
+    private static final Duration CACHE_TTL = Duration.ofMinutes(3);
     private static final Duration MAX_NEWS_AGE = Duration.ofHours(24);
-    private static final int INTERNAL_RECENT_RELEASE_DAYS = 7;
-    private static final int INTERNAL_FALLBACK_RELEASE_DAYS = 30;
-    private static final int INTERNAL_UPCOMING_WINDOW_DAYS = 45;
+    private static final int INTERNAL_RECENT_RELEASE_DAYS = 60;
+    private static final int INTERNAL_FALLBACK_RELEASE_DAYS = 180;
+    private static final int INTERNAL_UPCOMING_WINDOW_DAYS = 60;
     private static final String DEFAULT_BASE_QUERY =
             "(desi hip hop OR indian hip hop OR dhh OR rap india OR seedhe maut OR raftaar OR kr$na OR divine OR emiway OR ikka OR king OR mc stan)";
     private static final String BEEF_QUERY = DEFAULT_BASE_QUERY + " AND (beef OR diss OR feud OR clash OR subliminal)";
@@ -99,8 +102,11 @@ public class AINewsService {
             "desi hip hop", "indian hip hop", "hip hop india", "hip-hop india", "dhh",
             "seedhe maut", "kr$na", "krsna", "raftaar", "divine", "emiway", "mc stan",
             "ikka", "badshah", "king", "karma", "paradox", "raga", "rawal", "prabh deep",
-            "gravity", "nanku", "bharg", "dhanji", "siyaahi", "vichaar", "naam sujal"
-    );
+            "gravity", "nanku", "bharg", "dhanji", "siyaahi", "vichaar", "naam sujal",
+            "the siege", "vijay dk", "dee mc", "nazz", "lashcurry", "spectra", "epr",
+            "kaam bhaari", "kidshot", "shah rule", "poetik justis", "j trix", "deep kalsi",
+            "rohan cariappa", "rapbot", "hit human"
+        );
     private static final List<String> BEEF_KEYWORDS = List.of(
             "beef", "diss", "diss track", "feud", "clash", "shots fired", "war of words", "call out", "subliminal", "vs"
     );
@@ -124,12 +130,20 @@ public class AINewsService {
     }
 
     public AINewsResponse getLatestNews() {
+        Instant now = Instant.now();
+        if (cachedResponse != null && cachedAt != null && Duration.between(cachedAt, now).compareTo(CACHE_TTL) < 0) {
+            return cachedResponse;
+        }
+
         List<NewsItemDTO> stories = fetchLiveNews();
         if (stories.isEmpty()) {
             stories = getFallbackNews();
         }
         String updatedAt = OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
-        return new AINewsResponse(stories, updatedAt);
+        AINewsResponse response = new AINewsResponse(stories, updatedAt);
+        cachedResponse = response;
+        cachedAt = now;
+        return response;
     }
 
     private List<NewsItemDTO> fetchLiveNews() {
@@ -239,7 +253,8 @@ public class AINewsService {
             List<String> redditQueries = List.of(
                     "beef OR diss OR feud OR subliminal",
                     "release OR dropped OR single OR album OR ep OR mixtape",
-                    "tour OR concert OR tickets OR show announcement"
+                    "tour OR concert OR tickets OR show announcement",
+                    "\"Rohan Cariappa\" OR Rapbot OR HitHuman"
             );
 
             for (String query : redditQueries) {
@@ -323,7 +338,12 @@ public class AINewsService {
                 || value.contains("rolling stone india")
                 || value.contains("homegrown")
                 || value.contains("red bull")
-                || value.contains("gq india");
+                || value.contains("gq india")
+                || value.contains("deccan herald")
+                || value.contains("film companion")
+                || value.contains("hindustan times")
+                || value.contains("mensxp")
+                || value.contains("mid-day");
     }
 
     private boolean isRedditSource(String source) {
@@ -476,6 +496,9 @@ public class AINewsService {
         queries.add(TOUR_QUERY);
         queries.add(STATEMENT_QUERY);
         queries.add(base + " AND (release OR beef OR diss OR tour OR concert OR single OR album)");
+        queries.add("(\"Rohan Cariappa\" OR Rapbot OR HitHuman) AND (desi hip hop OR indian hip hop OR dhh)");
+        queries.add("(\"Seedhe Maut\" OR KR$NA OR Divine OR Emiway OR Raftaar OR Ikka OR King OR MC Stan) AND (new song OR dropped OR announced OR responds)");
+        queries.add("(\"The Siege\" OR Vijay DK OR Nazz OR Lashcurry OR Spectra OR EPR) AND (release OR dropped OR tour OR diss)");
         return queries;
     }
 
@@ -676,23 +699,26 @@ public class AINewsService {
         }
 
         LocalDate today = LocalDate.now();
-        if (merged.size() < MIN_ITEMS) {
-            appendUpcomingTours(merged, seenTitles, today);
-        }
-        if (merged.size() < MIN_ITEMS) {
+        if (countCategory(merged, "Releases") < 4) {
             appendRecentReleases(merged, seenTitles, today, INTERNAL_RECENT_RELEASE_DAYS);
         }
-        if (merged.size() < MIN_ITEMS) {
+        if (countCategory(merged, "Releases") < 6) {
             appendUpcomingReleases(merged, seenTitles, today);
         }
         if (merged.size() < MIN_ITEMS) {
             appendRecentReleases(merged, seenTitles, today, INTERNAL_FALLBACK_RELEASE_DAYS);
         }
-
-        if (merged.size() > MAX_ITEMS) {
-            return new ArrayList<>(merged.subList(0, MAX_ITEMS));
+        if (merged.size() < MIN_ITEMS) {
+            appendUpcomingTours(merged, seenTitles, today);
         }
-        return merged;
+
+        return merged.stream()
+                .sorted(Comparator
+                        .comparingInt((NewsItemDTO item) -> categoryPriority(item.getCategory()))
+                        .thenComparing(item -> parseRelativeFreshness(item.getTime()))
+                        .thenComparing(NewsItemDTO::getTitle))
+                .limit(MAX_ITEMS)
+                .collect(Collectors.toList());
     }
 
     private void appendUpcomingTours(List<NewsItemDTO> stories, Set<String> seenTitles, LocalDate today) {
@@ -846,6 +872,34 @@ public class AINewsService {
 
     private boolean isDhhArtist(Artist artist) {
         return artist != null && DhhArtistClassifier.isDhhArtist(artist.getName(), artist.getGenre());
+    }
+
+    private int countCategory(List<NewsItemDTO> stories, String category) {
+        return (int) stories.stream()
+                .filter(story -> category.equalsIgnoreCase(story.getCategory()))
+                .count();
+    }
+
+    private long parseRelativeFreshness(String value) {
+        if (value == null || value.isBlank()) {
+            return Long.MAX_VALUE;
+        }
+        String lower = value.toLowerCase(Locale.ROOT).trim();
+        if ("today".equals(lower) || "just now".equals(lower)) {
+            return 0L;
+        }
+        if (lower.startsWith("in ")) {
+            return 1_000_000L;
+        }
+        try {
+            String numeric = lower.replaceAll("[^0-9]", "");
+            if (numeric.isBlank()) {
+                return Long.MAX_VALUE;
+            }
+            return Long.parseLong(numeric);
+        } catch (NumberFormatException e) {
+            return Long.MAX_VALUE;
+        }
     }
 
     private String getTagValue(Element element, String tagName) {

@@ -1,10 +1,12 @@
 package com.hiphophub.repository;
 
 import com.hiphophub.model.Song;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -58,4 +60,24 @@ public interface SongRepository extends JpaRepository<Song, Long> {
             ORDER BY RAND() LIMIT 1
             """, nativeQuery = true)
     Optional<Song> findRandomIndianHipHopWithPreview();
+
+    @Query("""
+            SELECT s FROM Song s
+            JOIN FETCH s.album a
+            JOIN FETCH a.artist ar
+            WHERE s.previewUrl IS NOT NULL
+              AND a.releaseDate IS NOT NULL
+              AND a.releaseDate >= :fromDate
+            ORDER BY a.releaseDate DESC, s.id DESC
+            """)
+    List<Song> findPlayableSongsReleasedAfter(LocalDate fromDate, Pageable pageable);
+
+    @Query("""
+            SELECT s FROM Song s
+            JOIN FETCH s.album a
+            JOIN FETCH a.artist ar
+            WHERE s.previewUrl IS NOT NULL
+            ORDER BY a.releaseDate DESC, s.id DESC
+            """)
+    List<Song> findLatestPlayableSongs(Pageable pageable);
 }

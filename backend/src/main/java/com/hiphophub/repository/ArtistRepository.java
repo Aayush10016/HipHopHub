@@ -1,6 +1,7 @@
 package com.hiphophub.repository;
 
 import com.hiphophub.model.Artist;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -37,6 +38,8 @@ public interface ArtistRepository extends JpaRepository<Artist, Long> {
      * Search artists by partial name match (case-insensitive)
      */
     List<Artist> findByNameContainingIgnoreCase(String name);
+
+    List<Artist> findAllByOrderByMonthlyListenersAsc(Pageable pageable);
 
     /**
      * Check if artist exists by external ID

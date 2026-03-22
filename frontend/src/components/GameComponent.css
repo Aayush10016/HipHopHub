@@ -19,6 +19,23 @@
     -webkit-text-fill-color: transparent;
 }
 
+.rapid-fire-strip {
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin: -0.5rem 0 1.25rem;
+}
+
+.rapid-fire-strip span {
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
 .trophy-icon {
     font-size: 2.5rem;
     margin-right: 0.5rem;
@@ -388,4 +405,9 @@
 .btn-next:hover {
     transform: scale(1.05);
     box-shadow: 0 14px 30px rgba(65, 126, 165, 0.4);
+}
+
+.rapid-fire .btn-control,
+.rapid-fire .btn-next {
+    background: linear-gradient(135deg, #c87a42, #d6a263);
 }
