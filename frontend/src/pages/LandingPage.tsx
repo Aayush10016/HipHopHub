@@ -473,7 +473,7 @@ export default function LandingPage() {
 
             <section className="marquee">
                 <div className="marquee-track">
-                    {marqueeItems.concat(marqueeItems).map((item, idx) => (
+                    {[...marqueeItems, ...marqueeItems, ...marqueeItems, ...marqueeItems].map((item, idx) => (
                         <span key={idx} className="chip">{item}</span>
                     ))}
                 </div>
