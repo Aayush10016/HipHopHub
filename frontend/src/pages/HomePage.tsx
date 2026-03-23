@@ -108,6 +108,7 @@ export default function HomePage() {
     const [activeTab, setActiveTab] = useState('songOfDay')
     const [searchQuery, setSearchQuery] = useState('')
     const [songOfDay, setSongOfDay] = useState<Song | null>(null)
+    const [top5OfDay, setTop5OfDay] = useState<Song[]>([])
     const [topSongs, setTopSongs] = useState<Song[]>([])
     const [recentReleases, setRecentReleases] = useState<Album[]>([])
     const [upcomingReleases, setUpcomingReleases] = useState<Album[]>([])
@@ -148,12 +149,13 @@ export default function HomePage() {
                     fetch('/api/artists?scope=dhh'),
                     fetch('/api/albums/latest?scope=dhh'),
                     fetch('/api/albums/upcoming?scope=dhh'),
-                    fetch('/api/songs/top/dhh?days=30&limit=30')
+                    fetch('/api/songs/top/dhh?days=30&limit=30'),
+                    fetch('/api/songs/top5-of-day')
                 ])
 
                 if (!isMounted) return
 
-                const [songResult, artistsResult, latestResult, upcomingResult, topSongsResult] = results
+                const [songResult, artistsResult, latestResult, upcomingResult, topSongsResult, top5Result] = results
 
                 if (songResult.status === 'fulfilled') {
                     setSongOfDay(songResult.value)
@@ -186,6 +188,13 @@ export default function HomePage() {
                     if (isMounted) setTopSongs(withPreviews)
                 } else if (topSongsResult.status === 'rejected') {
                     setTopSongs([])
+                }
+
+                if (top5Result.status === 'fulfilled' && top5Result.value.ok) {
+                    const songs5 = (await top5Result.value.json()) as Song[]
+                    if (isMounted) setTop5OfDay(songs5 || [])
+                } else if (top5Result.status === 'rejected') {
+                    setTop5OfDay([])
                 }
 
             } catch (err) {
@@ -482,7 +491,7 @@ export default function HomePage() {
                                             <span>Fresh picks</span>
                                         </div>
                                         <div className="spotlight-list">
-                                            {topSongs.slice(0, 5).map((song, index) => (
+                                            {top5OfDay.map((song, index) => (
                                                 <button
                                                     key={song.id}
                                                     type="button"
@@ -496,7 +505,7 @@ export default function HomePage() {
                                                     </span>
                                                 </button>
                                             ))}
-                                            {topSongs.length === 0 && (
+                                            {top5OfDay.length === 0 && (
                                                 <div className="spotlight-empty">Top songs are still syncing.</div>
                                             )}
                                         </div>

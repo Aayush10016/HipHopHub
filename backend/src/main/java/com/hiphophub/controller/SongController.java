@@ -99,6 +99,41 @@ public class SongController {
         return ResponseEntity.ok(convertToDTO(pool.get(index)));
     }
 
+    /**
+     * GET /api/songs/top5-of-day
+     * Returns 5 deterministic songs for the day, each from a different artist.
+     */
+    @GetMapping("/top5-of-day")
+    public List<SongDTO> getTop5OfDay() {
+        List<Song> pool = getPlayableSongPool(true);
+        if (pool.isEmpty()) {
+            pool = getPlayableSongPool(false);
+        }
+        if (pool.isEmpty()) {
+            return List.of();
+        }
+
+        long daySeed = LocalDate.now(ZoneOffset.UTC).toEpochDay() + 7919;
+        Random rng = new Random(daySeed);
+
+        // Shuffle deterministically
+        List<Song> shuffled = new ArrayList<>(pool);
+        java.util.Collections.shuffle(shuffled, rng);
+
+        // Pick one song per unique artist, up to 5
+        java.util.Set<Long> seenArtists = new java.util.LinkedHashSet<>();
+        List<Song> picks = new ArrayList<>();
+        for (Song song : shuffled) {
+            Long artistId = song.getAlbum().getArtist().getId();
+            if (seenArtists.add(artistId)) {
+                picks.add(song);
+                if (picks.size() >= 5) break;
+            }
+        }
+
+        return picks.stream().map(this::convertToDTO).collect(Collectors.toList());
+    }
+
     @GetMapping("/top/dhh")
     public List<SongDTO> getTopDhhSongs(
             @RequestParam(defaultValue = "30") int days,
