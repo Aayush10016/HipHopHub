@@ -11,6 +11,8 @@ import com.hiphophub.util.DhhArtistClassifier;
 import com.hiphophub.util.YouTubeLinkBuilder;
 import org.springframework.data.domain.PageRequest;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.util.Random;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
@@ -77,6 +79,24 @@ public class SongController {
         }
         Song randomSong = pool.get(ThreadLocalRandom.current().nextInt(pool.size()));
         return ResponseEntity.ok(convertToDTO(randomSong));
+    }
+
+    /**
+     * GET /api/songs/song-of-day
+     * Returns a deterministic "Song of the Day" that stays the same until midnight UTC.
+     */
+    @GetMapping("/song-of-day")
+    public ResponseEntity<SongDTO> getSongOfDay() {
+        List<Song> pool = getPlayableSongPool(true);
+        if (pool.isEmpty()) {
+            pool = getPlayableSongPool(false);
+        }
+        if (pool.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        long daySeed = LocalDate.now(ZoneOffset.UTC).toEpochDay();
+        int index = new Random(daySeed).nextInt(pool.size());
+        return ResponseEntity.ok(convertToDTO(pool.get(index)));
     }
 
     @GetMapping("/top/dhh")

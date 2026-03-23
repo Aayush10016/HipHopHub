@@ -127,7 +127,7 @@ export default function HomePage() {
 
         const fetchSongOfDay = async () => {
             try {
-                const res = await fetch('/api/songs/random/dhh')
+                const res = await fetch('/api/songs/song-of-day')
                 if (res.ok) {
                     const data = await res.json()
                     if (data?.id && data?.previewUrl) {

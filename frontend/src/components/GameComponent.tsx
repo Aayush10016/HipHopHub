@@ -64,6 +64,8 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
     const stopAtRef = useRef<number | null>(null)
     const resultTimerRef = useRef<number | null>(null)
     const arcadeSavedRef = useRef(false)
+    const startRapidPlaybackRef = useRef<() => Promise<void>>(() => Promise.resolve())
+    const mountedRef = useRef(false)
 
     const cacheKey = mode === 'global' ? 'global' : `artist-${artistId ?? 'unknown'}`
     const isRapidFire = variant === 'rapid'
@@ -143,6 +145,9 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
         }
     }, [loadingSong, previewLimit, rapidGameOver])
 
+    // Keep the ref in sync so loadNewSong can call it without a dependency
+    startRapidPlaybackRef.current = startRapidPlayback
+
     const loadNewSong = useCallback(async (autoStartRapid = false) => {
         resetAudio()
         setGuess('')
@@ -179,7 +184,7 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
             prefetchNextSong()
             if (isRapidFire && autoStartRapid) {
                 window.setTimeout(() => {
-                    void startRapidPlayback()
+                    void startRapidPlaybackRef.current()
                 }, 120)
             }
         } catch (err) {
@@ -189,9 +194,12 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
         } finally {
             setLoadingSong(false)
         }
-    }, [cacheKey, fetchGameSong, isRapidFire, mode, prefetchNextSong, resetAudio, startRapidPlayback])
+    }, [cacheKey, fetchGameSong, isRapidFire, mode, prefetchNextSong, resetAudio])
 
+    // Initial load — runs only once on mount
     useEffect(() => {
+        if (mountedRef.current) return
+        mountedRef.current = true
         loadNewSong()
         return () => {
             resetAudio()
@@ -199,7 +207,7 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
                 window.clearTimeout(resultTimerRef.current)
             }
         }
-    }, [loadNewSong, resetAudio])
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         prefetchNextSong()
