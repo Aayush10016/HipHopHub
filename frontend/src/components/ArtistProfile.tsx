@@ -229,6 +229,11 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
         window.open(targetUrl, '_blank', 'noopener,noreferrer')
     }
 
+    const openDirectSingleYoutube = (album: Album) => {
+        const targetUrl = toYouTubeSearch(`${displayArtist?.name || ''} ${album.title} official audio`)
+        window.open(targetUrl, '_blank', 'noopener,noreferrer')
+    }
+
     if (loading) {
         return <div className="loading-profile">Loading artist profile...</div>
     }
@@ -258,11 +263,6 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
                 <div className="artist-header-info">
                     <h1 className="artist-name">{displayArtist.name}</h1>
                     {displayArtist.genre && <p className="artist-genre">{displayArtist.genre}</p>}
-                    {displayArtist.monthlyListeners && displayArtist.monthlyListeners > 0 && (
-                        <p className="artist-stats">
-                            {(displayArtist.monthlyListeners / 1000000).toFixed(1)}M monthly listeners
-                        </p>
-                    )}
                 </div>
             </div>
 
@@ -446,9 +446,6 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
                                         </div>
                                         <h4>{album.title}</h4>
                                         <p>{new Date(album.releaseDate).getFullYear()}</p>
-                                        <button type="button" onClick={() => openDirectAlbumYoutube(album)} className="yt-link-btn">
-                                            Play on YT
-                                        </button>
                                     </div>
                                 ))}
                             </div>
@@ -474,9 +471,6 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
                                         </div>
                                         <h4>{ep.title}</h4>
                                         <p>{new Date(ep.releaseDate).getFullYear()}</p>
-                                        <button type="button" onClick={() => openDirectAlbumYoutube(ep)} className="yt-link-btn">
-                                            Play on YT
-                                        </button>
                                     </div>
                                 ))}
                             </div>
@@ -502,7 +496,7 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
                                         </div>
                                         <h4>{single.title}</h4>
                                         <p>{new Date(single.releaseDate).getFullYear()}</p>
-                                        <button type="button" onClick={() => openDirectAlbumYoutube(single)} className="yt-link-btn">
+                                        <button type="button" onClick={() => openDirectSingleYoutube(single)} className="yt-link-btn">
                                             Play on YT
                                         </button>
                                     </div>

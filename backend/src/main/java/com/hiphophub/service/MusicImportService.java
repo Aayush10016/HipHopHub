@@ -273,26 +273,22 @@ public class MusicImportService {
 
         facts.add(new ArtistFactDTO(1L, "Genre: " + safe(artist.getGenre(), "Hip Hop")));
 
-        if (artist.getMonthlyListeners() != null && artist.getMonthlyListeners() > 0) {
-            facts.add(new ArtistFactDTO(2L, "Last.fm listeners: " + artist.getMonthlyListeners()));
-        }
-
-        facts.add(new ArtistFactDTO(3L, "Catalog: " + songCount + " songs across " + artistAlbums.size() + " releases"));
+        facts.add(new ArtistFactDTO(2L, "Catalog: " + songCount + " songs across " + artistAlbums.size() + " releases"));
 
         artistAlbums.stream()
                 .filter(a -> a.getReleaseDate() != null)
                 .max(Comparator.comparing(Album::getReleaseDate))
-                .ifPresent(latest -> facts.add(new ArtistFactDTO(4L,
+                .ifPresent(latest -> facts.add(new ArtistFactDTO(3L,
                         "Latest release: " + latest.getTitle() + " (" + latest.getReleaseDate().getYear() + ")")));
 
         if (albumCount > 0 || epCount > 0 || singleCount > 0) {
-            facts.add(new ArtistFactDTO(5L,
+            facts.add(new ArtistFactDTO(4L,
                     "Projects split: " + albumCount + " albums, " + epCount + " EPs, " + singleCount
-+ " singles/features"));
+ + " singles/features"));
         }
 
         if (artist.getBio() != null && !artist.getBio().isBlank()) {
-            facts.add(new ArtistFactDTO(6L, "Known for: " + trimSentence(artist.getBio())));
+            facts.add(new ArtistFactDTO(5L, "Known for: " + trimSentence(artist.getBio())));
         }
 
         return facts;
@@ -811,6 +807,9 @@ public class MusicImportService {
         String key = normalizeKey(firstNonBlank(artist.getName(), requestedArtistName));
         ArtistOverride override = ARTIST_OVERRIDES.get(key);
         if (override == null) {
+            if (shouldClearAmbiguousArtistImage(key)) {
+                artist.setImageUrl(null);
+            }
             return;
         }
 
@@ -821,6 +820,14 @@ public class MusicImportService {
         if (shouldOverrideBio(artist.getBio(), override.bio())) {
             artist.setBio(override.bio());
         }
+
+        if (shouldClearAmbiguousArtistImage(key)) {
+            artist.setImageUrl(null);
+        }
+    }
+
+    private boolean shouldClearAmbiguousArtistImage(String key) {
+        return List.of("calm", "king").contains(key);
     }
 
     private static Map<String, ArtistOverride> buildArtistOverrides() {
@@ -831,6 +838,8 @@ public class MusicImportService {
                 "Ikka is a Delhi rapper, songwriter, and hitmaker known for balancing hard rap records with major crossover hooks across independent and film music."));
         overrides.put("king", new ArtistOverride("Desi Hip-Hop",
                 "King is a Delhi artist whose catalog blends rap, melody, and pop songwriting, making him one of the most commercially visible names from the DHH ecosystem."));
+        overrides.put("calm", new ArtistOverride("Desi Hip-Hop",
+                "Calm is a Delhi rapper and producer best known as one half of Seedhe Maut, with a style built on layered writing, beat work, and modern underground rap production."));
         overrides.put("karma", new ArtistOverride("Desi Hip-Hop",
                 "Karma is a Dehradun rapper recognized for technical bars, sharp flows, and a battle-ready writing style that made him a consistent DHH mainstay."));
         overrides.put("gravity", new ArtistOverride("Desi Hip-Hop",

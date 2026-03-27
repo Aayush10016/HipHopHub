@@ -436,7 +436,6 @@ export default function LandingPage() {
                                         <span className="landing-rank">{artist.name.charAt(0)}</span>
                                         <span className="landing-copy">
                                             <strong>{artist.name}</strong>
-                                            <small>{((artist.monthlyListeners || 0) / 1000).toFixed(0)}K listeners</small>
                                             {artist.bio && (
                                                 <small>{`${artist.bio.split('.')[0].slice(0, 72)}${artist.bio.split('.')[0].length > 72 ? '...' : ''}`}</small>
                                             )}

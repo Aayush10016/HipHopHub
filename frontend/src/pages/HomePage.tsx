@@ -704,11 +704,7 @@ export default function HomePage() {
                                                 )}
                                             </div>
                                             <h3>{artist.name}</h3>
-                                            {artist.monthlyListeners && artist.monthlyListeners > 0 ? (
-                                                <p className="listeners">{(artist.monthlyListeners / 1000000).toFixed(1)}M listeners</p>
-                                            ) : (
-                                                <p className="listeners">{artist.genre || 'Artist'}</p>
-                                            )}
+                                            <p className="listeners">{artist.genre || 'Artist'}</p>
                                         </div>
                                     ))}
                                 </div>
