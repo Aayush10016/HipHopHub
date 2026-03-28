@@ -355,31 +355,7 @@ public class MusicImportService {
                 return exactIdMatches;
             }
         }
-
-        Map<Long, Long> trackCountsByArtistId = tracks.stream()
-                .map(ITunesTrackDTO::getArtistId)
-                .filter(id -> id != null && id > 0)
-                .collect(Collectors.groupingBy(id -> id, Collectors.counting()));
-
-        if (trackCountsByArtistId.isEmpty()) {
-            return tracks;
-        }
-
-        Long dominantArtistId = trackCountsByArtistId.entrySet().stream()
-                .max(Map.Entry.<Long, Long>comparingByValue()
-                        .thenComparing(Map.Entry::getKey))
-                .map(Map.Entry::getKey)
-                .orElse(null);
-
-        if (dominantArtistId == null) {
-            return tracks;
-        }
-
-        List<ITunesTrackDTO> dominantMatches = tracks.stream()
-                .filter(track -> dominantArtistId.equals(track.getArtistId()))
-                .collect(Collectors.toList());
-
-        return dominantMatches.isEmpty() ? tracks : dominantMatches;
+        return tracks;
     }
 
     private void saveTracksForArtist(Artist artist, List<ITunesTrackDTO> tracks) {
@@ -509,6 +485,9 @@ public class MusicImportService {
 
     private void cleanupArtistCatalog(Artist artist, List<String> incomingTrackKeys) {
         if (artist == null || artist.getId() == null) {
+            return;
+        }
+        if (incomingTrackKeys == null || incomingTrackKeys.isEmpty()) {
             return;
         }
 
@@ -989,6 +968,13 @@ public class MusicImportService {
     private static Map<String, Long> buildPreferredItunesArtistIds() {
         Map<String, Long> ids = new HashMap<>();
         ids.put("yashraj", 1530263031L);
+        ids.put("king", 1489995981L);
+        ids.put("paradox", 1680197168L);
+        ids.put("bella", 1529015408L);
+        ids.put("nanku", 1677419924L);
+        ids.put("raga", 162661216L);
+        ids.put("ikka", 545256421L);
+        ids.put("gravity", 130799L);
         return ids;
     }
 
