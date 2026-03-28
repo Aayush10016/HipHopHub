@@ -30,7 +30,10 @@ import org.springframework.stereotype.Service;
 @Service
 public class MusicImportService {
 
-    private record ArtistOverride(String genre, String bio) {
+    private record ArtistOverride(String genre, String bio, String imageUrl) {
+        private ArtistOverride(String genre, String bio) {
+            this(genre, bio, null);
+        }
     }
 
     private static final Logger log = LoggerFactory.getLogger(MusicImportService.class);
@@ -292,6 +295,14 @@ public class MusicImportService {
         }
 
         return facts;
+    }
+
+    public Artist enrichArtistForDisplay(Artist artist) {
+        if (artist == null) {
+            return null;
+        }
+        applyCuratedOverrides(artist, artist.getName());
+        return artist;
     }
 
     private List<ITunesTrackDTO> retainOwnedTracks(String artistName, List<ITunesTrackDTO> tracks) {
@@ -807,27 +818,23 @@ public class MusicImportService {
         String key = normalizeKey(firstNonBlank(artist.getName(), requestedArtistName));
         ArtistOverride override = ARTIST_OVERRIDES.get(key);
         if (override == null) {
-            if (shouldClearAmbiguousArtistImage(key)) {
-                artist.setImageUrl(null);
-            }
             return;
         }
 
-        if (shouldOverrideGenre(artist.getGenre(), override.genre())) {
+        if (override.genre() != null && !override.genre().isBlank()
+                && !override.genre().equalsIgnoreCase(safe(artist.getGenre(), ""))) {
             artist.setGenre(override.genre());
         }
 
-        if (shouldOverrideBio(artist.getBio(), override.bio())) {
+        if (override.bio() != null && !override.bio().isBlank()
+                && !override.bio().equals(artist.getBio())) {
             artist.setBio(override.bio());
         }
 
-        if (shouldClearAmbiguousArtistImage(key)) {
-            artist.setImageUrl(null);
+        if (override.imageUrl() != null && !override.imageUrl().isBlank()
+                && !override.imageUrl().equals(artist.getImageUrl())) {
+            artist.setImageUrl(override.imageUrl());
         }
-    }
-
-    private boolean shouldClearAmbiguousArtistImage(String key) {
-        return List.of("calm", "king").contains(key);
     }
 
     private static Map<String, ArtistOverride> buildArtistOverrides() {
@@ -837,9 +844,11 @@ public class MusicImportService {
         overrides.put("ikka", new ArtistOverride("Desi Hip-Hop",
                 "Ikka is a Delhi rapper, songwriter, and hitmaker known for balancing hard rap records with major crossover hooks across independent and film music."));
         overrides.put("king", new ArtistOverride("Desi Hip-Hop",
-                "King is a Delhi artist whose catalog blends rap, melody, and pop songwriting, making him one of the most commercially visible names from the DHH ecosystem."));
+                "King is a Delhi artist whose catalog blends rap, melody, and pop songwriting, making him one of the most commercially visible names from the DHH ecosystem.",
+                "https://cdn-images.dzcdn.net/images/artist/a2abdf367a086764c0d8b0e8d8a6832c/1000x1000-000000-80-0-0.jpg"));
         overrides.put("calm", new ArtistOverride("Desi Hip-Hop",
-                "Calm is a Delhi rapper and producer best known as one half of Seedhe Maut, with a style built on layered writing, beat work, and modern underground rap production."));
+                "Calm is a Delhi rapper and producer best known as one half of Seedhe Maut, with a style built on layered writing, beat work, and modern underground rap production.",
+                "https://cdn-images.dzcdn.net/images/artist/dbd4cd0d5c2e3f1000b742542d3d7a07/1000x1000-000000-80-0-0.jpg"));
         overrides.put("karma", new ArtistOverride("Desi Hip-Hop",
                 "Karma is a Dehradun rapper recognized for technical bars, sharp flows, and a battle-ready writing style that made him a consistent DHH mainstay."));
         overrides.put("gravity", new ArtistOverride("Desi Hip-Hop",

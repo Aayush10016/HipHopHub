@@ -62,6 +62,10 @@ public class ArtistController {
                 .sorted(Comparator.comparing(Artist::getName, String.CASE_INSENSITIVE_ORDER))
                 .collect(Collectors.toList());
 
+        artists = artists.stream()
+                .map(musicImportService::enrichArtistForDisplay)
+                .collect(Collectors.toList());
+
         if ("dhh".equalsIgnoreCase(scope)) {
             artists = artists.stream()
                     .filter(artist -> DhhArtistClassifier.isDhhArtist(artist.getName(), artist.getGenre()))
@@ -82,6 +86,7 @@ public class ArtistController {
     @GetMapping("/{id}")
     public ResponseEntity<Artist> getArtistById(@PathVariable Long id) {
         return artistRepository.findById(id)
+                .map(musicImportService::enrichArtistForDisplay)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -126,6 +131,7 @@ public class ArtistController {
         }
 
         Artist artist = artistOpt.get();
+        musicImportService.enrichArtistForDisplay(artist);
         Map<String, Object> profile = new HashMap<>();
         profile.put("artist", artist);
         profile.put("albums", artist.getAlbums());

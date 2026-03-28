@@ -693,7 +693,7 @@ export default function HomePage() {
                                             onClick={() => handleArtistClick(artist)}
                                         >
                                             <div className="artist-image">
-                                                {artist.imageUrl && !artistImageErrorMap[artist.id] ? (
+                                                {!artistImageErrorMap[artist.id] ? (
                                                     <img
                                                         src={`/api/images/artist/${artist.id}`}
                                                         alt={artist.name}

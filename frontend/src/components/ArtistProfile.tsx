@@ -157,9 +157,9 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
         }
         return undefined
     }, [albums])
-    const artistImageSrc = !artistImageFailed
-        ? (displayArtist?.imageUrl ? `/api/images/artist/${displayArtist.id}` : fallbackArtistImage)
-        : undefined
+    const artistImageSrc = !artistImageFailed && displayArtist?.id
+        ? `/api/images/artist/${displayArtist.id}`
+        : fallbackArtistImage
 
     const toggleSongPreview = async (songId: number) => {
         const currentAudio = document.getElementById(`artist-song-preview-${songId}`) as HTMLAudioElement | null

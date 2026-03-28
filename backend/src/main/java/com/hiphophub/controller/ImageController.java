@@ -43,10 +43,18 @@ public class ImageController {
     @GetMapping("/artist/{artistId}")
     public ResponseEntity<byte[]> getArtistImage(@PathVariable Long artistId) {
         Artist artist = artistRepository.findById(artistId).orElse(null);
-        if (artist == null || artist.getImageUrl() == null || artist.getImageUrl().isBlank()) {
+        if (artist == null) {
             return ResponseEntity.notFound().build();
         }
-        return proxyImageWithFallback(artist.getImageUrl(), artistId);
+        String imageUrl = artist.getImageUrl();
+        if (imageUrl == null || imageUrl.isBlank()) {
+            String fallbackCover = findFallbackCover(artistId);
+            if (fallbackCover == null || fallbackCover.isBlank()) {
+                return ResponseEntity.notFound().build();
+            }
+            return proxyImage(fallbackCover);
+        }
+        return proxyImageWithFallback(imageUrl, artistId);
     }
 
     private ResponseEntity<byte[]> proxyImageWithFallback(String imageUrl, Long artistId) {
