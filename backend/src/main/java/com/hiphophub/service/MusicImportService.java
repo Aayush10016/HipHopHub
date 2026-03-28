@@ -43,6 +43,8 @@ public class MusicImportService {
 
     private static final String LASTFM_PLACEHOLDER_TOKEN = "2a96cbd8b46e442fc41c2b86b821562f";
     private static final Map<String, ArtistOverride> ARTIST_OVERRIDES = buildArtistOverrides();
+    private static final Map<String, Long> PREFERRED_ITUNES_ARTIST_IDS = buildPreferredItunesArtistIds();
+    private static final Map<String, Album.AlbumType> ALBUM_TYPE_OVERRIDES = buildAlbumTypeOverrides();
 
     @Autowired
     private ArtistRepository artistRepository;
@@ -317,12 +319,10 @@ public class MusicImportService {
                 .collect(Collectors.toList());
 
         if (!primaryMatches.isEmpty()) {
-            return primaryMatches;
+            return retainPreferredPrimaryTracks(artistName, primaryMatches);
         }
 
-        return filteredTracks.stream()
-                .filter(track -> isContributorMatch(artistName, track.getArtistName()))
-                .collect(Collectors.toList());
+        return List.of();
     }
 
     private List<ITunesTrackDTO> filterKnownNameCollisions(String artistName, List<ITunesTrackDTO> tracks) {
@@ -340,7 +340,50 @@ public class MusicImportService {
                 .collect(Collectors.toList());
     }
 
+    private List<ITunesTrackDTO> retainPreferredPrimaryTracks(String artistName, List<ITunesTrackDTO> tracks) {
+        if (tracks == null || tracks.isEmpty()) {
+            return List.of();
+        }
+
+        String artistKey = normalizeKey(artistName);
+        Long preferredArtistId = PREFERRED_ITUNES_ARTIST_IDS.get(artistKey);
+        if (preferredArtistId != null) {
+            List<ITunesTrackDTO> exactIdMatches = tracks.stream()
+                    .filter(track -> preferredArtistId.equals(track.getArtistId()))
+                    .collect(Collectors.toList());
+            if (!exactIdMatches.isEmpty()) {
+                return exactIdMatches;
+            }
+        }
+
+        Map<Long, Long> trackCountsByArtistId = tracks.stream()
+                .map(ITunesTrackDTO::getArtistId)
+                .filter(id -> id != null && id > 0)
+                .collect(Collectors.groupingBy(id -> id, Collectors.counting()));
+
+        if (trackCountsByArtistId.isEmpty()) {
+            return tracks;
+        }
+
+        Long dominantArtistId = trackCountsByArtistId.entrySet().stream()
+                .max(Map.Entry.<Long, Long>comparingByValue()
+                        .thenComparing(Map.Entry::getKey))
+                .map(Map.Entry::getKey)
+                .orElse(null);
+
+        if (dominantArtistId == null) {
+            return tracks;
+        }
+
+        List<ITunesTrackDTO> dominantMatches = tracks.stream()
+                .filter(track -> dominantArtistId.equals(track.getArtistId()))
+                .collect(Collectors.toList());
+
+        return dominantMatches.isEmpty() ? tracks : dominantMatches;
+    }
+
     private void saveTracksForArtist(Artist artist, List<ITunesTrackDTO> tracks) {
+        List<String> incomingTrackKeys = new ArrayList<>();
         for (ITunesTrackDTO track : tracks) {
             if (track.getTrackName() == null || track.getTrackName().isBlank()) {
                 continue;
@@ -350,6 +393,9 @@ public class MusicImportService {
 
             Album album = findOrCreateAlbum(artist, track);
             String trackKey = track.getTrackId() != null ? "itunes:" + track.getTrackId() : null;
+            if (trackKey != null) {
+                incomingTrackKeys.add(trackKey);
+            }
 
             if (trackKey != null) {
                 Optional<Song> existingSong = songRepository.findByExternalId(trackKey);
@@ -395,6 +441,8 @@ public class MusicImportService {
             song.setAlbum(album);
             songRepository.save(song);
         }
+
+        cleanupArtistCatalog(artist, incomingTrackKeys);
     }
 
     private Album findOrCreateAlbum(Artist artist, ITunesTrackDTO track) {
@@ -459,7 +507,38 @@ public class MusicImportService {
         return existing;
     }
 
+    private void cleanupArtistCatalog(Artist artist, List<String> incomingTrackKeys) {
+        if (artist == null || artist.getId() == null) {
+            return;
+        }
+
+        List<Song> existingSongs = songRepository.findByAlbumArtistId(artist.getId());
+        for (Song song : existingSongs) {
+            if (!isManagedItunesSong(song)) {
+                continue;
+            }
+            if (incomingTrackKeys.contains(song.getExternalId())) {
+                continue;
+            }
+            songRepository.delete(song);
+        }
+
+        deleteEmptyAlbums(artist);
+    }
+
+    private boolean isManagedItunesSong(Song song) {
+        if (song == null || song.getExternalId() == null) {
+            return false;
+        }
+        return song.getExternalId().startsWith("itunes:");
+    }
+
     private Album.AlbumType classifyAlbumType(Artist artist, ITunesTrackDTO track) {
+        Album.AlbumType overrideType = resolveAlbumTypeOverride(artist, track);
+        if (overrideType != null) {
+            return overrideType;
+        }
+
         if (!isPrimaryArtistMatch(artist.getName(), track.getArtistName())) {
             return Album.AlbumType.APPEARS_ON;
         }
@@ -486,6 +565,15 @@ public class MusicImportService {
             return Album.AlbumType.EP;
         }
         return Album.AlbumType.ALBUM;
+    }
+
+    private Album.AlbumType resolveAlbumTypeOverride(Artist artist, ITunesTrackDTO track) {
+        String artistKey = normalizeKey(artist != null ? artist.getName() : null);
+        String titleKey = normalizeKey(pickAlbumTitle(track));
+        if (artistKey.isBlank() || titleKey.isBlank()) {
+            return null;
+        }
+        return ALBUM_TYPE_OVERRIDES.get(artistKey + ":" + titleKey);
     }
 
     private boolean isCollectionOwnedByArtist(Artist artist, ITunesTrackDTO track) {
@@ -895,6 +983,18 @@ public class MusicImportService {
                 "Kidshot is a battle-tested Indian rapper known for aggressive punchlines, cypher-ready energy, and a strong roots-in-the-scene reputation."));
         overrides.put("vijaydk", new ArtistOverride("Desi Hip-Hop",
                 "Vijay DK is a Mumbai rapper with a fast-rising local following, known for street-first records, slang-heavy writing, and strong youth appeal."));
+        return overrides;
+    }
+
+    private static Map<String, Long> buildPreferredItunesArtistIds() {
+        Map<String, Long> ids = new HashMap<>();
+        ids.put("yashraj", 1530263031L);
+        return ids;
+    }
+
+    private static Map<String, Album.AlbumType> buildAlbumTypeOverrides() {
+        Map<String, Album.AlbumType> overrides = new HashMap<>();
+        overrides.put("yashraj:merijaanpehlenaach", Album.AlbumType.ALBUM);
         return overrides;
     }
 

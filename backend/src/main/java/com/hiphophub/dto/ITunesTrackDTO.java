@@ -8,12 +8,14 @@ import lombok.Data;
 public class ITunesTrackDTO {
     private String wrapperType;
     private String kind;
+    private Long artistId;
     private Long trackId;
     private String trackName;
     private String previewUrl;
     private Integer trackTimeMillis;
     private Integer trackNumber;
     private Long collectionId;
+    private Long collectionArtistId;
     private String collectionName;
     private String collectionArtistName;
     private String artistName;

@@ -187,6 +187,7 @@ public class SongController {
     public List<SongDTO> getSongsByArtist(@PathVariable Long artistId) {
         return songRepository.findByAlbumArtistId(artistId).stream()
                 .filter(this::isPlayableSong)
+                .filter(song -> song.getAlbum() != null && song.getAlbum().getType() != Album.AlbumType.APPEARS_ON)
                 .sorted(Comparator
                         .comparing((Song song) -> releaseDateOrMin(song.getAlbum()))
                         .reversed()

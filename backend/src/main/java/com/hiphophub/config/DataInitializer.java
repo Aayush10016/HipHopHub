@@ -4,6 +4,7 @@ import com.hiphophub.model.Artist;
 import com.hiphophub.repository.ArtistRepository;
 import com.hiphophub.repository.SongRepository;
 import com.hiphophub.service.MusicImportService;
+import com.hiphophub.util.DhhArtistClassifier;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -31,6 +32,7 @@ public class DataInitializer {
     private static final long TARGET_SONG_COUNT = 1800;
     private static final Duration METADATA_REFRESH_INTERVAL = Duration.ofDays(7);
     private static final Duration CATALOG_REFRESH_INTERVAL = Duration.ofDays(3);
+    private static final Duration OWNERSHIP_SWEEP_INTERVAL = Duration.ofDays(10);
     private static final Duration SEED_SWEEP_INTERVAL = Duration.ofHours(12);
     private static final Path STATE_FILE = Paths.get("data", "seed-state.properties");
 
@@ -141,6 +143,27 @@ public class DataInitializer {
                 }
             }
             state.setProperty("lastCatalogRefreshAt", Instant.now().toString());
+            saveState(state);
+        }
+
+        if (!existingArtists.isEmpty()
+                && isStale(state.getProperty("lastOwnershipSweepAt"), OWNERSHIP_SWEEP_INTERVAL)) {
+            System.out.println("Running catalog hygiene sweep in background...");
+            for (Artist artist : existingArtists) {
+                if (!DhhArtistClassifier.isDhhArtist(artist.getName(), artist.getGenre())) {
+                    continue;
+                }
+                try {
+                    musicImportService.refreshArtistTracks(artist.getName());
+                    pauseBetweenImports();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                } catch (Exception e) {
+                    System.out.println("Ownership sweep failed for " + artist.getName() + ": " + e.getMessage());
+                }
+            }
+            state.setProperty("lastOwnershipSweepAt", Instant.now().toString());
             saveState(state);
         }
 
