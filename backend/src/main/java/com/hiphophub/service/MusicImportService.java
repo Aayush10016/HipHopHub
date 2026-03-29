@@ -961,9 +961,14 @@ public class MusicImportService {
             artist.setBio(override.bio());
         }
 
-        if (override.imageUrl() != null && !override.imageUrl().isBlank()
-                && !override.imageUrl().equals(artist.getImageUrl())) {
-            artist.setImageUrl(override.imageUrl());
+        if (override.imageUrl() != null) {
+            if (override.imageUrl().isBlank()) {
+                if (artist.getImageUrl() != null && !artist.getImageUrl().isBlank()) {
+                    artist.setImageUrl(null);
+                }
+            } else if (!override.imageUrl().equals(artist.getImageUrl())) {
+                artist.setImageUrl(override.imageUrl());
+            }
         }
     }
 
@@ -988,7 +993,8 @@ public class MusicImportService {
         overrides.put("raga", new ArtistOverride("Desi Hip-Hop",
                 "Raga is a Delhi rapper with an aggressive voice, street-heavy writing, and a catalog shaped by cypher culture, diss records, and high-impact singles."));
         overrides.put("bella", new ArtistOverride("Desi Hip-Hop",
-                "Bella is an Indian rapper and singer known for emotionally direct writing, melodic hooks, and a versatile catalog that moves between rap records and introspective songs."));
+                "Bella is an Indian rapper known for emotionally direct writing, melodic hooks, and a versatile DHH catalog that moves between hard rap records and introspective songs.",
+                ""));
         overrides.put("panther", new ArtistOverride("Desi Hip-Hop",
                 "Panther is a Delhi-based rapper whose music leans on punchlines, swagger, and fast-paced bars built for cyphers, battles, and club-ready singles."));
         overrides.put("naamsujal", new ArtistOverride("Desi Hip-Hop",
@@ -1074,6 +1080,11 @@ public class MusicImportService {
                 new TrackQueryOverride("Patang Agsy", "Agsy", true),
                 new TrackQueryOverride("BLRJ Agsy", "Agsy", true),
                 new TrackQueryOverride("Prabh Deep Smoke Agsy", "Agsy", true)));
+        overrides.put("bella", List.of(
+                new TrackQueryOverride("MC Headshot Bella", "Bella", true),
+                new TrackQueryOverride("Deep Kalsi Bella", "Bella", true),
+                new TrackQueryOverride("Kidshot Bella", "Bella", true),
+                new TrackQueryOverride("Siyaahi Bella", "Bella", true)));
         overrides.put("gravity", List.of(
                 new TrackQueryOverride("Gravity Mtv Hustle", "Gravity", false)));
         overrides.put("dakaitshaddy", List.of(

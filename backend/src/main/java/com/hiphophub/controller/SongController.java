@@ -18,7 +18,9 @@ import java.util.Random;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
@@ -195,11 +197,7 @@ public class SongController {
     public List<SongDTO> getSongsByArtist(@PathVariable Long artistId) {
         List<Song> directSongs = songRepository.findByAlbumArtistId(artistId);
         if (!directSongs.isEmpty()) {
-            return directSongs.stream()
-                    .sorted(Comparator
-                            .comparing((Song song) -> releaseDateOrMin(song.getAlbum()))
-                            .reversed()
-                            .thenComparing(Song::getId, Comparator.reverseOrder()))
+            return dedupeArtistSongs(directSongs).stream()
                     .map(this::convertToDTO)
                     .collect(Collectors.toList());
         }
@@ -207,11 +205,7 @@ public class SongController {
         return artistRepository.findById(artistId)
                 .filter(artist -> musicImportService.hasCatalogFallback(artist.getName()))
                 .flatMap(artist -> artistRepository.findByNameIgnoreCase("Seedhe Maut"))
-                .map(relatedArtist -> songRepository.findByAlbumArtistId(relatedArtist.getId()).stream()
-                        .sorted(Comparator
-                                .comparing((Song song) -> releaseDateOrMin(song.getAlbum()))
-                                .reversed()
-                                .thenComparing(Song::getId, Comparator.reverseOrder()))
+                .map(relatedArtist -> dedupeArtistSongs(songRepository.findByAlbumArtistId(relatedArtist.getId())).stream()
                         .map(this::convertToDTO)
                         .collect(Collectors.toList()))
                 .orElse(List.of());
@@ -229,6 +223,53 @@ public class SongController {
             return LocalDate.MIN;
         }
         return album.getReleaseDate();
+    }
+
+    private List<Song> dedupeArtistSongs(List<Song> songs) {
+        Comparator<Song> ranking = Comparator
+                .comparingInt(this::artistSongPriority)
+                .thenComparing((Song song) -> releaseDateOrMin(song.getAlbum()), Comparator.reverseOrder())
+                .thenComparing(Song::getId, Comparator.reverseOrder());
+
+        LinkedHashMap<String, Song> bestByTitle = new LinkedHashMap<>();
+        songs.stream()
+                .sorted(ranking)
+                .forEach(song -> bestByTitle.putIfAbsent(normalizeSongTitle(song.getTitle()), song));
+
+        return bestByTitle.values().stream()
+                .sorted(Comparator
+                        .comparing((Song song) -> releaseDateOrMin(song.getAlbum()))
+                        .reversed()
+                        .thenComparing(Song::getId, Comparator.reverseOrder()))
+                .collect(Collectors.toList());
+    }
+
+    private int artistSongPriority(Song song) {
+        Album album = song != null ? song.getAlbum() : null;
+        Album.AlbumType type = album != null ? album.getType() : null;
+        if (type == null) {
+            return 99;
+        }
+        if (type == Album.AlbumType.ALBUM) {
+            return 0;
+        }
+        if (type == Album.AlbumType.SINGLE) {
+            return 1;
+        }
+        if (type == Album.AlbumType.EP) {
+            return 2;
+        }
+        if (type == Album.AlbumType.APPEARS_ON) {
+            return 3;
+        }
+        return 99;
+    }
+
+    private String normalizeSongTitle(String title) {
+        if (title == null) {
+            return "";
+        }
+        return title.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "");
     }
 
     private List<Song> findPlayableSongs(List<Song> songs) {
