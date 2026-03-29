@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,6 +50,7 @@ public class MusicImportService {
     private static final Map<String, List<Long>> PREFERRED_ITUNES_ARTIST_IDS = buildPreferredItunesArtistIds();
     private static final Map<String, Album.AlbumType> ALBUM_TYPE_OVERRIDES = buildAlbumTypeOverrides();
     private static final Map<String, List<TrackQueryOverride>> TRACK_QUERY_OVERRIDES = buildTrackQueryOverrides();
+    private static final Map<String, Set<String>> TRACK_TITLE_BLACKLISTS = buildTrackTitleBlacklists();
 
     @Autowired
     private ArtistRepository artistRepository;
@@ -409,6 +411,9 @@ public class MusicImportService {
             if (track.getTrackName() == null || track.getTrackName().isBlank()) {
                 continue;
             }
+            if (isBlacklistedTrack(artist, track)) {
+                continue;
+            }
 
             String previewUrl = track.getPreviewUrl();
 
@@ -464,6 +469,19 @@ public class MusicImportService {
         }
 
         cleanupArtistCatalog(artist, incomingTrackKeys);
+    }
+
+    private boolean isBlacklistedTrack(Artist artist, ITunesTrackDTO track) {
+        if (artist == null || track == null) {
+            return false;
+        }
+        String artistKey = normalizeKey(artist.getName());
+        Set<String> blockedTitles = TRACK_TITLE_BLACKLISTS.get(artistKey);
+        if (blockedTitles == null || blockedTitles.isEmpty()) {
+            return false;
+        }
+        String titleKey = normalizeKey(track.getTrackName());
+        return !titleKey.isBlank() && blockedTitles.contains(titleKey);
     }
 
     private Album findOrCreateAlbum(Artist artist, ITunesTrackDTO track) {
@@ -1063,6 +1081,14 @@ public class MusicImportService {
         overrides.put("devil", List.of(
                 new TrackQueryOverride("D Evil divine", "D'Evil", true)));
         return overrides;
+    }
+
+    private static Map<String, Set<String>> buildTrackTitleBlacklists() {
+        Map<String, Set<String>> blacklists = new HashMap<>();
+        blacklists.put("bella", Set.of(
+                "tiamopersemprefeatbellanonvocalextendedmix",
+                "tiamopersemprefeatbellavocalextendedmix"));
+        return blacklists;
     }
 
     private void deleteEmptyAlbums(Artist artist) {
