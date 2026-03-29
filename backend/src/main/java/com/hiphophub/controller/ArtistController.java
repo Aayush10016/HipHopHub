@@ -6,6 +6,7 @@ import com.hiphophub.model.Artist;
 import com.hiphophub.model.Tour;
 import com.hiphophub.repository.AlbumRepository;
 import com.hiphophub.repository.ArtistRepository;
+import com.hiphophub.repository.SongRepository;
 import com.hiphophub.repository.TourRepository;
 import com.hiphophub.service.MusicImportService;
 import com.hiphophub.util.DhhArtistClassifier;
@@ -48,6 +49,9 @@ public class ArtistController {
     private TourRepository tourRepository;
 
     @Autowired
+    private SongRepository songRepository;
+
+    @Autowired
     private MusicImportService musicImportService;
 
     /**
@@ -69,6 +73,8 @@ public class ArtistController {
         if ("dhh".equalsIgnoreCase(scope)) {
             artists = artists.stream()
                     .filter(artist -> DhhArtistClassifier.isDhhArtist(artist.getName(), artist.getGenre()))
+                    .filter(artist -> songRepository.countByAlbumArtistId(artist.getId()) > 0
+                            || musicImportService.hasCatalogFallback(artist.getName()))
                     .collect(Collectors.toList());
         }
 

@@ -36,6 +36,9 @@ public class MusicImportService {
         }
     }
 
+    private record TrackQueryOverride(String searchTerm, String ownershipName, boolean allowContributorMatches) {
+    }
+
     private static final Logger log = LoggerFactory.getLogger(MusicImportService.class);
 
     @Value("${music.import.track.limit:25}")
@@ -45,6 +48,7 @@ public class MusicImportService {
     private static final Map<String, ArtistOverride> ARTIST_OVERRIDES = buildArtistOverrides();
     private static final Map<String, Long> PREFERRED_ITUNES_ARTIST_IDS = buildPreferredItunesArtistIds();
     private static final Map<String, Album.AlbumType> ALBUM_TYPE_OVERRIDES = buildAlbumTypeOverrides();
+    private static final Map<String, List<TrackQueryOverride>> TRACK_QUERY_OVERRIDES = buildTrackQueryOverrides();
 
     @Autowired
     private ArtistRepository artistRepository;
@@ -198,15 +202,7 @@ public class MusicImportService {
             artist.setMonthlyListeners(deezerFans);
         }
 
-        List<ITunesTrackDTO> tracks = iTunesService.searchTracksByArtist(canonicalName, trackLimit);
-        if (tracks.isEmpty() && !canonicalName.equalsIgnoreCase(artistName)) {
-            tracks = iTunesService.searchTracksByArtist(artistName, trackLimit);
-        }
-
-        tracks = retainOwnedTracks(canonicalName, tracks);
-        if (tracks.isEmpty() && !canonicalName.equalsIgnoreCase(artistName)) {
-            tracks = retainOwnedTracks(artistName, iTunesService.searchTracksByArtist(artistName, trackLimit));
-        }
+        List<ITunesTrackDTO> tracks = findTracksForArtist(artistName, canonicalName);
 
         if (tracks.isEmpty()) {
             log.warn("No iTunes tracks found for artist '{}'", canonicalName);
@@ -240,15 +236,7 @@ public class MusicImportService {
                 ? artist.getName()
                 : artistName;
 
-        List<ITunesTrackDTO> tracks = iTunesService.searchTracksByArtist(canonicalName, trackLimit);
-        if (tracks.isEmpty() && !canonicalName.equalsIgnoreCase(artistName)) {
-            tracks = iTunesService.searchTracksByArtist(artistName, trackLimit);
-        }
-
-        tracks = retainOwnedTracks(canonicalName, tracks);
-        if (tracks.isEmpty() && !canonicalName.equalsIgnoreCase(artistName)) {
-            tracks = retainOwnedTracks(artistName, iTunesService.searchTracksByArtist(artistName, trackLimit));
-        }
+        List<ITunesTrackDTO> tracks = findTracksForArtist(artistName, canonicalName);
 
         if (!tracks.isEmpty()) {
             String primaryGenre = firstNonBlankGenre(tracks);
@@ -307,7 +295,43 @@ public class MusicImportService {
         return artist;
     }
 
+    public boolean hasCatalogFallback(String artistName) {
+        String key = normalizeKey(artistName);
+        return List.of("calm").contains(key);
+    }
+
+    private List<ITunesTrackDTO> findTracksForArtist(String requestedArtistName, String canonicalArtistName) {
+        List<TrackQueryOverride> attempts = new ArrayList<>();
+        attempts.add(new TrackQueryOverride(canonicalArtistName, canonicalArtistName, false));
+        if (requestedArtistName != null && !requestedArtistName.equalsIgnoreCase(canonicalArtistName)) {
+            attempts.add(new TrackQueryOverride(requestedArtistName, requestedArtistName, false));
+        }
+
+        List<TrackQueryOverride> overrides = TRACK_QUERY_OVERRIDES.get(normalizeKey(firstNonBlank(requestedArtistName, canonicalArtistName)));
+        if (overrides != null) {
+            attempts.addAll(overrides);
+        }
+
+        for (TrackQueryOverride attempt : attempts) {
+            List<ITunesTrackDTO> rawTracks = iTunesService.searchTracksByArtist(attempt.searchTerm(), trackLimit);
+            List<ITunesTrackDTO> retained = retainOwnedTracks(
+                    attempt.ownershipName(),
+                    rawTracks,
+                    attempt.allowContributorMatches());
+            if (!retained.isEmpty()) {
+                return retained;
+            }
+        }
+
+        return List.of();
+    }
+
     private List<ITunesTrackDTO> retainOwnedTracks(String artistName, List<ITunesTrackDTO> tracks) {
+        return retainOwnedTracks(artistName, tracks, false);
+    }
+
+    private List<ITunesTrackDTO> retainOwnedTracks(String artistName, List<ITunesTrackDTO> tracks,
+            boolean allowContributorMatches) {
         if (tracks == null || tracks.isEmpty()) {
             return List.of();
         }
@@ -320,6 +344,12 @@ public class MusicImportService {
 
         if (!primaryMatches.isEmpty()) {
             return retainPreferredPrimaryTracks(artistName, primaryMatches);
+        }
+
+        if (allowContributorMatches) {
+            return filteredTracks.stream()
+                    .filter(track -> isContributorMatch(artistName, track.getArtistName()))
+                    .collect(Collectors.toList());
         }
 
         return List.of();
@@ -952,6 +982,10 @@ public class MusicImportService {
                 "Nazz is an Indian rapper who built a following through direct writing, internet-native punchlines, and quick-turnaround independent singles."));
         overrides.put("lashcurry", new ArtistOverride("Desi Hip-Hop",
                 "Lashcurry is a rising Indian rapper from the newer DHH wave, recognized for technical cadences, freestyle energy, and youth-heavy digital reach."));
+        overrides.put("devil", new ArtistOverride("Desi Hip-Hop",
+                "D'Evil is a Mumbai rapper from the Gully Gang ecosystem, known for street-rooted writing, cypher-heavy collaborations, and a raw old-school rap presence."));
+        overrides.put("dakaitshaddy", new ArtistOverride("Desi Hip-Hop",
+                "Dakait Shaddy is a North Indian hip-hop artist tied to the Dakait camp, with a catalog shaped by rugged flows, regional slang, and underground rap collaborations."));
         overrides.put("epriyer", new ArtistOverride("Desi Hip-Hop",
                 "EPR Iyer is an Indian rapper celebrated for dense writing, socio-political themes, and one of the most technically demanding flows in the scene."));
         overrides.put("kaambhaari", new ArtistOverride("Desi Hip-Hop",
@@ -981,6 +1015,17 @@ public class MusicImportService {
     private static Map<String, Album.AlbumType> buildAlbumTypeOverrides() {
         Map<String, Album.AlbumType> overrides = new HashMap<>();
         overrides.put("yashraj:merijaanpehlenaach", Album.AlbumType.ALBUM);
+        return overrides;
+    }
+
+    private static Map<String, List<TrackQueryOverride>> buildTrackQueryOverrides() {
+        Map<String, List<TrackQueryOverride>> overrides = new HashMap<>();
+        overrides.put("gravity", List.of(
+                new TrackQueryOverride("Gravity Mtv Hustle", "Gravity", false)));
+        overrides.put("dakaitshaddy", List.of(
+                new TrackQueryOverride("Dakait", "Dakait", false)));
+        overrides.put("devil", List.of(
+                new TrackQueryOverride("D Evil divine", "D'Evil", true)));
         return overrides;
     }
 

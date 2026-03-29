@@ -6,7 +6,9 @@ import com.hiphophub.dto.SongDTO;
 import com.hiphophub.model.Album;
 import com.hiphophub.model.Artist;
 import com.hiphophub.model.Song;
+import com.hiphophub.repository.ArtistRepository;
 import com.hiphophub.repository.SongRepository;
+import com.hiphophub.service.MusicImportService;
 import com.hiphophub.util.DhhArtistClassifier;
 import com.hiphophub.util.YouTubeLinkBuilder;
 import org.springframework.data.domain.PageRequest;
@@ -40,6 +42,12 @@ public class SongController {
 
     @Autowired
     private SongRepository songRepository;
+
+    @Autowired
+    private ArtistRepository artistRepository;
+
+    @Autowired
+    private MusicImportService musicImportService;
 
     private volatile List<Song> cachedPlayableSongs = List.of();
     private volatile Instant cachedPlayableSongsAt;
@@ -185,15 +193,28 @@ public class SongController {
 
     @GetMapping("/artist/{artistId}")
     public List<SongDTO> getSongsByArtist(@PathVariable Long artistId) {
-        return songRepository.findByAlbumArtistId(artistId).stream()
-                .filter(this::isPlayableSong)
-                .filter(song -> song.getAlbum() != null && song.getAlbum().getType() != Album.AlbumType.APPEARS_ON)
-                .sorted(Comparator
-                        .comparing((Song song) -> releaseDateOrMin(song.getAlbum()))
-                        .reversed()
-                        .thenComparing(Song::getId, Comparator.reverseOrder()))
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
+        List<Song> directSongs = songRepository.findByAlbumArtistId(artistId);
+        if (!directSongs.isEmpty()) {
+            return directSongs.stream()
+                    .sorted(Comparator
+                            .comparing((Song song) -> releaseDateOrMin(song.getAlbum()))
+                            .reversed()
+                            .thenComparing(Song::getId, Comparator.reverseOrder()))
+                    .map(this::convertToDTO)
+                    .collect(Collectors.toList());
+        }
+
+        return artistRepository.findById(artistId)
+                .filter(artist -> musicImportService.hasCatalogFallback(artist.getName()))
+                .flatMap(artist -> artistRepository.findByNameIgnoreCase("Seedhe Maut"))
+                .map(relatedArtist -> songRepository.findByAlbumArtistId(relatedArtist.getId()).stream()
+                        .sorted(Comparator
+                                .comparing((Song song) -> releaseDateOrMin(song.getAlbum()))
+                                .reversed()
+                                .thenComparing(Song::getId, Comparator.reverseOrder()))
+                        .map(this::convertToDTO)
+                        .collect(Collectors.toList()))
+                .orElse(List.of());
     }
 
     @GetMapping("/album/{albumId}")
