@@ -46,7 +46,7 @@ public class MusicImportService {
 
     private static final String LASTFM_PLACEHOLDER_TOKEN = "2a96cbd8b46e442fc41c2b86b821562f";
     private static final Map<String, ArtistOverride> ARTIST_OVERRIDES = buildArtistOverrides();
-    private static final Map<String, Long> PREFERRED_ITUNES_ARTIST_IDS = buildPreferredItunesArtistIds();
+    private static final Map<String, List<Long>> PREFERRED_ITUNES_ARTIST_IDS = buildPreferredItunesArtistIds();
     private static final Map<String, Album.AlbumType> ALBUM_TYPE_OVERRIDES = buildAlbumTypeOverrides();
     private static final Map<String, List<TrackQueryOverride>> TRACK_QUERY_OVERRIDES = buildTrackQueryOverrides();
 
@@ -312,18 +312,33 @@ public class MusicImportService {
             attempts.addAll(overrides);
         }
 
+        Map<Long, ITunesTrackDTO> mergedByTrackId = new java.util.LinkedHashMap<>();
+        String artistKey = normalizeKey(firstNonBlank(requestedArtistName, canonicalArtistName));
+        List<Long> preferredArtistIds = PREFERRED_ITUNES_ARTIST_IDS.get(artistKey);
+        if (preferredArtistIds != null) {
+            for (Long artistId : preferredArtistIds) {
+                for (ITunesTrackDTO track : iTunesService.lookupTracksByArtistId(artistId, trackLimit, "IN")) {
+                    if (track.getTrackId() != null) {
+                        mergedByTrackId.putIfAbsent(track.getTrackId(), track);
+                    }
+                }
+            }
+        }
+
         for (TrackQueryOverride attempt : attempts) {
             List<ITunesTrackDTO> rawTracks = iTunesService.searchTracksByArtist(attempt.searchTerm(), trackLimit);
             List<ITunesTrackDTO> retained = retainOwnedTracks(
                     attempt.ownershipName(),
                     rawTracks,
                     attempt.allowContributorMatches());
-            if (!retained.isEmpty()) {
-                return retained;
+            for (ITunesTrackDTO track : retained) {
+                if (track.getTrackId() != null) {
+                    mergedByTrackId.putIfAbsent(track.getTrackId(), track);
+                }
             }
         }
 
-        return List.of();
+        return new ArrayList<>(mergedByTrackId.values());
     }
 
     private List<ITunesTrackDTO> retainOwnedTracks(String artistName, List<ITunesTrackDTO> tracks) {
@@ -376,10 +391,10 @@ public class MusicImportService {
         }
 
         String artistKey = normalizeKey(artistName);
-        Long preferredArtistId = PREFERRED_ITUNES_ARTIST_IDS.get(artistKey);
-        if (preferredArtistId != null) {
+        List<Long> preferredArtistIds = PREFERRED_ITUNES_ARTIST_IDS.get(artistKey);
+        if (preferredArtistIds != null && !preferredArtistIds.isEmpty()) {
             List<ITunesTrackDTO> exactIdMatches = tracks.stream()
-                    .filter(track -> preferredArtistId.equals(track.getArtistId()))
+                    .filter(track -> track.getArtistId() != null && preferredArtistIds.contains(track.getArtistId()))
                     .collect(Collectors.toList());
             if (!exactIdMatches.isEmpty()) {
                 return exactIdMatches;
@@ -996,19 +1011,22 @@ public class MusicImportService {
                 "Kidshot is a battle-tested Indian rapper known for aggressive punchlines, cypher-ready energy, and a strong roots-in-the-scene reputation."));
         overrides.put("vijaydk", new ArtistOverride("Desi Hip-Hop",
                 "Vijay DK is a Mumbai rapper with a fast-rising local following, known for street-first records, slang-heavy writing, and strong youth appeal."));
+        overrides.put("ab17", new ArtistOverride("Desi Hip-Hop",
+                "ab17 is an Indian underground rapper associated with hard-edged independent releases, collaborative cypher energy, and a newer-school DHH sound."));
         return overrides;
     }
 
-    private static Map<String, Long> buildPreferredItunesArtistIds() {
-        Map<String, Long> ids = new HashMap<>();
-        ids.put("yashraj", 1530263031L);
-        ids.put("king", 1489995981L);
-        ids.put("paradox", 1680197168L);
-        ids.put("bella", 1529015408L);
-        ids.put("nanku", 1677419924L);
-        ids.put("raga", 162661216L);
-        ids.put("ikka", 545256421L);
-        ids.put("gravity", 130799L);
+    private static Map<String, List<Long>> buildPreferredItunesArtistIds() {
+        Map<String, List<Long>> ids = new HashMap<>();
+        ids.put("ab17", List.of(1729666037L, 1604373331L));
+        ids.put("yashraj", List.of(1530263031L));
+        ids.put("king", List.of(1489995981L));
+        ids.put("paradox", List.of(1680197168L));
+        ids.put("bella", List.of(1529015408L));
+        ids.put("nanku", List.of(1677419924L));
+        ids.put("raga", List.of(162661216L));
+        ids.put("ikka", List.of(545256421L));
+        ids.put("gravity", List.of(130799L));
         return ids;
     }
 
@@ -1020,6 +1038,9 @@ public class MusicImportService {
 
     private static Map<String, List<TrackQueryOverride>> buildTrackQueryOverrides() {
         Map<String, List<TrackQueryOverride>> overrides = new HashMap<>();
+        overrides.put("ab17", List.of(
+                new TrackQueryOverride("Ab 17 RiJ", "Ab 17", false),
+                new TrackQueryOverride("Omkar Singh Ab 17", "Ab 17", true)));
         overrides.put("gravity", List.of(
                 new TrackQueryOverride("Gravity Mtv Hustle", "Gravity", false)));
         overrides.put("dakaitshaddy", List.of(

@@ -56,6 +56,44 @@ public class ITunesService {
         return tracks;
     }
 
+    public List<ITunesTrackDTO> lookupTracksByArtistId(Long artistId, int limit, String country) {
+        if (artistId == null || artistId <= 0) {
+            return Collections.emptyList();
+        }
+        try {
+            StringBuilder url = new StringBuilder("https://itunes.apple.com/lookup?id=")
+                    .append(artistId)
+                    .append("&entity=song")
+                    .append("&limit=").append(limit)
+                    .append("&country=").append(country == null || country.isBlank() ? "IN" : country);
+
+            HttpEntity<Void> entity = new HttpEntity<>(null, defaultHeaders());
+            ResponseEntity<String> response = restTemplate.exchange(
+                    url.toString(),
+                    HttpMethod.GET,
+                    entity,
+                    String.class);
+
+            String rawBody = response.getBody();
+            if (rawBody == null || rawBody.isBlank()) {
+                return Collections.emptyList();
+            }
+
+            ITunesSearchResponse body = objectMapper.readValue(rawBody, ITunesSearchResponse.class);
+            if (body == null || body.getResults() == null) {
+                return Collections.emptyList();
+            }
+
+            return body.getResults().stream()
+                    .filter(track -> "track".equalsIgnoreCase(track.getWrapperType()))
+                    .filter(track -> "song".equalsIgnoreCase(track.getKind()))
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.warn("iTunes lookup failed. artistId='{}', country='{}', error={}", artistId, country, e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
     private List<ITunesTrackDTO> fetchTracks(String termName, String normalizedArtist, int limit, String country, boolean strictArtistAttr) {
         try {
             String term = URLEncoder.encode(termName, StandardCharsets.UTF_8);
