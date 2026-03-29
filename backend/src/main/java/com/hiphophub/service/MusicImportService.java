@@ -1013,12 +1013,15 @@ public class MusicImportService {
                 "Vijay DK is a Mumbai rapper with a fast-rising local following, known for street-first records, slang-heavy writing, and strong youth appeal."));
         overrides.put("ab17", new ArtistOverride("Desi Hip-Hop",
                 "ab17 is an Indian underground rapper associated with hard-edged independent releases, collaborative cypher energy, and a newer-school DHH sound."));
+        overrides.put("agsy", new ArtistOverride("Desi Hip-Hop",
+                "Agsy is a Delhi rapper and performer whose catalog blends battle energy, melody, and confident crossover writing across singles, cyphers, and collaborative DHH releases."));
         return overrides;
     }
 
     private static Map<String, List<Long>> buildPreferredItunesArtistIds() {
         Map<String, List<Long>> ids = new HashMap<>();
         ids.put("ab17", List.of(1729666037L, 1604373331L));
+        ids.put("agsy", List.of(1457823481L, 1458883055L));
         ids.put("yashraj", List.of(1530263031L));
         ids.put("king", List.of(1489995981L));
         ids.put("paradox", List.of(1680197168L));
@@ -1041,6 +1044,18 @@ public class MusicImportService {
         overrides.put("ab17", List.of(
                 new TrackQueryOverride("Ab 17 RiJ", "Ab 17", false),
                 new TrackQueryOverride("Omkar Singh Ab 17", "Ab 17", true)));
+        overrides.put("agsy", List.of(
+                new TrackQueryOverride("Agsy", "Agsy", true),
+                new TrackQueryOverride("Deep Kalsi Agsy", "Agsy", true),
+                new TrackQueryOverride("KALAM INK Agsy", "Agsy", true),
+                new TrackQueryOverride("Parmish Verma Agsy", "Agsy", true),
+                new TrackQueryOverride("RCR Ishq Bector Agsy", "Agsy", true),
+                new TrackQueryOverride("KavyaKriti Agsy", "Agsy", true),
+                new TrackQueryOverride("Jogga Agsy", "Agsy", true),
+                new TrackQueryOverride("The Landers Agsy", "Agsy", true),
+                new TrackQueryOverride("Patang Agsy", "Agsy", true),
+                new TrackQueryOverride("BLRJ Agsy", "Agsy", true),
+                new TrackQueryOverride("Prabh Deep Smoke Agsy", "Agsy", true)));
         overrides.put("gravity", List.of(
                 new TrackQueryOverride("Gravity Mtv Hustle", "Gravity", false)));
         overrides.put("dakaitshaddy", List.of(
