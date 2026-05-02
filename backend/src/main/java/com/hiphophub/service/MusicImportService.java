@@ -1039,6 +1039,8 @@ public class MusicImportService {
                 "ab17 is an Indian underground rapper associated with hard-edged independent releases, collaborative cypher energy, and a newer-school DHH sound."));
         overrides.put("agsy", new ArtistOverride("Desi Hip-Hop",
                 "Agsy is a Delhi rapper and performer whose catalog blends battle energy, melody, and confident crossover writing across singles, cyphers, and collaborative DHH releases."));
+        overrides.put("ahmer", new ArtistOverride("Desi Hip-Hop",
+                "Ahmer is a Kashmiri rapper and songwriter whose music blends political clarity, regional identity, and modern DHH production into one of the strongest catalogs from the valley."));
         return overrides;
     }
 
@@ -1046,6 +1048,7 @@ public class MusicImportService {
         Map<String, List<Long>> ids = new HashMap<>();
         ids.put("ab17", List.of(1729666037L, 1604373331L));
         ids.put("agsy", List.of(1457823481L, 1458883055L));
+        ids.put("ahmer", List.of(921260135L));
         ids.put("yashraj", List.of(1530263031L));
         ids.put("king", List.of(1489995981L));
         ids.put("paradox", List.of(1680197168L));
@@ -1080,6 +1083,11 @@ public class MusicImportService {
                 new TrackQueryOverride("Patang Agsy", "Agsy", true),
                 new TrackQueryOverride("BLRJ Agsy", "Agsy", true),
                 new TrackQueryOverride("Prabh Deep Smoke Agsy", "Agsy", true)));
+        overrides.put("ahmer", List.of(
+                new TrackQueryOverride("SOS Ahmer", "Ahmer", true),
+                new TrackQueryOverride("Prabh Deep Ahmer", "Ahmer", true),
+                new TrackQueryOverride("Karun Ahmer", "Ahmer", true),
+                new TrackQueryOverride("30KEY Ahmer", "Ahmer", true)));
         overrides.put("bella", List.of(
                 new TrackQueryOverride("MC Headshot Bella", "Bella", true),
                 new TrackQueryOverride("Deep Kalsi Bella", "Bella", true),
