@@ -21,6 +21,8 @@ public interface SongRepository extends JpaRepository<Song, Long> {
      */
     List<Song> findByAlbumId(Long albumId);
 
+    Optional<Song> findFirstByAlbumIdOrderByTrackNumberAscIdAsc(Long albumId);
+
     /**
      * Find songs by artist ID through album relation.
      */

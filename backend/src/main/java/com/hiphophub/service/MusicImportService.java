@@ -1144,6 +1144,8 @@ public class MusicImportService {
                 "Ahmer is a Kashmiri rapper and songwriter whose music blends political clarity, regional identity, and modern DHH production into one of the strongest catalogs from the valley."));
         overrides.put("apdhillon", new ArtistOverride("Punjabi",
                 "AP Dhillon is a Punjabi singer, rapper, and songwriter whose catalog helped push modern North American Punjabi rap and melodic crossover records deep into the Indian mainstream."));
+        overrides.put("badshah", new ArtistOverride("Desi Hip-Hop",
+                "Badshah is a Delhi rapper, songwriter, and hitmaker who built one of the biggest catalogs in Indian hip-hop by balancing commercial hooks, rap writing, and crossover pop production."));
         return overrides;
     }
 
@@ -1153,6 +1155,7 @@ public class MusicImportService {
         ids.put("agsy", List.of(1457823481L, 1458883055L));
         ids.put("ahmer", List.of(921260135L));
         ids.put("apdhillon", List.of(1484701109L));
+        ids.put("badshah", List.of(214832525L));
         ids.put("yashraj", List.of(1530263031L));
         ids.put("king", List.of(1489995981L));
         ids.put("paradox", List.of(1680197168L));
@@ -1196,6 +1199,13 @@ public class MusicImportService {
                 new TrackQueryOverride("Gurinder Gill AP Dhillon", "AP Dhillon", true),
                 new TrackQueryOverride("Shinda Kahlon AP Dhillon", "AP Dhillon", true),
                 new TrackQueryOverride("Ayra Starr AP Dhillon", "AP Dhillon", true)));
+        overrides.put("badshah", List.of(
+                new TrackQueryOverride("Aastha Gill Badshah", "Badshah", true),
+                new TrackQueryOverride("Karan Aujla Badshah", "Badshah", true),
+                new TrackQueryOverride("Arijit Singh Badshah", "Badshah", true),
+                new TrackQueryOverride("Payal Dev Badshah", "Badshah", true),
+                new TrackQueryOverride("Nikhita Gandhi Badshah", "Badshah", true),
+                new TrackQueryOverride("Badshah Karan Aujla Arijit Singh", "Badshah", true)));
         overrides.put("bella", List.of(
                 new TrackQueryOverride("MC Headshot Bella", "Bella", true),
                 new TrackQueryOverride("Deep Kalsi Bella", "Bella", true),

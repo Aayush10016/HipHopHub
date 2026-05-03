@@ -60,9 +60,22 @@ public class YouTubeController {
         }
 
         String artistName = album.getArtist().getName();
-        String url = youTubeResolverService.resolveAlbumUrl(artistName, album.getTitle());
-        if (url == null || url.isBlank()) {
-            url = YouTubeLinkBuilder.forAlbum(artistName, album.getTitle());
+        String url;
+        if (album.getType() == Album.AlbumType.SINGLE || album.getType() == Album.AlbumType.APPEARS_ON) {
+            Song representativeTrack = songRepository.findFirstByAlbumIdOrderByTrackNumberAscIdAsc(album.getId()).orElse(null);
+            if (representativeTrack != null) {
+                url = YouTubeLinkBuilder.forSong(artistName, representativeTrack.getTitle());
+                if (url == null || url.isBlank() || url.contains("youtube.com/results?search_query=")) {
+                    url = youTubeResolverService.resolveSongUrl(artistName, representativeTrack.getTitle());
+                }
+            } else {
+                url = YouTubeLinkBuilder.forAlbum(artistName, album.getTitle());
+            }
+        } else {
+            url = youTubeResolverService.resolveAlbumUrl(artistName, album.getTitle());
+            if (url == null || url.isBlank()) {
+                url = YouTubeLinkBuilder.forAlbum(artistName, album.getTitle());
+            }
         }
 
         Map<String, Object> response = new HashMap<>();

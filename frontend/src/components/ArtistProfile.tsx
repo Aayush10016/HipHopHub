@@ -229,8 +229,21 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
         window.open(targetUrl, '_blank', 'noopener,noreferrer')
     }
 
-    const openDirectSingleYoutube = (album: Album) => {
-        const targetUrl = toYouTubeSearch(`${displayArtist?.name || ''} ${album.title} official audio`)
+    const openDirectSingleYoutube = async (album: Album) => {
+        let targetUrl = album.youtubeUrl || toYouTubeSearch(`${displayArtist?.name || ''} ${album.title} official audio`)
+
+        try {
+            const res = await fetch(`/api/youtube/album/${album.id}`)
+            if (res.ok) {
+                const payload = await res.json()
+                if (payload?.url) {
+                    targetUrl = payload.url
+                }
+            }
+        } catch (err) {
+            console.error(`Failed to resolve direct YouTube URL for single ${album.id}:`, err)
+        }
+
         window.open(targetUrl, '_blank', 'noopener,noreferrer')
     }
 
