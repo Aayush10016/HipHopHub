@@ -9,7 +9,9 @@ import com.hiphophub.util.DhhArtistClassifier;
 import com.hiphophub.util.YouTubeLinkBuilder;
 import java.time.LocalDate;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -102,13 +104,52 @@ public class AlbumController {
      */
     @GetMapping("/artist/{artistId}")
     public List<AlbumDTO> getAlbumsByArtist(@PathVariable Long artistId) {
-        return albumRepository.findByArtistId(artistId).stream()
+        return dedupeAlbums(albumRepository.findByArtistId(artistId)).stream()
                 .sorted(Comparator
                         .comparing((Album album) -> album.getReleaseDate() != null ? album.getReleaseDate() : LocalDate.MIN)
                         .reversed()
                         .thenComparing(Album::getId, Comparator.reverseOrder()))
                 .map(this::toDTO)
                 .collect(Collectors.toList());
+    }
+
+    private List<Album> dedupeAlbums(List<Album> albums) {
+        LinkedHashMap<String, Album> bestByKey = new LinkedHashMap<>();
+
+        albums.stream()
+                .sorted(Comparator
+                        .comparingInt(this::albumPriority)
+                        .thenComparing((Album album) -> album.getReleaseDate() != null ? album.getReleaseDate() : LocalDate.MIN,
+                                Comparator.reverseOrder())
+                        .thenComparing(Album::getId, Comparator.reverseOrder()))
+                .forEach(album -> bestByKey.putIfAbsent(albumIdentityKey(album), album));
+
+        return List.copyOf(bestByKey.values());
+    }
+
+    private int albumPriority(Album album) {
+        if (album == null || album.getType() == null) {
+            return 99;
+        }
+        if (album.getType() == Album.AlbumType.ALBUM) {
+            return 0;
+        }
+        if (album.getType() == Album.AlbumType.EP) {
+            return 1;
+        }
+        if (album.getType() == Album.AlbumType.SINGLE) {
+            return 2;
+        }
+        if (album.getType() == Album.AlbumType.APPEARS_ON) {
+            return 3;
+        }
+        return 99;
+    }
+
+    private String albumIdentityKey(Album album) {
+        String title = album != null && album.getTitle() != null ? album.getTitle() : "";
+        String type = album != null && album.getType() != null ? album.getType().name() : "UNKNOWN";
+        return type + ":" + title.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "");
     }
 
     /**

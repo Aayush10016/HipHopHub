@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -51,6 +52,7 @@ public class MusicImportService {
     private static final Map<String, Album.AlbumType> ALBUM_TYPE_OVERRIDES = buildAlbumTypeOverrides();
     private static final Map<String, List<TrackQueryOverride>> TRACK_QUERY_OVERRIDES = buildTrackQueryOverrides();
     private static final Map<String, Set<String>> TRACK_TITLE_BLACKLISTS = buildTrackTitleBlacklists();
+    private static final Map<String, Set<String>> ALBUM_TITLE_BLACKLISTS = buildAlbumTitleBlacklists();
 
     @Autowired
     private ArtistRepository artistRepository;
@@ -224,6 +226,8 @@ public class MusicImportService {
 
         artist = artistRepository.save(artist);
         saveTracksForArtist(artist, tracks);
+        purgeBlacklistedCatalogEntries(artist);
+        mergeDuplicateOwnedAlbums(artist);
         reclassifyLikelyFeatureAlbums(artist);
         deleteEmptyAlbums(artist);
 
@@ -251,6 +255,8 @@ public class MusicImportService {
 
         artist = artistRepository.save(artist);
         saveTracksForArtist(artist, tracks);
+        purgeBlacklistedCatalogEntries(artist);
+        mergeDuplicateOwnedAlbums(artist);
         reclassifyLikelyFeatureAlbums(artist);
         deleteEmptyAlbums(artist);
         return artist;
@@ -475,13 +481,18 @@ public class MusicImportService {
         if (artist == null || track == null) {
             return false;
         }
+        if (isMixedVariant(track)) {
+            return true;
+        }
         String artistKey = normalizeKey(artist.getName());
         Set<String> blockedTitles = TRACK_TITLE_BLACKLISTS.get(artistKey);
-        if (blockedTitles == null || blockedTitles.isEmpty()) {
-            return false;
+        if (blockedTitles != null && !blockedTitles.isEmpty()) {
+            String titleKey = normalizeKey(track.getTrackName());
+            if (!titleKey.isBlank() && blockedTitles.contains(titleKey)) {
+                return true;
+            }
         }
-        String titleKey = normalizeKey(track.getTrackName());
-        return !titleKey.isBlank() && blockedTitles.contains(titleKey);
+        return isBlacklistedCollection(artistKey, track);
     }
 
     private Album findOrCreateAlbum(Artist artist, ITunesTrackDTO track) {
@@ -505,6 +516,17 @@ public class MusicImportService {
             Optional<Album> legacy = albumRepository.findByExternalId(legacyKey);
             if (legacy.isPresent() && isSameArtist(legacy.get().getArtist(), artist)) {
                 return updateExistingAlbum(legacy.get(), track, resolvedType, releaseDate, cover);
+            }
+        }
+
+        String normalizedTitle = normalizeKey(pickAlbumTitle(track));
+        if (artist.getId() != null && !normalizedTitle.isBlank()) {
+            Optional<Album> sameTitleAlbum = albumRepository.findByArtistId(artist.getId()).stream()
+                    .filter(existing -> existing.getType() == resolvedType)
+                    .filter(existing -> normalizedTitle.equals(normalizeKey(existing.getTitle())))
+                    .findFirst();
+            if (sameTitleAlbum.isPresent()) {
+                return updateExistingAlbum(sameTitleAlbum.get(), track, resolvedType, releaseDate, cover);
             }
         }
 
@@ -566,6 +588,85 @@ public class MusicImportService {
         }
 
         deleteEmptyAlbums(artist);
+    }
+
+    private void mergeDuplicateOwnedAlbums(Artist artist) {
+        if (artist == null || artist.getId() == null) {
+            return;
+        }
+
+        Map<String, List<Album>> grouped = albumRepository.findByArtistId(artist.getId()).stream()
+                .filter(album -> album.getTitle() != null && !album.getTitle().isBlank())
+                .filter(album -> album.getType() != Album.AlbumType.APPEARS_ON)
+                .collect(Collectors.groupingBy(album -> album.getType() + ":" + normalizeKey(album.getTitle())));
+
+        for (List<Album> duplicates : grouped.values()) {
+            if (duplicates.size() <= 1) {
+                continue;
+            }
+
+            List<Album> ranked = duplicates.stream()
+                    .sorted(Comparator
+                            .comparingInt((Album album) -> songRepository.findByAlbumId(album.getId()).size())
+                            .reversed()
+                            .thenComparing((Album album) -> album.getReleaseDate() != null ? album.getReleaseDate() : LocalDate.MIN,
+                                    Comparator.reverseOrder())
+                            .thenComparing(Album::getId))
+                    .collect(Collectors.toList());
+
+            Album primary = ranked.get(0);
+            Map<String, Song> primarySongsByTitle = songRepository.findByAlbumId(primary.getId()).stream()
+                    .collect(Collectors.toMap(
+                            song -> normalizeKey(song.getTitle()),
+                            song -> song,
+                            (left, right) -> left,
+                            LinkedHashMap::new));
+
+            for (int i = 1; i < ranked.size(); i++) {
+                Album duplicate = ranked.get(i);
+                for (Song song : songRepository.findByAlbumId(duplicate.getId())) {
+                    String titleKey = normalizeKey(song.getTitle());
+                    if (primarySongsByTitle.containsKey(titleKey)) {
+                        songRepository.delete(song);
+                        continue;
+                    }
+                    song.setAlbum(primary);
+                    songRepository.save(song);
+                    primarySongsByTitle.put(titleKey, song);
+                }
+                albumRepository.delete(duplicate);
+            }
+        }
+    }
+
+    private void purgeBlacklistedCatalogEntries(Artist artist) {
+        if (artist == null || artist.getId() == null) {
+            return;
+        }
+
+        for (Song song : songRepository.findByAlbumArtistId(artist.getId())) {
+            if (!isManagedItunesSong(song)) {
+                continue;
+            }
+            if (!isBlacklistedStoredSong(artist, song)) {
+                continue;
+            }
+            songRepository.delete(song);
+        }
+
+        deleteEmptyAlbums(artist);
+    }
+
+    private boolean isBlacklistedStoredSong(Artist artist, Song song) {
+        if (song == null) {
+            return false;
+        }
+        ITunesTrackDTO track = new ITunesTrackDTO();
+        track.setTrackName(song.getTitle());
+        if (song.getAlbum() != null) {
+            track.setCollectionName(song.getAlbum().getTitle());
+        }
+        return isBlacklistedTrack(artist, track);
     }
 
     private boolean isManagedItunesSong(Song song) {
@@ -1041,6 +1142,8 @@ public class MusicImportService {
                 "Agsy is a Delhi rapper and performer whose catalog blends battle energy, melody, and confident crossover writing across singles, cyphers, and collaborative DHH releases."));
         overrides.put("ahmer", new ArtistOverride("Desi Hip-Hop",
                 "Ahmer is a Kashmiri rapper and songwriter whose music blends political clarity, regional identity, and modern DHH production into one of the strongest catalogs from the valley."));
+        overrides.put("apdhillon", new ArtistOverride("Punjabi",
+                "AP Dhillon is a Punjabi singer, rapper, and songwriter whose catalog helped push modern North American Punjabi rap and melodic crossover records deep into the Indian mainstream."));
         return overrides;
     }
 
@@ -1049,6 +1152,7 @@ public class MusicImportService {
         ids.put("ab17", List.of(1729666037L, 1604373331L));
         ids.put("agsy", List.of(1457823481L, 1458883055L));
         ids.put("ahmer", List.of(921260135L));
+        ids.put("apdhillon", List.of(1484701109L));
         ids.put("yashraj", List.of(1530263031L));
         ids.put("king", List.of(1489995981L));
         ids.put("paradox", List.of(1680197168L));
@@ -1088,6 +1192,10 @@ public class MusicImportService {
                 new TrackQueryOverride("Prabh Deep Ahmer", "Ahmer", true),
                 new TrackQueryOverride("Karun Ahmer", "Ahmer", true),
                 new TrackQueryOverride("30KEY Ahmer", "Ahmer", true)));
+        overrides.put("apdhillon", List.of(
+                new TrackQueryOverride("Gurinder Gill AP Dhillon", "AP Dhillon", true),
+                new TrackQueryOverride("Shinda Kahlon AP Dhillon", "AP Dhillon", true),
+                new TrackQueryOverride("Ayra Starr AP Dhillon", "AP Dhillon", true)));
         overrides.put("bella", List.of(
                 new TrackQueryOverride("MC Headshot Bella", "Bella", true),
                 new TrackQueryOverride("Deep Kalsi Bella", "Bella", true),
@@ -1104,10 +1212,58 @@ public class MusicImportService {
 
     private static Map<String, Set<String>> buildTrackTitleBlacklists() {
         Map<String, Set<String>> blacklists = new HashMap<>();
+        blacklists.put("apdhillon", Set.of(
+                "losingmyselffeatgunnamixed",
+                "summerhighmixed",
+                "problemsgoverpeacemixed",
+                "truestoriesmixed",
+                "excusessaieremixmixed",
+                "majhailmixed",
+                "teretemanjremixmixed",
+                "brownmundesohniyemixed",
+                "indiansarangifeatdeestarzamajheaaleteejeditmixed",
+                "murdershewroteexcusesmundiantobachkesantochglremixmixed"));
         blacklists.put("bella", Set.of(
                 "tiamopersemprefeatbellanonvocalextendedmix",
                 "tiamopersemprefeatbellavocalextendedmix"));
         return blacklists;
+    }
+
+    private static Map<String, Set<String>> buildAlbumTitleBlacklists() {
+        Map<String, Set<String>> blacklists = new HashMap<>();
+        blacklists.put("apdhillon", Set.of(
+                "dontbelievethehypevol6djmix",
+                "tupuedesworkoutmusic",
+                "haveyourselfaveryindiesummer",
+                "purosexitosdelaelectronica",
+                "purosxitosdelaelectrnica",
+                "lostemazosdelhouseyeltechno",
+                "lovetapes",
+                "talaradiojuly2023djmix",
+                "boilerroommanjinlondonoct122023djmix",
+                "boilerroompanjabihitsquadinlondonoct122023djmix",
+                "episode003teejdjmix",
+                "episode005skgdjmix",
+                "episode023jasleendjmix",
+                "halfmoonogshezdjmix",
+                "syber009smilezdjmix",
+                "womentothefrontkizzidjmix"));
+        return blacklists;
+    }
+
+    private boolean isBlacklistedCollection(String artistKey, ITunesTrackDTO track) {
+        Set<String> blockedCollections = ALBUM_TITLE_BLACKLISTS.get(artistKey);
+        if (blockedCollections == null || blockedCollections.isEmpty()) {
+            return false;
+        }
+        String collectionKey = normalizeKey(track.getCollectionName());
+        return !collectionKey.isBlank() && blockedCollections.contains(collectionKey);
+    }
+
+    private boolean isMixedVariant(ITunesTrackDTO track) {
+        String titleKey = normalizeKey(track.getTrackName());
+        String collectionKey = normalizeKey(track.getCollectionName());
+        return titleKey.contains("mixed") || collectionKey.contains("djmix");
     }
 
     private void deleteEmptyAlbums(Artist artist) {
