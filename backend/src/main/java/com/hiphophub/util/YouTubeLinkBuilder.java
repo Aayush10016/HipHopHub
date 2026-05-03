@@ -20,9 +20,10 @@ public final class YouTubeLinkBuilder {
         if (directUrl != null && !directUrl.isBlank()) {
             return directUrl;
         }
+        String cleanedTitle = stripDecorators(songTitle);
         String query = SONG_QUERY_OVERRIDES.getOrDefault(
                 normalizeKey(artistName) + ":" + normalizeKey(songTitle),
-                safe(artistName) + " " + safe(songTitle) + " official audio");
+                safe(artistName) + " " + safe(cleanedTitle.isBlank() ? songTitle : cleanedTitle) + " official audio");
         return BASE_URL + URLEncoder.encode(query.trim(), StandardCharsets.UTF_8);
     }
 
@@ -40,6 +41,17 @@ public final class YouTubeLinkBuilder {
             return "";
         }
         return value.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "");
+    }
+
+    private static String stripDecorators(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replaceAll("\\(.*?\\)", " ")
+                .replaceAll("\\[.*?\\]", " ")
+                .replaceAll("(?i)feat\\.?[^-]*", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
     }
 
     private static Map<String, String> buildSongQueryOverrides() {

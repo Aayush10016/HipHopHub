@@ -365,14 +365,30 @@ public class MusicImportService {
                 .filter(track -> isPrimaryArtistMatch(artistName, track.getArtistName()))
                 .collect(Collectors.toList());
 
-        if (!primaryMatches.isEmpty()) {
-            return retainPreferredPrimaryTracks(artistName, primaryMatches);
+        if (allowContributorMatches) {
+            Map<Long, ITunesTrackDTO> merged = new LinkedHashMap<>();
+
+            for (ITunesTrackDTO track : retainPreferredPrimaryTracks(artistName, primaryMatches)) {
+                if (track.getTrackId() != null) {
+                    merged.putIfAbsent(track.getTrackId(), track);
+                }
+            }
+
+            filteredTracks.stream()
+                    .filter(track -> isContributorMatch(artistName, track.getArtistName()))
+                    .forEach(track -> {
+                        if (track.getTrackId() != null) {
+                            merged.putIfAbsent(track.getTrackId(), track);
+                        }
+                    });
+
+            if (!merged.isEmpty()) {
+                return new ArrayList<>(merged.values());
+            }
         }
 
-        if (allowContributorMatches) {
-            return filteredTracks.stream()
-                    .filter(track -> isContributorMatch(artistName, track.getArtistName()))
-                    .collect(Collectors.toList());
+        if (!primaryMatches.isEmpty()) {
+            return retainPreferredPrimaryTracks(artistName, primaryMatches);
         }
 
         return List.of();
@@ -1146,6 +1162,8 @@ public class MusicImportService {
                 "AP Dhillon is a Punjabi singer, rapper, and songwriter whose catalog helped push modern North American Punjabi rap and melodic crossover records deep into the Indian mainstream."));
         overrides.put("badshah", new ArtistOverride("Desi Hip-Hop",
                 "Badshah is a Delhi rapper, songwriter, and hitmaker who built one of the biggest catalogs in Indian hip-hop by balancing commercial hooks, rap writing, and crossover pop production."));
+        overrides.put("bagimunda", new ArtistOverride("Desi Hip-Hop",
+                "BAGI MUNDA is a Chandigarh-rooted DHH artist whose catalog mixes cinematic street rap, Punjabi-Hindi writing, and collaborative underground projects with producers and rappers from the newer wave."));
         return overrides;
     }
 
@@ -1156,6 +1174,7 @@ public class MusicImportService {
         ids.put("ahmer", List.of(921260135L));
         ids.put("apdhillon", List.of(1484701109L));
         ids.put("badshah", List.of(214832525L));
+        ids.put("bagimunda", List.of(1565582554L));
         ids.put("yashraj", List.of(1530263031L));
         ids.put("king", List.of(1489995981L));
         ids.put("paradox", List.of(1680197168L));
@@ -1206,6 +1225,12 @@ public class MusicImportService {
                 new TrackQueryOverride("Payal Dev Badshah", "Badshah", true),
                 new TrackQueryOverride("Nikhita Gandhi Badshah", "Badshah", true),
                 new TrackQueryOverride("Badshah Karan Aujla Arijit Singh", "Badshah", true)));
+        overrides.put("bagimunda", List.of(
+                new TrackQueryOverride("Dhanji BAGI MUNDA", "BAGI MUNDA", true),
+                new TrackQueryOverride("dox BAGI MUNDA", "BAGI MUNDA", true),
+                new TrackQueryOverride("Jaskaran BAGI MUNDA", "BAGI MUNDA", true),
+                new TrackQueryOverride("MC Amrit BAGI MUNDA", "BAGI MUNDA", true),
+                new TrackQueryOverride("Fatboi Raccoon BAGI MUNDA", "BAGI MUNDA", true)));
         overrides.put("bella", List.of(
                 new TrackQueryOverride("MC Headshot Bella", "Bella", true),
                 new TrackQueryOverride("Deep Kalsi Bella", "Bella", true),

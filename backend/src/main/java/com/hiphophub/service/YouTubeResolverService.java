@@ -43,12 +43,9 @@ public class YouTubeResolverService {
     public String resolveSongUrl(String artistName, String songTitle) {
         String artist = safe(artistName);
         String title = safe(songTitle);
+        String strippedTitle = stripDecorators(title);
 
-        List<String> queries = List.of(
-                artist + " " + title + " official video",
-                artist + " " + title + " official audio",
-                artist + " " + title + " lyric video",
-                artist + " " + title);
+        List<String> queries = buildSongQueries(artist, title, strippedTitle);
 
         return resolveDirectUrl(queries, artist, title);
     }
@@ -80,6 +77,25 @@ public class YouTubeResolverService {
 
         String fallbackQuery = queries.stream().filter(q -> q != null && !q.isBlank()).findFirst().orElse("");
         return SEARCH_URL_PREFIX + encode(fallbackQuery);
+    }
+
+    private List<String> buildSongQueries(String artist, String title, String strippedTitle) {
+        LinkedHashSet<String> queries = new LinkedHashSet<>();
+        addSongQueryVariants(queries, artist, title);
+        if (!strippedTitle.isBlank() && !strippedTitle.equalsIgnoreCase(title)) {
+            addSongQueryVariants(queries, artist, strippedTitle);
+        }
+        return new ArrayList<>(queries);
+    }
+
+    private void addSongQueryVariants(Set<String> queries, String artist, String title) {
+        if (title == null || title.isBlank()) {
+            return;
+        }
+        queries.add((artist + " " + title + " official video").trim());
+        queries.add((artist + " " + title + " official audio").trim());
+        queries.add((artist + " " + title + " lyric video").trim());
+        queries.add((artist + " " + title).trim());
     }
 
     private String searchBestVideoUrl(String query, String artistName, String targetTitle) {
