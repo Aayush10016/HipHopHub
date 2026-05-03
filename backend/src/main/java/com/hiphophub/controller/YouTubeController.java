@@ -38,7 +38,10 @@ public class YouTubeController {
         }
 
         String artistName = song.getAlbum().getArtist().getName();
-        String url = youTubeResolverService.resolveSongUrl(artistName, song.getTitle());
+        String url = YouTubeLinkBuilder.forSong(artistName, song.getTitle());
+        if (url == null || url.isBlank() || url.contains("youtube.com/results?search_query=")) {
+            url = youTubeResolverService.resolveSongUrl(artistName, song.getTitle());
+        }
         if (url == null || url.isBlank()) {
             url = YouTubeLinkBuilder.forSong(artistName, song.getTitle());
         }

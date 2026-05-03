@@ -1,8 +1,11 @@
 package com.hiphophub.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -21,15 +24,21 @@ import org.springframework.web.client.RestTemplate;
 @Service
 public class YouTubeResolverService {
 
+    private record OEmbedResponse(String title, String authorName) {
+    }
+
     private static final Pattern VIDEO_RENDERER_PATTERN = Pattern.compile(
             "\"videoRenderer\"\\s*:\\s*\\{.*?\"videoId\":\"([A-Za-z0-9_-]{11})\"",
             Pattern.DOTALL);
     private static final Pattern FALLBACK_VIDEO_ID_PATTERN = Pattern.compile("\"videoId\":\"([A-Za-z0-9_-]{11})\"");
     private static final String WATCH_URL_PREFIX = "https://www.youtube.com/watch?v=";
     private static final String SEARCH_URL_PREFIX = "https://www.youtube.com/results?search_query=";
+    private static final String OEMBED_URL_PREFIX = "https://www.youtube.com/oembed?format=json&url=";
 
     private final RestTemplate restTemplate = new RestTemplate();
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private final ConcurrentMap<String, String> cache = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, OEmbedResponse> oEmbedCache = new ConcurrentHashMap<>();
 
     public String resolveSongUrl(String artistName, String songTitle) {
         String artist = safe(artistName);
@@ -41,7 +50,7 @@ public class YouTubeResolverService {
                 artist + " " + title + " lyric video",
                 artist + " " + title);
 
-        return resolveDirectUrl(queries);
+        return resolveDirectUrl(queries, artist, title);
     }
 
     public String resolveAlbumUrl(String artistName, String albumTitle) {
@@ -53,15 +62,17 @@ public class YouTubeResolverService {
                 artist + " " + title + " official album",
                 artist + " " + title + " album");
 
-        return resolveDirectUrl(queries);
+        return resolveDirectUrl(queries, artist, title);
     }
 
-    private String resolveDirectUrl(List<String> queries) {
+    private String resolveDirectUrl(List<String> queries, String artistName, String targetTitle) {
         for (String query : queries) {
             if (query == null || query.isBlank()) {
                 continue;
             }
-            String resolved = cache.computeIfAbsent(normalizeKey(query), key -> searchFirstVideoUrl(query));
+            String resolved = cache.computeIfAbsent(
+                    normalizeKey(query),
+                    key -> searchBestVideoUrl(query, artistName, targetTitle));
             if (isDirectWatchUrl(resolved)) {
                 return resolved;
             }
@@ -71,7 +82,7 @@ public class YouTubeResolverService {
         return SEARCH_URL_PREFIX + encode(fallbackQuery);
     }
 
-    private String searchFirstVideoUrl(String query) {
+    private String searchBestVideoUrl(String query, String artistName, String targetTitle) {
         try {
             String url = SEARCH_URL_PREFIX + encode(query) + "&sp=EgIQAQ%253D%253D";
             HttpEntity<Void> request = new HttpEntity<>(defaultHeaders());
@@ -82,22 +93,30 @@ public class YouTubeResolverService {
                 return url;
             }
 
-            String firstVideoId = extractFirstVideoId(html);
-            if (firstVideoId == null) {
+            List<String> candidateIds = extractCandidateVideoIds(html);
+            if (candidateIds.isEmpty()) {
                 return url;
             }
-            return WATCH_URL_PREFIX + firstVideoId;
+            return candidateIds.stream()
+                    .map(videoId -> new ScoredVideo(videoId, scoreVideo(videoId, artistName, targetTitle)))
+                    .max(Comparator.comparingInt(ScoredVideo::score))
+                    .filter(scored -> scored.score() > Integer.MIN_VALUE)
+                    .map(scored -> WATCH_URL_PREFIX + scored.videoId())
+                    .orElse(url);
         } catch (Exception e) {
             return SEARCH_URL_PREFIX + encode(query);
         }
     }
 
-    private String extractFirstVideoId(String html) {
+    private record ScoredVideo(String videoId, int score) {
+    }
+
+    private List<String> extractCandidateVideoIds(String html) {
         Set<String> ids = new LinkedHashSet<>();
         Matcher rendererMatcher = VIDEO_RENDERER_PATTERN.matcher(html);
         while (rendererMatcher.find()) {
             ids.add(rendererMatcher.group(1));
-            if (ids.size() >= 5) {
+            if (ids.size() >= 12) {
                 break;
             }
         }
@@ -106,18 +125,135 @@ public class YouTubeResolverService {
             Matcher fallbackMatcher = FALLBACK_VIDEO_ID_PATTERN.matcher(html);
             while (fallbackMatcher.find()) {
                 ids.add(fallbackMatcher.group(1));
-                if (ids.size() >= 5) {
+                if (ids.size() >= 12) {
                     break;
                 }
             }
         }
 
-        List<String> filtered = new ArrayList<>(ids);
-        if (filtered.isEmpty()) {
-            return null;
+        return new ArrayList<>(ids);
+    }
+
+    private int scoreVideo(String videoId, String artistName, String targetTitle) {
+        OEmbedResponse metadata = fetchOEmbed(videoId);
+        if (metadata == null) {
+            return Integer.MIN_VALUE;
         }
 
-        return filtered.get(0);
+        String normalizedArtist = normalizeComparable(artistName);
+        String normalizedTitle = normalizeComparable(targetTitle);
+        String compactArtist = normalizeKey(artistName);
+        String compactTitle = normalizeKey(stripDecorators(targetTitle));
+        String title = safe(metadata.title());
+        String author = safe(metadata.authorName());
+        String normalizedVideoTitle = normalizeComparable(title);
+        String normalizedAuthor = normalizeComparable(author);
+        String compactVideoTitle = normalizeKey(title);
+        String compactAuthor = normalizeKey(author);
+
+        int score = 0;
+
+        if (!compactTitle.isBlank() && compactVideoTitle.contains(compactTitle)) {
+            score += 180;
+        }
+        if (!normalizedTitle.isBlank() && containsAllTokens(normalizedVideoTitle, normalizedTitle)) {
+            score += 120;
+        }
+        if (!compactArtist.isBlank() && (compactVideoTitle.contains(compactArtist) || compactAuthor.contains(compactArtist))) {
+            score += 100;
+        }
+        if (!normalizedArtist.isBlank() && containsAllTokens(normalizedAuthor, normalizedArtist)) {
+            score += 80;
+        }
+        if (normalizedVideoTitle.contains("official")) {
+            score += 35;
+        }
+        if (normalizedVideoTitle.contains("audio")) {
+            score += 12;
+        }
+        if (normalizedVideoTitle.contains("video")) {
+            score += 10;
+        }
+        if (normalizedAuthor.contains("topic") || normalizedAuthor.contains("vevo")) {
+            score += 20;
+        }
+
+        if (normalizedVideoTitle.contains("mixed")
+                || normalizedVideoTitle.contains("remix")
+                || normalizedVideoTitle.contains("dj mix")) {
+            score -= 160;
+        }
+        if (normalizedVideoTitle.contains("slowed")
+                || normalizedVideoTitle.contains("reverb")
+                || normalizedVideoTitle.contains("8d")) {
+            score -= 140;
+        }
+
+        return score;
+    }
+
+    private OEmbedResponse fetchOEmbed(String videoId) {
+        if (videoId == null || videoId.isBlank()) {
+            return null;
+        }
+        return oEmbedCache.computeIfAbsent(videoId, this::requestOEmbed);
+    }
+
+    private OEmbedResponse requestOEmbed(String videoId) {
+        try {
+            String watchUrl = WATCH_URL_PREFIX + videoId;
+            String url = OEMBED_URL_PREFIX + encode(watchUrl);
+            HttpEntity<Void> request = new HttpEntity<>(defaultHeaders());
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, request, String.class);
+            String body = response.getBody();
+            if (body == null || body.isBlank()) {
+                return null;
+            }
+            JsonNode json = objectMapper.readTree(body);
+            String title = json.path("title").asText("");
+            String author = json.path("author_name").asText("");
+            if (title.isBlank() && author.isBlank()) {
+                return null;
+            }
+            return new OEmbedResponse(title, author);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private boolean containsAllTokens(String haystack, String normalizedTarget) {
+        if (haystack == null || haystack.isBlank() || normalizedTarget == null || normalizedTarget.isBlank()) {
+            return false;
+        }
+        for (String token : normalizedTarget.split("\\s+")) {
+            if (token.isBlank()) {
+                continue;
+            }
+            if (!haystack.contains(token)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private String stripDecorators(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replaceAll("\\(.*?\\)", " ")
+                .replaceAll("\\[.*?\\]", " ")
+                .replaceAll("(?i)feat\\.?[^-]*", " ")
+                .trim();
+    }
+
+    private String normalizeComparable(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9]+", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
     }
 
     private HttpHeaders defaultHeaders() {
