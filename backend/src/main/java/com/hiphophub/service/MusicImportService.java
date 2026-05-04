@@ -309,6 +309,9 @@ public class MusicImportService {
     }
 
     private List<ITunesTrackDTO> findTracksForArtist(String requestedArtistName, String canonicalArtistName) {
+        int lookupLimit = Math.max(trackLimit, 100);
+        int searchLimit = Math.max(trackLimit, 50);
+
         List<TrackQueryOverride> attempts = new ArrayList<>();
         attempts.add(new TrackQueryOverride(canonicalArtistName, canonicalArtistName, false));
         if (requestedArtistName != null && !requestedArtistName.equalsIgnoreCase(canonicalArtistName)) {
@@ -325,7 +328,7 @@ public class MusicImportService {
         List<Long> preferredArtistIds = PREFERRED_ITUNES_ARTIST_IDS.get(artistKey);
         if (preferredArtistIds != null) {
             for (Long artistId : preferredArtistIds) {
-                for (ITunesTrackDTO track : iTunesService.lookupTracksByArtistId(artistId, trackLimit, "IN")) {
+                for (ITunesTrackDTO track : iTunesService.lookupTracksByArtistId(artistId, lookupLimit, "IN")) {
                     if (track.getTrackId() != null) {
                         mergedByTrackId.putIfAbsent(track.getTrackId(), track);
                     }
@@ -334,7 +337,7 @@ public class MusicImportService {
         }
 
         for (TrackQueryOverride attempt : attempts) {
-            List<ITunesTrackDTO> rawTracks = iTunesService.searchTracksByArtist(attempt.searchTerm(), trackLimit);
+            List<ITunesTrackDTO> rawTracks = iTunesService.searchTracksByArtist(attempt.searchTerm(), searchLimit);
             List<ITunesTrackDTO> retained = retainOwnedTracks(
                     attempt.ownershipName(),
                     rawTracks,
@@ -1199,6 +1202,7 @@ public class MusicImportService {
         ids.put("apdhillon", List.of(1484701109L));
         ids.put("badshah", List.of(214832525L));
         ids.put("bagimunda", List.of(1565582554L));
+        ids.put("bharg", List.of(1512171189L));
         ids.put("yashraj", List.of(1530263031L));
         ids.put("king", List.of(1489995981L));
         ids.put("paradox", List.of(1680197168L));
@@ -1255,6 +1259,27 @@ public class MusicImportService {
                 new TrackQueryOverride("Jaskaran BAGI MUNDA", "BAGI MUNDA", true),
                 new TrackQueryOverride("MC Amrit BAGI MUNDA", "BAGI MUNDA", true),
                 new TrackQueryOverride("Fatboi Raccoon BAGI MUNDA", "BAGI MUNDA", true)));
+        overrides.put("bharg", List.of(
+                new TrackQueryOverride("Rawal Bharg", "Bharg", true),
+                new TrackQueryOverride("rohh Bharg", "Bharg", true),
+                new TrackQueryOverride("Sez on the Beat Bharg", "Bharg", true),
+                new TrackQueryOverride("Tsumyoki Bharg", "Bharg", true),
+                new TrackQueryOverride("Agsy Bharg", "Bharg", true),
+                new TrackQueryOverride("MC Headshot Bharg", "Bharg", true),
+                new TrackQueryOverride("KR$NA Bharg", "Bharg", true),
+                new TrackQueryOverride("Vasu Raina Bharg", "Bharg", true),
+                new TrackQueryOverride("Saar Punch Bharg", "Bharg", true),
+                new TrackQueryOverride("Ruaa Kayy Bharg", "Bharg", true),
+                new TrackQueryOverride("Chaar Diwaari Bharg", "Bharg", true),
+                new TrackQueryOverride("Dikshant Jain Bharg", "Bharg", true),
+                new TrackQueryOverride("Frappe Ash Bharg", "Bharg", true),
+                new TrackQueryOverride("SarpDansh Bharg", "Bharg", true),
+                new TrackQueryOverride("SunSunnykhez Bharg", "Bharg", true),
+                new TrackQueryOverride("Kanika Malhotra Bharg", "Bharg", true),
+                new TrackQueryOverride("Bhappa Bharg", "Bharg", true),
+                new TrackQueryOverride("SHAHI Bharg", "Bharg", true),
+                new TrackQueryOverride("SPRYK Bharg", "Bharg", true),
+                new TrackQueryOverride("Karan Kanchan Rawal Bharg", "Bharg", true)));
         overrides.put("bella", List.of(
                 new TrackQueryOverride("MC Headshot Bella", "Bella", true),
                 new TrackQueryOverride("Deep Kalsi Bella", "Bella", true),
@@ -1290,6 +1315,8 @@ public class MusicImportService {
         blacklists.put("bella", Set.of(
                 "tiamopersemprefeatbellanonvocalextendedmix",
                 "tiamopersemprefeatbellavocalextendedmix"));
+        blacklists.put("bharg", Set.of(
+                "roshnimixed"));
         return blacklists;
     }
 
