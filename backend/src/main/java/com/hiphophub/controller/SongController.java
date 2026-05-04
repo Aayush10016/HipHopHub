@@ -247,29 +247,54 @@ public class SongController {
     private int artistSongPriority(Song song) {
         Album album = song != null ? song.getAlbum() : null;
         Album.AlbumType type = album != null ? album.getType() : null;
+        int penalty = isLowValueCompilation(album) ? 10 : 0;
         if (type == null) {
-            return 99;
+            return 99 + penalty;
         }
         if (type == Album.AlbumType.ALBUM) {
-            return 0;
+            return 0 + penalty;
         }
         if (type == Album.AlbumType.SINGLE) {
-            return 1;
+            return 1 + penalty;
         }
         if (type == Album.AlbumType.EP) {
-            return 2;
+            return 2 + penalty;
         }
         if (type == Album.AlbumType.APPEARS_ON) {
-            return 3;
+            return 3 + penalty;
         }
-        return 99;
+        return 99 + penalty;
+    }
+
+    private boolean isLowValueCompilation(Album album) {
+        if (album == null || album.getTitle() == null) {
+            return false;
+        }
+        String key = album.getTitle().toLowerCase(Locale.ROOT);
+        return key.contains("hits")
+                || key.contains("vibes")
+                || key.contains("workout")
+                || key.contains("motivational")
+                || key.contains("club out")
+                || key.contains("grind")
+                || key.contains("mausam")
+                || key.contains("scene")
+                || key.contains("house party")
+                || key.contains("live with music")
+                || key.contains("dance pop")
+                || key.contains("desi hip hop hits")
+                || (key.contains("mass appeal") && key.contains("shutdown"));
     }
 
     private String normalizeSongTitle(String title) {
         if (title == null) {
             return "";
         }
-        return title.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "");
+        String normalized = title.toLowerCase(Locale.ROOT)
+                .replaceAll("\\((feat|from)[^)]*\\)", "")
+                .replaceAll("\\[(feat|from)[^\\]]*\\]", "")
+                .replaceAll("[^a-z0-9]+", "");
+        return normalized;
     }
 
     private List<Song> findPlayableSongs(List<Song> songs) {

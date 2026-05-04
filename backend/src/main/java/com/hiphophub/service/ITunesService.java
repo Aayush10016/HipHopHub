@@ -68,6 +68,7 @@ public class ITunesService {
                     .append("&country=").append(country == null || country.isBlank() ? "IN" : country);
 
             HttpEntity<Void> entity = new HttpEntity<>(null, defaultHeaders());
+            log.debug("iTunes lookup by artistId='{}', limit='{}', country='{}'", artistId, limit, country);
             ResponseEntity<String> response = restTemplate.exchange(
                     url.toString(),
                     HttpMethod.GET,
@@ -84,10 +85,12 @@ public class ITunesService {
                 return Collections.emptyList();
             }
 
-            return body.getResults().stream()
+            List<ITunesTrackDTO> tracks = body.getResults().stream()
                     .filter(track -> "track".equalsIgnoreCase(track.getWrapperType()))
                     .filter(track -> "song".equalsIgnoreCase(track.getKind()))
                     .collect(Collectors.toList());
+            log.debug("iTunes lookup by artistId='{}' returned {} tracks", artistId, tracks.size());
+            return tracks;
         } catch (Exception e) {
             log.warn("iTunes lookup failed. artistId='{}', country='{}', error={}", artistId, country, e.getMessage());
             return Collections.emptyList();

@@ -144,8 +144,12 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
     const singles = useMemo(
         () => albums.filter(a => {
             const type = a.albumType || a.type
-            return type === 'SINGLE' || type === 'APPEARS_ON'
+            return type === 'SINGLE'
         }),
+        [albums]
+    )
+    const appearsOn = useMemo(
+        () => albums.filter(a => (a.albumType || a.type) === 'APPEARS_ON'),
         [albums]
     )
 
@@ -311,6 +315,12 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
                     Singles ({singles.length})
                 </button>
                 <button
+                    className={`profile-tab ${activeTab === 'appears-on' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('appears-on')}
+                >
+                    Features ({appearsOn.length})
+                </button>
+                <button
                     className={`profile-tab ${activeTab === 'tours' ? 'active' : ''}`}
                     onClick={() => setActiveTab('tours')}
                 >
@@ -356,6 +366,10 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
                             <div className="overview-card card">
                                 <h4>Singles</h4>
                                 <p className="overview-stat">{singles.length}</p>
+                            </div>
+                            <div className="overview-card card">
+                                <h4>Features</h4>
+                                <p className="overview-stat">{appearsOn.length}</p>
                             </div>
                         </div>
                     </div>
@@ -517,6 +531,34 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
                             </div>
                         ) : (
                             <p className="empty-message">No singles available</p>
+                        )}
+                    </div>
+                )}
+
+                {activeTab === 'appears-on' && (
+                    <div className="appears-on-section">
+                        <h3>Features and Appears On</h3>
+                        {appearsOn.length > 0 ? (
+                            <div className="albums-grid">
+                                {appearsOn.map(release => (
+                                    <div key={release.id} className="album-item card">
+                                        <div className="album-cover">
+                                            {getAlbumCover(release) ? (
+                                                <img src={getAlbumCover(release)} alt={release.title} />
+                                            ) : (
+                                                <div className="album-placeholder"></div>
+                                            )}
+                                        </div>
+                                        <h4>{release.title}</h4>
+                                        <p>{new Date(release.releaseDate).getFullYear()}</p>
+                                        <button type="button" onClick={() => openDirectSingleYoutube(release)} className="yt-link-btn">
+                                            Play on YT
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="empty-message">No feature releases available</p>
                         )}
                     </div>
                 )}

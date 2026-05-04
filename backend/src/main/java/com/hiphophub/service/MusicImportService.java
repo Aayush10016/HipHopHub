@@ -264,12 +264,26 @@ public class MusicImportService {
 
     public List<ArtistFactDTO> buildFacts(Artist artist) {
         List<ArtistFactDTO> facts = new ArrayList<>();
-        List<Album> artistAlbums = albumRepository.findByArtistId(artist.getId());
-        long songCount = songRepository.countByAlbumArtistId(artist.getId());
+        List<Album> artistAlbums = albumRepository.findByArtistId(artist.getId()).stream()
+                .collect(Collectors.collectingAndThen(
+                        Collectors.toMap(
+                                album -> album.getType() + ":" + normalizeKey(album.getTitle()),
+                                album -> album,
+                                (left, right) -> left,
+                                LinkedHashMap::new),
+                        map -> new ArrayList<>(map.values())));
+        long songCount = songRepository.findByAlbumArtistId(artist.getId()).stream()
+                .map(song -> normalizeKey(song.getTitle()))
+                .filter(title -> !title.isBlank())
+                .distinct()
+                .count();
         long albumCount = artistAlbums.stream().filter(a -> a.getType() == Album.AlbumType.ALBUM).count();
         long epCount = artistAlbums.stream().filter(a -> a.getType() == Album.AlbumType.EP).count();
         long singleCount = artistAlbums.stream()
-                .filter(a -> a.getType() == Album.AlbumType.SINGLE || a.getType() == Album.AlbumType.APPEARS_ON)
+                .filter(a -> a.getType() == Album.AlbumType.SINGLE)
+                .count();
+        long featureCount = artistAlbums.stream()
+                .filter(a -> a.getType() == Album.AlbumType.APPEARS_ON)
                 .count();
 
         facts.add(new ArtistFactDTO(1L, "Genre: " + safe(artist.getGenre(), "Hip Hop")));
@@ -285,7 +299,7 @@ public class MusicImportService {
         if (albumCount > 0 || epCount > 0 || singleCount > 0) {
             facts.add(new ArtistFactDTO(4L,
                     "Projects split: " + albumCount + " albums, " + epCount + " EPs, " + singleCount
- + " singles/features"));
+                            + " singles, " + featureCount + " features"));
         }
 
         if (artist.getBio() != null && !artist.getBio().isBlank()) {
@@ -306,6 +320,14 @@ public class MusicImportService {
     public boolean hasCatalogFallback(String artistName) {
         String key = normalizeKey(artistName);
         return List.of("calm").contains(key);
+    }
+
+    public Optional<Artist> resolveCatalogFallbackArtist(String artistName) {
+        String key = normalizeKey(artistName);
+        if ("calm".equals(key)) {
+            return artistRepository.findByNameIgnoreCase("Seedhe Maut");
+        }
+        return Optional.empty();
     }
 
     private List<ITunesTrackDTO> findTracksForArtist(String requestedArtistName, String canonicalArtistName) {
@@ -349,7 +371,56 @@ public class MusicImportService {
             }
         }
 
+        appendCuratedTrackSupplements(artistKey, mergedByTrackId, searchLimit);
+
         return new ArrayList<>(mergedByTrackId.values());
+    }
+
+    private void appendCuratedTrackSupplements(String artistKey, Map<Long, ITunesTrackDTO> mergedByTrackId, int searchLimit) {
+        if (!"devil".equals(artistKey)) {
+            return;
+        }
+
+        List<TrackQueryOverride> exactQueries = List.of(
+                new TrackQueryOverride("Todun Taak D Evil", "D'Evil", true),
+                new TrackQueryOverride("Dekh Toofaan Aaya Hai D Evil", "D'Evil", true),
+                new TrackQueryOverride("Asli Action Chaalu D Evil Shah Rule", "D'Evil", true),
+                new TrackQueryOverride("Gully Gang Cypher Vol 2 D Evil", "D'Evil", true),
+                new TrackQueryOverride("Gully Gang Cypher D Evil Aavrutti Shah Rule", "D'Evil", true),
+                new TrackQueryOverride("Mumbai Darshan D Evil", "D'Evil", true),
+                new TrackQueryOverride("Bohot Bhaari D Evil", "D'Evil", true),
+                new TrackQueryOverride("Vibe Hai D Evil Shah Rule", "D'Evil", true),
+                new TrackQueryOverride("Disco Rap D Evil MC Altaf", "D'Evil", true),
+                new TrackQueryOverride("Bas Kya Ba D Evil", "D'Evil", true));
+
+        Set<String> allowedTitles = Set.of(
+                "toduntaak",
+                "dekhtoofaanaayahai",
+                "asliactionchaaluthemesong",
+                "asliactionchaaluthemesongfromanactionhero",
+                "gullygangcyphervol2featdivinedevilmcaltafaavruttiandshahrule",
+                "gullygangcypherfeatsaifansammohitsledgefrenzzyandkarankanchan",
+                "mumbaidarshan",
+                "bohotbhaari",
+                "vibehaifeataavruttidevilandshahrule",
+                "discorap",
+                "baskyabafeatdivine",
+                "baskyabafeatडिवाइन");
+
+        for (TrackQueryOverride attempt : exactQueries) {
+            List<ITunesTrackDTO> rawTracks = iTunesService.searchTracksByArtist(attempt.searchTerm(), searchLimit);
+            List<ITunesTrackDTO> retained = retainOwnedTracks(
+                    attempt.ownershipName(),
+                    rawTracks,
+                    attempt.allowContributorMatches());
+            retained.stream()
+                    .filter(track -> allowedTitles.contains(normalizeKey(track.getTrackName())))
+                    .forEach(track -> {
+                        if (track.getTrackId() != null) {
+                            mergedByTrackId.putIfAbsent(track.getTrackId(), track);
+                        }
+                    });
+        }
     }
 
     private List<ITunesTrackDTO> retainOwnedTracks(String artistName, List<ITunesTrackDTO> tracks) {
@@ -426,8 +497,15 @@ public class MusicImportService {
             if (!exactIdMatches.isEmpty()) {
                 return exactIdMatches;
             }
+            if (requiresStrictPreferredPrimaryMatch(artistKey)) {
+                return List.of();
+            }
         }
         return tracks;
+    }
+
+    private boolean requiresStrictPreferredPrimaryMatch(String artistKey) {
+        return Set.of("drv").contains(artistKey);
     }
 
     private void saveTracksForArtist(Artist artist, List<ITunesTrackDTO> tracks) {
@@ -1167,6 +1245,8 @@ public class MusicImportService {
                 "Lashcurry is a rising Indian rapper from the newer DHH wave, recognized for technical cadences, freestyle energy, and youth-heavy digital reach."));
         overrides.put("devil", new ArtistOverride("Desi Hip-Hop",
                 "D'Evil is a Mumbai rapper from the Gully Gang ecosystem, known for street-rooted writing, cypher-heavy collaborations, and a raw old-school rap presence."));
+        overrides.put("drv", new ArtistOverride("Desi Hip-Hop",
+                "DRV is a Delhi rapper whose catalog blends melodic trap, conversational writing, and collaborative DHH records across solo projects, EPs, and feature-heavy releases."));
         overrides.put("dakaitshaddy", new ArtistOverride("Desi Hip-Hop",
                 "Dakait Shaddy is a North Indian hip-hop artist tied to the Dakait camp, with a catalog shaped by rugged flows, regional slang, and underground rap collaborations."));
         overrides.put("epriyer", new ArtistOverride("Desi Hip-Hop",
@@ -1191,6 +1271,10 @@ public class MusicImportService {
                 "Badshah is a Delhi rapper, songwriter, and hitmaker who built one of the biggest catalogs in Indian hip-hop by balancing commercial hooks, rap writing, and crossover pop production."));
         overrides.put("bagimunda", new ArtistOverride("Desi Hip-Hop",
                 "BAGI MUNDA is a Chandigarh-rooted DHH artist whose catalog mixes cinematic street rap, Punjabi-Hindi writing, and collaborative underground projects with producers and rappers from the newer wave."));
+        overrides.put("brodhav", new ArtistOverride("Desi Hip-Hop",
+                "Brodha V is a Bengaluru rapper, writer, and performer known for fast cadences, multilingual flows, mythic references, and one of the longest-running independent rap catalogs in Indian hip-hop."));
+        overrides.put("chaardiwaari", new ArtistOverride("Desi Hip-Hop",
+                "Chaar Diwaari is a Delhi artist and producer whose catalog pushes experimental Hindi hip-hop through abrasive production, unconventional songwriting, and a strong visual identity."));
         return overrides;
     }
 
@@ -1203,6 +1287,10 @@ public class MusicImportService {
         ids.put("badshah", List.of(214832525L));
         ids.put("bagimunda", List.of(1565582554L));
         ids.put("bharg", List.of(1512171189L));
+        ids.put("brodhav", List.of(388811568L));
+        ids.put("chaardiwaari", List.of(1595489611L));
+        ids.put("devil", List.of(1246923845L));
+        ids.put("drv", List.of(1618943292L));
         ids.put("yashraj", List.of(1530263031L));
         ids.put("king", List.of(1489995981L));
         ids.put("paradox", List.of(1680197168L));
@@ -1280,6 +1368,18 @@ public class MusicImportService {
                 new TrackQueryOverride("SHAHI Bharg", "Bharg", true),
                 new TrackQueryOverride("SPRYK Bharg", "Bharg", true),
                 new TrackQueryOverride("Karan Kanchan Rawal Bharg", "Bharg", true)));
+        overrides.put("brodhav", List.of(
+                new TrackQueryOverride("Raftaar Brodha V", "Brodha V", true),
+                new TrackQueryOverride("Hiphop Tamizha Brodha V", "Brodha V", true),
+                new TrackQueryOverride("Anirudh Brodha V", "Brodha V", true),
+                new TrackQueryOverride("Dub Sharma Brodha V", "Brodha V", true),
+                new TrackQueryOverride("Sai Charan Brodha V", "Brodha V", true),
+                new TrackQueryOverride("Ko the Timeless Brodha V", "Brodha V", true),
+                new TrackQueryOverride("Siddharth Basrur Brodha V", "Brodha V", true),
+                new TrackQueryOverride("Smokey Brodha V", "Brodha V", true)));
+        overrides.put("chaardiwaari", List.of(
+                new TrackQueryOverride("Bharg Chaar Diwaari", "Chaar Diwaari", true),
+                new TrackQueryOverride("Karun Chaar Diwaari", "Chaar Diwaari", true)));
         overrides.put("bella", List.of(
                 new TrackQueryOverride("MC Headshot Bella", "Bella", true),
                 new TrackQueryOverride("Deep Kalsi Bella", "Bella", true),
@@ -1295,7 +1395,29 @@ public class MusicImportService {
         overrides.put("dakaitshaddy", List.of(
                 new TrackQueryOverride("Dakait", "Dakait", false)));
         overrides.put("devil", List.of(
-                new TrackQueryOverride("D Evil divine", "D'Evil", true)));
+                new TrackQueryOverride("D Evil divine", "D'Evil", true),
+                new TrackQueryOverride("D Evil MC Altaf", "D'Evil", true),
+                new TrackQueryOverride("D Evil Shah Rule", "D'Evil", true),
+                new TrackQueryOverride("D Evil Toofaan", "D'Evil", true),
+                new TrackQueryOverride("D Evil Gully Gang", "D'Evil", true),
+                new TrackQueryOverride("D Evil Action Hero", "D'Evil", true),
+                new TrackQueryOverride("D Evil Madgaon Express", "D'Evil", true)));
+        overrides.put("drv", List.of(
+                new TrackQueryOverride("Qaab DRV", "DRV", true),
+                new TrackQueryOverride("Boyblanck DRV", "DRV", true),
+                new TrackQueryOverride("Bombay the Artist DRV", "DRV", true),
+                new TrackQueryOverride("Darcy DRV", "DRV", true),
+                new TrackQueryOverride("Loka DRV", "DRV", true),
+                new TrackQueryOverride("AAKASH DRV", "DRV", true),
+                new TrackQueryOverride("Dhanji DRV", "DRV", true),
+                new TrackQueryOverride("Mohit DRV", "DRV", true),
+                new TrackQueryOverride("Full Power DRV", "DRV", true),
+                new TrackQueryOverride("Flyboy S DRV", "DRV", true),
+                new TrackQueryOverride("Zubin DRV", "DRV", true),
+                new TrackQueryOverride("jaiyash DRV", "DRV", true),
+                new TrackQueryOverride("Sidak Singh DRV", "DRV", true),
+                new TrackQueryOverride("Raftaar DRV", "DRV", true),
+                new TrackQueryOverride("Boman Irani DRV", "DRV", true)));
         return overrides;
     }
 
@@ -1317,6 +1439,67 @@ public class MusicImportService {
                 "tiamopersemprefeatbellavocalextendedmix"));
         blacklists.put("bharg", Set.of(
                 "roshnimixed"));
+        blacklists.put("brodhav", Set.of(
+                "partyallnight52nonstop",
+                "brodhavaathmaraama",
+                "birlaestateshomeadvantageforrcbfeatbrodhav"));
+        blacklists.put("drv", Set.of(
+                "feelagain",
+                "righthere",
+                "blessings",
+                "noonecouldloveyoumore",
+                "aura",
+                "demain",
+                "secretsignals",
+                "candlelights",
+                "coldcircuit",
+                "coolgirls",
+                "moneygreed",
+                "farbutnotgone",
+                "myfallenangle",
+                "foronelasttime",
+                "themoonjustknows",
+                "myfirstiloveyou",
+                "nocrownnothronejustyou",
+                "inquest",
+                "lafoule",
+                "winterdrive",
+                "cloudtree",
+                "bekindtothegoodones",
+                "doyousee",
+                "thestruggle",
+                "daydreams",
+                "togetherinthisthing",
+                "bendtheknee",
+                "thesamepicture",
+                "runaway",
+                "distncia",
+                "kofarcade",
+                "autentico",
+                "jobs",
+                "ifoughtthelawfeattedhawkins",
+                "rosehill",
+                "crash",
+                "60xaday",
+                "americandream",
+                "milesaway",
+                "alive",
+                "hollywood",
+                "theend",
+                "thatslove",
+                "cominghome",
+                "wordtothewise",
+                "sounbelievable",
+                "mrbadluck",
+                "sixfeetdown",
+                "livelearn",
+                "homecoming",
+                "timestandsstill",
+                "nothingtolose",
+                "farfromgrace",
+                "betterdays",
+                "thatgirl",
+                "drv"));
         return blacklists;
     }
 
@@ -1339,6 +1522,49 @@ public class MusicImportService {
                 "halfmoonogshezdjmix",
                 "syber009smilezdjmix",
                 "womentothefrontkizzidjmix"));
+        blacklists.put("devil", Set.of(
+                "cricketlivewithmusic",
+                "drunknhighhouseparty",
+                "dancepop2021ep",
+                "desihiphophits",
+                "desihiphopvibes",
+                "motivationalsongshindi",
+                "newyearnewmemotivationalsongs",
+                "bollywoodworkouthits",
+                "clubout",
+                "desigrind",
+                "rapkamausam",
+                "junglirap",
+                "cooppedupep",
+                "massappealgullygangshutdown",
+                "skrrtskrrt",
+                "micdropscene"));
+        blacklists.put("drv", Set.of(
+                "feelagainsingle",
+                "rightheresingle",
+                "blessingssingle",
+                "noonecouldloveyoumoresingle",
+                "aurasingle",
+                "demainsingle",
+                "secretsignalssingle",
+                "candlelightssingle",
+                "coldcircuitsingle",
+                "coolgirlssingle",
+                "moneygreedsingle",
+                "lafoulesingle",
+                "clubout",
+                "bleedinink",
+                "ukulelesongs",
+                "cclos",
+                "desihiphophits",
+                "drivenrockvision",
+                "drv",
+                "housepartysongs",
+                "dilliscene",
+                "rapbajao",
+                "bhartiyahiphop",
+                "electronicdeepsoundvol2",
+                "orphanblackthednasamplermusicfromtheoriginaltvseries"));
         return blacklists;
     }
 

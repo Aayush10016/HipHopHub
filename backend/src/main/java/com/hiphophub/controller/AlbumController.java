@@ -5,6 +5,8 @@ import com.hiphophub.dto.ArtistSimpleDTO;
 import com.hiphophub.model.Album;
 import com.hiphophub.model.Artist;
 import com.hiphophub.repository.AlbumRepository;
+import com.hiphophub.repository.ArtistRepository;
+import com.hiphophub.service.MusicImportService;
 import com.hiphophub.util.DhhArtistClassifier;
 import com.hiphophub.util.YouTubeLinkBuilder;
 import java.time.LocalDate;
@@ -36,6 +38,12 @@ public class AlbumController {
 
     @Autowired
     private AlbumRepository albumRepository;
+
+    @Autowired
+    private ArtistRepository artistRepository;
+
+    @Autowired
+    private MusicImportService musicImportService;
 
     /**
      * GET /api/albums
@@ -104,7 +112,16 @@ public class AlbumController {
      */
     @GetMapping("/artist/{artistId}")
     public List<AlbumDTO> getAlbumsByArtist(@PathVariable Long artistId) {
-        return dedupeAlbums(albumRepository.findByArtistId(artistId)).stream()
+        List<Album> directAlbums = albumRepository.findByArtistId(artistId);
+        if (directAlbums.isEmpty()) {
+            directAlbums = artistRepository.findById(artistId)
+                    .flatMap(artist -> musicImportService.resolveCatalogFallbackArtist(artist.getName()))
+                    .map(fallbackArtist -> albumRepository.findByArtistId(fallbackArtist.getId()))
+                    .orElse(List.of());
+        }
+
+        return dedupeAlbums(directAlbums).stream()
+                .filter(album -> !isLowValueCompilation(album))
                 .sorted(Comparator
                         .comparing((Album album) -> album.getReleaseDate() != null ? album.getReleaseDate() : LocalDate.MIN)
                         .reversed()
@@ -131,19 +148,40 @@ public class AlbumController {
         if (album == null || album.getType() == null) {
             return 99;
         }
+        int penalty = isLowValueCompilation(album) ? 10 : 0;
         if (album.getType() == Album.AlbumType.ALBUM) {
-            return 0;
+            return 0 + penalty;
         }
         if (album.getType() == Album.AlbumType.EP) {
-            return 1;
+            return 1 + penalty;
         }
         if (album.getType() == Album.AlbumType.SINGLE) {
-            return 2;
+            return 2 + penalty;
         }
         if (album.getType() == Album.AlbumType.APPEARS_ON) {
-            return 3;
+            return 3 + penalty;
         }
-        return 99;
+        return 99 + penalty;
+    }
+
+    private boolean isLowValueCompilation(Album album) {
+        if (album == null || album.getTitle() == null) {
+            return false;
+        }
+        String key = album.getTitle().toLowerCase(Locale.ROOT);
+        return key.contains("hits")
+                || key.contains("vibes")
+                || key.contains("workout")
+                || key.contains("motivational")
+                || key.contains("club out")
+                || key.contains("grind")
+                || key.contains("mausam")
+                || key.contains("scene")
+                || key.contains("house party")
+                || key.contains("live with music")
+                || key.contains("dance pop")
+                || key.contains("desi hip hop hits")
+                || (key.contains("mass appeal") && key.contains("shutdown"));
     }
 
     private String albumIdentityKey(Album album) {

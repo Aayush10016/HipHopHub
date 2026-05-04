@@ -152,12 +152,47 @@ public class ArtistController {
      */
     @GetMapping("/{id}/albums")
     public List<Album> getArtistAlbums(@PathVariable Long id) {
-        return albumRepository.findByArtistId(id).stream()
-                .sorted(Comparator
-                        .comparing((Album album) -> album.getReleaseDate() != null ? album.getReleaseDate() : LocalDate.MIN)
-                        .reversed()
-                        .thenComparing(Album::getId, Comparator.reverseOrder()))
-                .collect(Collectors.toList());
+        List<Album> directAlbums = albumRepository.findByArtistId(id);
+        if (!directAlbums.isEmpty()) {
+            return directAlbums.stream()
+                    .filter(album -> !isLowValueCompilation(album))
+                    .sorted(Comparator
+                            .comparing((Album album) -> album.getReleaseDate() != null ? album.getReleaseDate() : LocalDate.MIN)
+                            .reversed()
+                            .thenComparing(Album::getId, Comparator.reverseOrder()))
+                    .collect(Collectors.toList());
+        }
+
+        return artistRepository.findById(id)
+                .flatMap(artist -> musicImportService.resolveCatalogFallbackArtist(artist.getName()))
+                .map(fallbackArtist -> albumRepository.findByArtistId(fallbackArtist.getId()).stream()
+                        .filter(album -> !isLowValueCompilation(album))
+                        .sorted(Comparator
+                                .comparing((Album album) -> album.getReleaseDate() != null ? album.getReleaseDate() : LocalDate.MIN)
+                                .reversed()
+                                .thenComparing(Album::getId, Comparator.reverseOrder()))
+                        .collect(Collectors.toList()))
+                .orElse(List.of());
+    }
+
+    private boolean isLowValueCompilation(Album album) {
+        if (album == null || album.getTitle() == null) {
+            return false;
+        }
+        String key = album.getTitle().toLowerCase();
+        return key.contains("hits")
+                || key.contains("vibes")
+                || key.contains("workout")
+                || key.contains("motivational")
+                || key.contains("club out")
+                || key.contains("grind")
+                || key.contains("mausam")
+                || key.contains("scene")
+                || key.contains("house party")
+                || key.contains("live with music")
+                || key.contains("dance pop")
+                || key.contains("desi hip hop hits")
+                || (key.contains("mass appeal") && key.contains("shutdown"));
     }
 
     /**
