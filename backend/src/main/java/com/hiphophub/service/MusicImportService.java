@@ -698,10 +698,17 @@ public class MusicImportService {
             return overrideType;
         }
 
-        if (!isPrimaryArtistMatch(artist.getName(), track.getArtistName())) {
+        boolean primaryMatch = isPrimaryArtistMatch(artist.getName(), track.getArtistName());
+        boolean contributorMatch = isContributorMatch(artist.getName(), track.getArtistName());
+        boolean coPrimaryRelease = isLikelyCoPrimaryRelease(artist, track);
+
+        if (!primaryMatch && !contributorMatch) {
             return Album.AlbumType.APPEARS_ON;
         }
-        if (!isCollectionOwnedByArtist(artist, track)) {
+        if (!primaryMatch && !coPrimaryRelease) {
+            return Album.AlbumType.APPEARS_ON;
+        }
+        if (!isCollectionOwnedByArtist(artist, track) && !coPrimaryRelease) {
             return Album.AlbumType.APPEARS_ON;
         }
 
@@ -724,6 +731,23 @@ public class MusicImportService {
             return Album.AlbumType.EP;
         }
         return Album.AlbumType.ALBUM;
+    }
+
+    private boolean isLikelyCoPrimaryRelease(Artist artist, ITunesTrackDTO track) {
+        if (artist == null || track == null) {
+            return false;
+        }
+        if (!isContributorMatch(artist.getName(), track.getArtistName())) {
+            return false;
+        }
+
+        String collectionArtist = track.getCollectionArtistName();
+        if (collectionArtist == null || collectionArtist.isBlank()) {
+            return true;
+        }
+
+        return isPrimaryArtistMatch(artist.getName(), collectionArtist)
+                || isContributorMatch(artist.getName(), collectionArtist);
     }
 
     private Album.AlbumType resolveAlbumTypeOverride(Artist artist, ITunesTrackDTO track) {
@@ -1235,7 +1259,12 @@ public class MusicImportService {
                 new TrackQueryOverride("MC Headshot Bella", "Bella", true),
                 new TrackQueryOverride("Deep Kalsi Bella", "Bella", true),
                 new TrackQueryOverride("Kidshot Bella", "Bella", true),
-                new TrackQueryOverride("Siyaahi Bella", "Bella", true)));
+                new TrackQueryOverride("Siyaahi Bella", "Bella", true),
+                new TrackQueryOverride("UDD CHALE Bella", "Bella", true),
+                new TrackQueryOverride("Dukh Dard Peeda Bella", "Bella", true),
+                new TrackQueryOverride("Hangover MC Headshot Bella", "Bella", true),
+                new TrackQueryOverride("Caution MC Headshot Bella", "Bella", true),
+                new TrackQueryOverride("Space For Now Bella", "Bella", true)));
         overrides.put("gravity", List.of(
                 new TrackQueryOverride("Gravity Mtv Hustle", "Gravity", false)));
         overrides.put("dakaitshaddy", List.of(
