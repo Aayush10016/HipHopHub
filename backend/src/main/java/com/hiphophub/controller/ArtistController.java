@@ -192,6 +192,14 @@ public class ArtistController {
                 || key.contains("live with music")
                 || key.contains("dance pop")
                 || key.contains("desi hip hop hits")
+                || key.contains("best of")
+                || key.contains("republic day special")
+                || key.contains("independence day special")
+                || key.contains("power pack mix")
+                || key.contains("mashup")
+                || key.contains("episode.")
+                || key.contains("episode ")
+                || key.contains("trending version")
                 || (key.contains("mass appeal") && key.contains("shutdown"));
     }
 

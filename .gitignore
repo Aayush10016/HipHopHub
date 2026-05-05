@@ -25,6 +25,7 @@ Thumbs.db
 
 # Backend data files (H2 local database)
 backend/data/
+data/
 
 # Misc
 backend/curl
