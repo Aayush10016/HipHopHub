@@ -601,7 +601,7 @@ public class MusicImportService {
     }
 
     private boolean requiresStrictPreferredPrimaryMatch(String artistKey) {
-        return Set.of("drv", "deemc", "deepkalsi", "dinojames", "divine").contains(artistKey);
+        return Set.of("drv", "deemc", "deepkalsi", "dinojames", "divine", "emiwaybantai").contains(artistKey);
     }
 
     private void saveTracksForArtist(Artist artist, List<ITunesTrackDTO> tracks) {
@@ -1428,6 +1428,8 @@ public class MusicImportService {
                 "BAGI MUNDA is a Chandigarh-rooted DHH artist whose catalog mixes cinematic street rap, Punjabi-Hindi writing, and collaborative underground projects with producers and rappers from the newer wave."));
         overrides.put("deepkalsi", new ArtistOverride("Desi Hip-Hop",
                 "Deep Kalsi is a Punjabi rapper, producer, and hook specialist whose catalog sits at the crossover point between DHH, Punjabi rap, and melodic commercial collaborations."));
+        overrides.put("emiwaybantai", new ArtistOverride("Desi Hip-Hop",
+                "Emiway Bantai is a Mumbai rapper, songwriter, and independent label force whose catalog helped define street-first internet-era desi hip-hop through self-owned releases, diss records, melodic singles, and nonstop independent output."));
         overrides.put("brodhav", new ArtistOverride("Desi Hip-Hop",
                 "Brodha V is a Bengaluru rapper, writer, and performer known for fast cadences, multilingual flows, mythic references, and one of the longest-running independent rap catalogs in Indian hip-hop."));
         overrides.put("chaardiwaari", new ArtistOverride("Desi Hip-Hop",
@@ -1450,6 +1452,7 @@ public class MusicImportService {
         ids.put("deepkalsi", List.of(867605263L));
         ids.put("dinojames", List.of(1280415866L, 1705878575L));
         ids.put("divine", List.of(1086309021L));
+        ids.put("emiwaybantai", List.of(1450594347L));
         ids.put("devil", List.of(1246923845L));
         ids.put("drv", List.of(1618943292L));
         ids.put("yashraj", List.of(1530263031L));
@@ -1585,6 +1588,13 @@ public class MusicImportService {
                 new TrackQueryOverride("KR$NA Deep Kalsi", "Deep Kalsi", true),
                 new TrackQueryOverride("Deep Kalsi Bella", "Deep Kalsi", true),
                 new TrackQueryOverride("Deep Kalsi Sikander Kahlon", "Deep Kalsi", true)));
+        overrides.put("emiwaybantai", List.of(
+                new TrackQueryOverride("Young Galib Emiway Bantai", "Emiway Bantai", true),
+                new TrackQueryOverride("Swaalina Emiway Bantai", "Emiway Bantai", true),
+                new TrackQueryOverride("Meme Machine Emiway Bantai", "Emiway Bantai", true),
+                new TrackQueryOverride("Celina Sharma Emiway Bantai", "Emiway Bantai", true),
+                new TrackQueryOverride("Lazarus Emiway Bantai", "Emiway Bantai", true),
+                new TrackQueryOverride("Dax Emiway Bantai", "Emiway Bantai", true)));
         overrides.put("dinojames", List.of(
                 new TrackQueryOverride("Ikka Dino James Badshah", "Dino James", true),
                 new TrackQueryOverride("Vishal Mishra Dino James", "Dino James", true),
@@ -1658,6 +1668,9 @@ public class MusicImportService {
                 "lionheartfeatjeremyoceansandkarraextendedmix",
                 "monstamashup2019bydjnotoriousandlijogeorge",
                 "osajna"));
+        blacklists.put("emiwaybantai", Set.of(
+                "believememaxedit",
+                "companyremix"));
         blacklists.put("drv", Set.of(
                 "righthere",
                 "blessings",
