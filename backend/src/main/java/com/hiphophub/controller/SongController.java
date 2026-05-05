@@ -237,6 +237,8 @@ public class SongController {
                 .forEach(song -> bestByTitle.putIfAbsent(normalizeSongTitle(song.getTitle()), song));
 
         return bestByTitle.values().stream()
+                .filter(song -> !isLowValueCompilation(song.getAlbum()))
+                .filter(song -> !isDerivativeVariant(song))
                 .sorted(Comparator
                         .comparing((Song song) -> releaseDateOrMin(song.getAlbum()))
                         .reversed()
@@ -248,6 +250,9 @@ public class SongController {
         Album album = song != null ? song.getAlbum() : null;
         Album.AlbumType type = album != null ? album.getType() : null;
         int penalty = isLowValueCompilation(album) ? 10 : 0;
+        if (isDerivativeVariant(song)) {
+            penalty += 5;
+        }
         if (type == null) {
             return 99 + penalty;
         }
@@ -266,6 +271,27 @@ public class SongController {
         return 99 + penalty;
     }
 
+    private boolean isDerivativeVariant(Song song) {
+        if (song == null) {
+            return false;
+        }
+        String title = song.getTitle() != null ? song.getTitle().toLowerCase(Locale.ROOT) : "";
+        Album album = song.getAlbum();
+        String albumTitle = album != null && album.getTitle() != null ? album.getTitle().toLowerCase(Locale.ROOT) : "";
+        String combined = title + " " + albumTitle;
+        return combined.contains("remix")
+                || combined.contains("extended mix")
+                || combined.contains("punjabi edit")
+                || combined.contains("english edit")
+                || combined.contains("lofi")
+                || combined.contains("radio edit")
+                || combined.contains("club mix")
+                || combined.contains("party mix")
+                || combined.contains("drill version")
+                || combined.contains("boombox")
+                || combined.contains("nashik dhol remix");
+    }
+
     private boolean isLowValueCompilation(Album album) {
         if (album == null || album.getTitle() == null) {
             return false;
@@ -275,6 +301,8 @@ public class SongController {
                 || key.contains("vibes")
                 || key.contains("workout")
                 || key.contains("motivational")
+                || key.contains("30 mins")
+                || key.contains("grwm")
                 || key.contains("club out")
                 || key.contains("grind")
                 || key.contains("mausam")
@@ -282,10 +310,20 @@ public class SongController {
                 || key.contains("house party")
                 || key.contains("live with music")
                 || key.contains("dance pop")
+                || key.contains("dance")
                 || key.contains("desi hip hop hits")
                 || key.contains("best of")
                 || key.contains("republic day special")
                 || key.contains("independence day special")
+                || key.contains("hitlist")
+                || key.contains("love anthems")
+                || key.contains("warmup mixtape")
+                || key.contains("party mixtape")
+                || key.contains("urban asia")
+                || key.contains("electric asia")
+                || key.contains("all bamb")
+                || key.contains("pumping iron")
+                || key.contains("hyped up")
                 || key.contains("power pack mix")
                 || key.contains("mashup")
                 || key.contains("episode.")
