@@ -351,12 +351,15 @@ public class MusicImportService {
 
     public boolean hasCatalogFallback(String artistName) {
         String key = normalizeKey(artistName);
-        return List.of("calm").contains(key);
+        return List.of("calm", "encoreabj").contains(key);
     }
 
     public Optional<Artist> resolveCatalogFallbackArtist(String artistName) {
         String key = normalizeKey(artistName);
         if ("calm".equals(key)) {
+            return artistRepository.findByNameIgnoreCase("Seedhe Maut");
+        }
+        if ("encoreabj".equals(key)) {
             return artistRepository.findByNameIgnoreCase("Seedhe Maut");
         }
         return Optional.empty();
@@ -1430,6 +1433,44 @@ public class MusicImportService {
                 "Deep Kalsi is a Punjabi rapper, producer, and hook specialist whose catalog sits at the crossover point between DHH, Punjabi rap, and melodic commercial collaborations."));
         overrides.put("emiwaybantai", new ArtistOverride("Desi Hip-Hop",
                 "Emiway Bantai is a Mumbai rapper, songwriter, and independent label force whose catalog helped define street-first internet-era desi hip-hop through self-owned releases, diss records, melodic singles, and nonstop independent output."));
+        overrides.put("encoreabj", new ArtistOverride("Desi Hip-Hop",
+                "Encore ABJ is a Delhi rapper and writer best known as one half of Seedhe Maut, with a catalog built on sharp lyricism, restless flows, and modern underground Hindi rap."));
+        overrides.put("farhankhan", new ArtistOverride("Desi Hip-Hop",
+                "Farhan Khan is a Mumbai rapper and songwriter whose music mixes technical rap writing, cinematic storytelling, and polished hooks across solo work and collaborative scene records."));
+        overrides.put("fottyseven", new ArtistOverride("Desi Hip-Hop",
+                "Fotty Seven is a Delhi-NCR rapper known for punchline-heavy writing, localized references, and battle-bred swagger that made him a major DHH singles artist."));
+        overrides.put("frappeash", new ArtistOverride("Desi Hip-Hop",
+                "Frappe Ash is a Delhi rapper whose catalog blends introspection, conversational writing, and sharp scene-aware bars across solo work and collaborative underground projects."));
+        overrides.put("hanumankind", new ArtistOverride("Desi Hip-Hop",
+                "Hanumankind is an Indian rapper with a globally legible sound, aggressive delivery, and festival-scale presence built through English-language hip-hop records and standout performances."));
+        overrides.put("krna", new ArtistOverride("Desi Hip-Hop",
+                "KR$NA is a Delhi rapper celebrated for technical rhyme schemes, battle-tested lyricism, and one of the most consistent long-form catalogs in Indian hip-hop."));
+        overrides.put("loka", new ArtistOverride("Desi Hip-Hop",
+                "Loka is a Mumbai rapper from the street-rap side of the scene, known for direct local slang, aggressive singles, and collaborative records across newer-wave DHH."));
+        overrides.put("mcaltaf", new ArtistOverride("Desi Hip-Hop",
+                "MC Altaf is a Mumbai rapper from the original gully rap breakout wave, recognized for grounded street storytelling, cyphers, and long-running Gully Gang collaborations."));
+        overrides.put("mcamrit", new ArtistOverride("Desi Hip-Hop",
+                "MC Amrit is a Chandigarh-rooted rapper whose catalog runs through Punjabi-Hindi hip-hop collaborations, underground singles, and newer-wave North Indian rap records."));
+        overrides.put("mcsquare", new ArtistOverride("Desi Hip-Hop",
+                "MC Square is a Haryanvi rapper who brought regional storytelling, folk-rooted phrasing, and modern rap structure into the mainstream through a distinct North Indian sound."));
+        overrides.put("mcstan", new ArtistOverride("Desi Hip-Hop",
+                "MC Stan is a Pune rapper and producer whose catalog blends trap production, diaristic writing, and a raw street voice that reshaped modern Marathi-Hindi DHH aesthetics."));
+        overrides.put("mrunalshankar", new ArtistOverride("Desi Hip-Hop",
+                "Mrunal Shankar is an Indian rapper and songwriter known for technical versatility, performance-heavy cyphers, and bilingual records that bridge DHH and wider pop visibility."));
+        overrides.put("raftaar", new ArtistOverride("Desi Hip-Hop",
+                "Raftaar is a Delhi rapper, songwriter, and producer whose catalog spans hardcore rap, crossover hits, battle records, and one of the strongest collaborative networks in DHH."));
+        overrides.put("rawal", new ArtistOverride("Desi Hip-Hop",
+                "Rawal is a Delhi rapper and curator whose catalog sits deep in the underground, balancing experimental collaborations, posse records, and stylish left-field rap writing."));
+        overrides.put("seedhemaut", new ArtistOverride("Desi Hip-Hop",
+                "Seedhe Maut are a Delhi rap duo made up of Calm and Encore ABJ, known for relentless lyricism, modern production choices, and one of the defining catalogs in contemporary DHH."));
+        overrides.put("sambata", new ArtistOverride("Desi Hip-Hop",
+                "Sambata is a Marathi rapper associated with socially rooted, street-facing records and one of the strongest regional voices in the wider Indian hip-hop ecosystem."));
+        overrides.put("sos", new ArtistOverride("Desi Hip-Hop",
+                "SOS is a Kashmiri hip-hop act associated with politically sharp writing, regional identity, and underground collaborative records from the valley scene."));
+        overrides.put("srushtitawade", new ArtistOverride("Desi Hip-Hop",
+                "Srushti Tawade is an Indian rapper and songwriter whose visibility grew through performance-led platforms, fast writing, and internet-native Hindi rap storytelling."));
+        overrides.put("yungsta", new ArtistOverride("Desi Hip-Hop",
+                "Yungsta is a Delhi rapper known for intricate bars, scene-heavy collaborations, and a catalog that balances technical solo work with major underground posse records."));
         overrides.put("brodhav", new ArtistOverride("Desi Hip-Hop",
                 "Brodha V is a Bengaluru rapper, writer, and performer known for fast cadences, multilingual flows, mythic references, and one of the longest-running independent rap catalogs in Indian hip-hop."));
         overrides.put("chaardiwaari", new ArtistOverride("Desi Hip-Hop",
@@ -1453,16 +1494,38 @@ public class MusicImportService {
         ids.put("dinojames", List.of(1280415866L, 1705878575L));
         ids.put("divine", List.of(1086309021L));
         ids.put("emiwaybantai", List.of(1450594347L));
+        ids.put("encoreabj", List.of(1112331589L));
         ids.put("devil", List.of(1246923845L));
         ids.put("drv", List.of(1618943292L));
+        ids.put("farhankhan", List.of(1519162480L, 391552685L));
         ids.put("yashraj", List.of(1530263031L));
+        ids.put("frappeash", List.of(1140931280L));
+        ids.put("hanumankind", List.of(1458932353L));
         ids.put("king", List.of(1489995981L));
+        ids.put("krna", List.of(1462405977L));
+        ids.put("loka", List.of(1462573207L, 1473667022L, 1766187119L));
+        ids.put("mcaltaf", List.of(1398832173L));
+        ids.put("mcamrit", List.of(1500017565L));
+        ids.put("mcsquare", List.of(1604955410L));
+        ids.put("mcstan", List.of(1530205305L));
+        ids.put("mrunalshankar", List.of(1481856751L));
         ids.put("paradox", List.of(1680197168L));
+        ids.put("raftaar", List.of(574786227L));
+        ids.put("rawal", List.of(1512171268L));
+        ids.put("seedhemaut", List.of(1233336608L));
+        ids.put("shahrule", List.of(605505326L));
+        ids.put("sos", List.of(1021628309L, 1450563783L));
+        ids.put("srushtitawade", List.of(1635306761L));
+        ids.put("sambata", List.of(1585494169L));
         ids.put("bella", List.of(1529015408L));
         ids.put("nanku", List.of(1677419924L));
         ids.put("raga", List.of(162661216L));
         ids.put("ikka", List.of(545256421L));
         ids.put("gravity", List.of(130799L));
+        ids.put("vijaydk", List.of(1538654885L));
+        ids.put("kidshot", List.of(1130075101L));
+        ids.put("kaambhaari", List.of(1450523832L));
+        ids.put("yungsta", List.of(1489187757L, 289017644L));
         return ids;
     }
 
@@ -1595,6 +1658,52 @@ public class MusicImportService {
                 new TrackQueryOverride("Celina Sharma Emiway Bantai", "Emiway Bantai", true),
                 new TrackQueryOverride("Lazarus Emiway Bantai", "Emiway Bantai", true),
                 new TrackQueryOverride("Dax Emiway Bantai", "Emiway Bantai", true)));
+        overrides.put("encoreabj", List.of(
+                new TrackQueryOverride("Seedhe Maut Encore ABJ", "Encore ABJ", true),
+                new TrackQueryOverride("Calm Encore ABJ", "Encore ABJ", true)));
+        overrides.put("farhankhan", List.of(
+                new TrackQueryOverride("DRV Farhan Khan", "Farhan Khan", true),
+                new TrackQueryOverride("Shah Rule Farhan Khan", "Farhan Khan", true),
+                new TrackQueryOverride("Sammohit Farhan Khan", "Farhan Khan", true)));
+        overrides.put("frappeash", List.of(
+                new TrackQueryOverride("Yungsta Frappe Ash", "Frappe Ash", true),
+                new TrackQueryOverride("Qaab Frappe Ash", "Frappe Ash", true),
+                new TrackQueryOverride("Dhanji Frappe Ash", "Frappe Ash", true),
+                new TrackQueryOverride("Rawal Frappe Ash", "Frappe Ash", true)));
+        overrides.put("krna", List.of(
+                new TrackQueryOverride("Raftaar KR$NA", "KR$NA", true),
+                new TrackQueryOverride("Badshah KR$NA", "KR$NA", true),
+                new TrackQueryOverride("Deep Kalsi KR$NA", "KR$NA", true),
+                new TrackQueryOverride("Karma KR$NA", "KR$NA", true)));
+        overrides.put("mcaltaf", List.of(
+                new TrackQueryOverride("DIVINE MC Altaf", "MC Altaf", true),
+                new TrackQueryOverride("D Evil MC Altaf", "MC Altaf", true),
+                new TrackQueryOverride("Stylo G MC Altaf", "MC Altaf", true)));
+        overrides.put("raftaar", List.of(
+                new TrackQueryOverride("Badshah Raftaar", "Raftaar", true),
+                new TrackQueryOverride("KR$NA Raftaar", "Raftaar", true),
+                new TrackQueryOverride("Deep Kalsi Raftaar", "Raftaar", true),
+                new TrackQueryOverride("Karma Raftaar", "Raftaar", true),
+                new TrackQueryOverride("Rashmeet Kaur Raftaar", "Raftaar", true)));
+        overrides.put("rawal", List.of(
+                new TrackQueryOverride("Bharg Rawal", "Rawal", true),
+                new TrackQueryOverride("Karan Kanchan Rawal", "Rawal", true),
+                new TrackQueryOverride("Saar Punch Rawal", "Rawal", true),
+                new TrackQueryOverride("Dhanji Rawal", "Rawal", true)));
+        overrides.put("seedhemaut", List.of(
+                new TrackQueryOverride("Calm Seedhe Maut", "Seedhe Maut", true),
+                new TrackQueryOverride("Encore ABJ Seedhe Maut", "Seedhe Maut", true),
+                new TrackQueryOverride("Sez on the Beat Seedhe Maut", "Seedhe Maut", true),
+                new TrackQueryOverride("Sos Seedhe Maut", "Seedhe Maut", true)));
+        overrides.put("shahrule", List.of(
+                new TrackQueryOverride("DIVINE Shah Rule", "Shah Rule", true),
+                new TrackQueryOverride("D Evil Shah Rule", "Shah Rule", true),
+                new TrackQueryOverride("MC Altaf Shah Rule", "Shah Rule", true)));
+        overrides.put("yungsta", List.of(
+                new TrackQueryOverride("Sez on the Beat Yungsta", "Yungsta", true),
+                new TrackQueryOverride("Frappe Ash Yungsta", "Yungsta", true),
+                new TrackQueryOverride("KR$NA Yungsta", "Yungsta", true),
+                new TrackQueryOverride("Seedhe Maut Yungsta", "Yungsta", true)));
         overrides.put("dinojames", List.of(
                 new TrackQueryOverride("Ikka Dino James Badshah", "Dino James", true),
                 new TrackQueryOverride("Vishal Mishra Dino James", "Dino James", true),
