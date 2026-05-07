@@ -11,6 +11,7 @@ public final class YouTubeLinkBuilder {
     private static final String BASE_URL = "https://www.youtube.com/results?search_query=";
     private static final Map<String, String> DIRECT_SONG_URL_OVERRIDES = buildDirectSongUrlOverrides();
     private static final Map<String, String> SONG_QUERY_OVERRIDES = buildSongQueryOverrides();
+    private static final Map<String, String> ARTIST_QUERY_ALIASES = buildArtistQueryAliases();
 
     private YouTubeLinkBuilder() {
     }
@@ -21,14 +22,16 @@ public final class YouTubeLinkBuilder {
             return directUrl;
         }
         String cleanedTitle = stripDecorators(songTitle);
+        String artistAlias = ARTIST_QUERY_ALIASES.getOrDefault(normalizeKey(artistName), safe(artistName));
         String query = SONG_QUERY_OVERRIDES.getOrDefault(
                 normalizeKey(artistName) + ":" + normalizeKey(songTitle),
-                safe(artistName) + " " + safe(cleanedTitle.isBlank() ? songTitle : cleanedTitle) + " official audio");
+                artistAlias + " " + safe(cleanedTitle.isBlank() ? songTitle : cleanedTitle) + " official audio");
         return BASE_URL + URLEncoder.encode(query.trim(), StandardCharsets.UTF_8);
     }
 
     public static String forAlbum(String artistName, String albumTitle) {
-        String query = safe(artistName) + " " + safe(albumTitle) + " full album";
+        String artistAlias = ARTIST_QUERY_ALIASES.getOrDefault(normalizeKey(artistName), safe(artistName));
+        String query = artistAlias + " " + safe(albumTitle) + " full album";
         return BASE_URL + URLEncoder.encode(query.trim(), StandardCharsets.UTF_8);
     }
 
@@ -57,12 +60,51 @@ public final class YouTubeLinkBuilder {
     private static Map<String, String> buildSongQueryOverrides() {
         Map<String, String> overrides = new HashMap<>();
         overrides.put("bella:tothemoon", "Byg Smyle Bella To the Moon official audio");
+        overrides.put("bella:jeemeralagdanai", "Byg Smyle Bella Jee Mera Lagda Nai official video");
+        overrides.put("bella:bekaboo", "Bella Bekaboo official audio");
+        overrides.put("bella:muqabla", "Bella Muqabla official audio");
+        overrides.put("yashraj:mujheyegaanapasandhai", "YashRaj Mujhe Ye Gaana Pasand Hai official video");
         return overrides;
+    }
+
+    private static Map<String, String> buildArtistQueryAliases() {
+        Map<String, String> aliases = new HashMap<>();
+        aliases.put("ab17", "ab17 rapper india");
+        aliases.put("agsy", "Agsy rapper india");
+        aliases.put("ahmer", "Ahmer rapper india");
+        aliases.put("bagimunda", "BAGI MUNDA rapper india");
+        aliases.put("bella", "Bella rapper india");
+        aliases.put("brodhav", "Brodha V rapper india");
+        aliases.put("king", "King rapper india");
+        aliases.put("karma", "Karma rapper india");
+        aliases.put("calm", "Calm Seedhe Maut");
+        aliases.put("chaardiwaari", "Chaar Diwaari rapper india");
+        aliases.put("devil", "D Evil rapper india");
+        aliases.put("deemc", "Dee MC rapper india");
+        aliases.put("deepkalsi", "Deep Kalsi official");
+        aliases.put("dhanji", "Dhanji rapper india");
+        aliases.put("dinojames", "Dino James official");
+        aliases.put("divine", "DIVINE rapper india");
+        aliases.put("dopeadelicz", "Dopeadelicz rapper india");
+        aliases.put("drv", "DRV rapper india");
+        aliases.put("encoreabj", "Encore ABJ Seedhe Maut");
+        aliases.put("gravity", "Gravity rapper india");
+        aliases.put("panther", "Panther rapper india");
+        aliases.put("nanku", "Nanku rapper india");
+        aliases.put("rawal", "Rawal rapper india");
+        aliases.put("shahrule", "Shah Rule rapper india");
+        aliases.put("dakaitshaddy", "Dakait Shaddy rapper india");
+        aliases.put("mckode", "MC Kode rapper india");
+        aliases.put("mcheadshot", "MC Headshot rapper india");
+        aliases.put("mrunalshankar", "Mrunal Shankar rapper india");
+        aliases.put("yashraj", "YashRaj rapper india");
+        return aliases;
     }
 
     private static Map<String, String> buildDirectSongUrlOverrides() {
         Map<String, String> overrides = new HashMap<>();
         putDirectSong(overrides, "Bella", "To the Moon", "https://www.youtube.com/watch?v=Ja5r6ZjZ8fQ");
+        putDirectSong(overrides, "Bella", "Jee Mera Lagda Nai", "https://www.youtube.com/watch?v=3Lq3KppYoq8");
 
         putDirectSong(overrides, "AP Dhillon", "Thinking of You", "https://www.youtube.com/watch?v=uTZ1JqiQPk4");
         putDirectSong(overrides, "AP Dhillon", "Raatan Lambiyan", "https://www.youtube.com/watch?v=6w0rHWNxneA");

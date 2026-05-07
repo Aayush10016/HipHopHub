@@ -41,6 +41,7 @@ public class SongController {
     private static final String DEFAULT_COVER =
             "https://images.unsplash.com/photo-1511379938547-c1f69419868d?auto=format&fit=crop&w=800&q=80";
     private static final Duration RANDOM_CACHE_TTL = Duration.ofMinutes(3);
+    private static final int CATALOG_FALLBACK_THRESHOLD = 10;
 
     @Autowired
     private SongRepository songRepository;
@@ -196,19 +197,24 @@ public class SongController {
     @GetMapping("/artist/{artistId}")
     public List<SongDTO> getSongsByArtist(@PathVariable Long artistId) {
         List<Song> directSongs = songRepository.findByAlbumArtistId(artistId);
-        if (!directSongs.isEmpty()) {
-            return dedupeArtistSongs(directSongs).stream()
-                    .map(this::convertToDTO)
-                    .collect(Collectors.toList());
+        List<Song> effectiveSongs = directSongs;
+
+        if (directSongs.size() < CATALOG_FALLBACK_THRESHOLD) {
+            List<Song> baseSongs = directSongs;
+            effectiveSongs = artistRepository.findById(artistId)
+                    .filter(artist -> musicImportService.hasCatalogFallback(artist.getName()))
+                    .flatMap(artist -> artistRepository.findByNameIgnoreCase("Seedhe Maut"))
+                    .map(relatedArtist -> {
+                        List<Song> merged = new ArrayList<>(baseSongs);
+                        merged.addAll(songRepository.findByAlbumArtistId(relatedArtist.getId()));
+                        return merged;
+                    })
+                    .orElse(baseSongs);
         }
 
-        return artistRepository.findById(artistId)
-                .filter(artist -> musicImportService.hasCatalogFallback(artist.getName()))
-                .flatMap(artist -> artistRepository.findByNameIgnoreCase("Seedhe Maut"))
-                .map(relatedArtist -> dedupeArtistSongs(songRepository.findByAlbumArtistId(relatedArtist.getId())).stream()
-                        .map(this::convertToDTO)
-                        .collect(Collectors.toList()))
-                .orElse(List.of());
+        return dedupeArtistSongs(effectiveSongs).stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
     }
 
     @GetMapping("/album/{albumId}")
@@ -280,6 +286,15 @@ public class SongController {
         String albumTitle = album != null && album.getTitle() != null ? album.getTitle().toLowerCase(Locale.ROOT) : "";
         String combined = title + " " + albumTitle;
         return combined.contains("remix")
+                || combined.contains("mixed")
+                || combined.contains("acoustic")
+                || combined.contains("phonk")
+                || combined.contains("synthwave")
+                || combined.contains("sythwave")
+                || combined.contains("slowed")
+                || combined.contains("reverb")
+                || combined.contains("lo-fi")
+                || combined.contains("alternate version")
                 || combined.contains("extended mix")
                 || combined.contains("punjabi edit")
                 || combined.contains("english edit")
@@ -326,8 +341,6 @@ public class SongController {
                 || key.contains("hyped up")
                 || key.contains("power pack mix")
                 || key.contains("mashup")
-                || key.contains("episode.")
-                || key.contains("episode ")
                 || key.contains("trending version")
                 || (key.contains("mass appeal") && key.contains("shutdown"));
     }

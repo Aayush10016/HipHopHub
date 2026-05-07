@@ -50,6 +50,8 @@ public class MusicImportService {
 
     private static final String LASTFM_PLACEHOLDER_TOKEN = "2a96cbd8b46e442fc41c2b86b821562f";
     private static final Map<String, ArtistOverride> ARTIST_OVERRIDES = buildArtistOverrides();
+    private static final Map<String, String> DISPLAY_NAME_OVERRIDES = buildDisplayNameOverrides();
+    private static final Set<String> PUBLIC_DHH_ARTIST_KEYS = buildPublicDhhArtistKeys();
     private static final Map<String, List<Long>> PREFERRED_ITUNES_ARTIST_IDS = buildPreferredItunesArtistIds();
     private static final Map<String, Album.AlbumType> ALBUM_TYPE_OVERRIDES = buildAlbumTypeOverrides();
     private static final Map<String, List<TrackQueryOverride>> TRACK_QUERY_OVERRIDES = buildTrackQueryOverrides();
@@ -349,6 +351,25 @@ public class MusicImportService {
         return artist;
     }
 
+    public boolean shouldFeatureArtistInDhhCatalog(Artist artist) {
+        artist = enrichArtistForDisplay(artist);
+        if (artist == null) {
+            return false;
+        }
+
+        String key = normalizeKey(artist.getName());
+        if (!PUBLIC_DHH_ARTIST_KEYS.contains(key) && !hasCatalogFallback(artist.getName())) {
+            return false;
+        }
+
+        String bio = safe(artist.getBio(), "").trim();
+        if (bio.isBlank() || isGenericBio(bio)) {
+            return false;
+        }
+
+        return songRepository.countByAlbumArtistId(artist.getId()) > 0 || hasCatalogFallback(artist.getName());
+    }
+
     public boolean hasCatalogFallback(String artistName) {
         String key = normalizeKey(artistName);
         return List.of("calm", "encoreabj").contains(key);
@@ -502,6 +523,68 @@ public class MusicImportService {
                     "lionheartfeatjeremyoceansandkarra",
                     "osajna",
                     "nayasherfeatviratkohlipunjabiedit");
+        } else if ("naamsujal".equals(artistKey)) {
+            exactQueries = List.of(
+                    new TrackQueryOverride("Naam Sujal Aditya Pushkarna", "Naam Sujal", true),
+                    new TrackQueryOverride("Naam Sujal MTV Hustle", "Naam Sujal", true),
+                    new TrackQueryOverride("Naam Sujal Bhaago", "Naam Sujal", true),
+                    new TrackQueryOverride("Naam Sujal Blueprint", "Naam Sujal", true),
+                    new TrackQueryOverride("Naam Sujal Protocol", "Naam Sujal", true),
+                    new TrackQueryOverride("Naam Sujal Vishay Khatam", "Naam Sujal", true),
+                    new TrackQueryOverride("Naam Sujal PYAAR", "Naam Sujal", true),
+                    new TrackQueryOverride("Naam Sujal Shit Dawg", "Naam Sujal", true),
+                    new TrackQueryOverride("Naam Sujal Mudda Kya Hai", "Naam Sujal", true),
+                    new TrackQueryOverride("Naam Sujal Dafli Wale", "Naam Sujal", true));
+
+            allowedTitles = Set.of(
+                    "bhaago",
+                    "waapasmilengewahi",
+                    "protocol",
+                    "vishaykhatam",
+                    "pyaar",
+                    "blueprint",
+                    "shitdawg",
+                    "muddakyahai",
+                    "dafliwalethehustleflip",
+                    "shehersedurr",
+                    "blindspot",
+                    "3aminnagpur",
+                    "block");
+        } else if ("gd47".equals(artistKey)) {
+            exactQueries = List.of(
+                    new TrackQueryOverride("GD 47 Hustle", "GD 47", true),
+                    new TrackQueryOverride("GD 47 MTV Hustle", "GD 47", true),
+                    new TrackQueryOverride("GD 47 Real Talk", "GD 47", true),
+                    new TrackQueryOverride("GD 47 Bipolar", "GD 47", true),
+                    new TrackQueryOverride("GD 47 Brain Freeze", "GD 47", true),
+                    new TrackQueryOverride("GD 47 Santaali 47", "GD 47", true));
+
+            allowedTitles = Set.of(
+                    "showtime",
+                    "bipolar",
+                    "diy",
+                    "pov",
+                    "brainfreeze",
+                    "santaali47",
+                    "ammi",
+                    "realtalk",
+                    "24ghante",
+                    "bipolarstudioversion2020");
+        } else if ("sos".equals(artistKey)) {
+            exactQueries = List.of(
+                    new TrackQueryOverride("SOS 30KEY Ahmer", "SOS", true),
+                    new TrackQueryOverride("SOS Prxphecy", "SOS", true),
+                    new TrackQueryOverride("SOS Tufail", "SOS", true),
+                    new TrackQueryOverride("SOS Kashmir hip hop", "SOS", true));
+
+            allowedTitles = Set.of(
+                    "chatak",
+                    "behoshi",
+                    "gumshuda",
+                    "kashmir",
+                    "kotarbazi",
+                    "kaalbaefi",
+                    "leak2021kaatib");
         } else {
             return;
         }
@@ -569,17 +652,41 @@ public class MusicImportService {
 
     private List<ITunesTrackDTO> filterKnownNameCollisions(String artistName, List<ITunesTrackDTO> tracks) {
         String normalizedArtist = normalizeKey(artistName);
-        if (!"yashraj".equals(normalizedArtist)) {
-            return tracks;
+        if ("yashraj".equals(normalizedArtist)) {
+            return tracks.stream()
+                    .filter(track -> {
+                        String trackArtist = normalizeKey(track.getArtistName());
+                        String collectionArtist = normalizeKey(track.getCollectionArtistName());
+                        return !trackArtist.contains("mukhate") && !collectionArtist.contains("mukhate");
+                    })
+                    .collect(Collectors.toList());
         }
 
-        return tracks.stream()
-                .filter(track -> {
-                    String trackArtist = normalizeKey(track.getArtistName());
-                    String collectionArtist = normalizeKey(track.getCollectionArtistName());
-                    return !trackArtist.contains("mukhate") && !collectionArtist.contains("mukhate");
-                })
-                .collect(Collectors.toList());
+        if ("sos".equals(normalizedArtist)) {
+            Set<String> allowedKeywords = Set.of(
+                    "30key",
+                    "prxphecy",
+                    "ahmer",
+                    "tufail",
+                    "kashmir",
+                    "kaatib",
+                    "keef",
+                    "gumshuda",
+                    "chatak",
+                    "behoshi",
+                    "kaalbaefi",
+                    "kotarbazi");
+            return tracks.stream()
+                    .filter(track -> containsAnyKeyword(
+                            allowedKeywords,
+                            track.getArtistName(),
+                            track.getCollectionArtistName(),
+                            track.getTrackName(),
+                            track.getCollectionName()))
+                    .collect(Collectors.toList());
+        }
+
+        return tracks;
     }
 
     private List<ITunesTrackDTO> retainPreferredPrimaryTracks(String artistName, List<ITunesTrackDTO> tracks) {
@@ -604,7 +711,17 @@ public class MusicImportService {
     }
 
     private boolean requiresStrictPreferredPrimaryMatch(String artistKey) {
-        return Set.of("drv", "deemc", "deepkalsi", "dinojames", "divine", "emiwaybantai").contains(artistKey);
+        return Set.of(
+                "drv",
+                "deemc",
+                "deepkalsi",
+                "dinojames",
+                "divine",
+                "emiwaybantai",
+                "krna",
+                "mcstan",
+                "rawal",
+                "seedhemaut").contains(artistKey);
     }
 
     private void saveTracksForArtist(Artist artist, List<ITunesTrackDTO> tracks) {
@@ -1324,6 +1441,11 @@ public class MusicImportService {
         }
 
         String key = normalizeKey(firstNonBlank(artist.getName(), requestedArtistName));
+        String displayName = DISPLAY_NAME_OVERRIDES.get(key);
+        if (displayName != null && !displayName.isBlank() && !displayName.equals(artist.getName())) {
+            artist.setName(displayName);
+        }
+
         ArtistOverride override = ARTIST_OVERRIDES.get(key);
         if (override == null) {
             return;
@@ -1406,7 +1528,8 @@ public class MusicImportService {
         overrides.put("drv", new ArtistOverride("Desi Hip-Hop",
                 "DRV is a Delhi rapper whose catalog blends melodic trap, conversational writing, and collaborative DHH records across solo projects, EPs, and feature-heavy releases."));
         overrides.put("dakaitshaddy", new ArtistOverride("Desi Hip-Hop",
-                "Dakait Shaddy is a North Indian hip-hop artist tied to the Dakait camp, with a catalog shaped by rugged flows, regional slang, and underground rap collaborations."));
+                "Dakait Shaddy is a North Indian hip-hop artist tied to the Dakait camp, with a catalog shaped by rugged flows, regional slang, and underground rap collaborations.",
+                ""));
         overrides.put("epriyer", new ArtistOverride("Desi Hip-Hop",
                 "EPR Iyer is an Indian rapper celebrated for dense writing, socio-political themes, and one of the most technically demanding flows in the scene."));
         overrides.put("kaambhaari", new ArtistOverride("Desi Hip-Hop",
@@ -1423,7 +1546,7 @@ public class MusicImportService {
                 "Agsy is a Delhi rapper and performer whose catalog blends battle energy, melody, and confident crossover writing across singles, cyphers, and collaborative DHH releases."));
         overrides.put("ahmer", new ArtistOverride("Desi Hip-Hop",
                 "Ahmer is a Kashmiri rapper and songwriter whose music blends political clarity, regional identity, and modern DHH production into one of the strongest catalogs from the valley."));
-        overrides.put("apdhillon", new ArtistOverride("Punjabi",
+        overrides.put("apdhillon", new ArtistOverride("Desi Hip-Hop",
                 "AP Dhillon is a Punjabi singer, rapper, and songwriter whose catalog helped push modern North American Punjabi rap and melodic crossover records deep into the Indian mainstream."));
         overrides.put("badshah", new ArtistOverride("Desi Hip-Hop",
                 "Badshah is a Delhi rapper, songwriter, and hitmaker who built one of the biggest catalogs in Indian hip-hop by balancing commercial hooks, rap writing, and crossover pop production."));
@@ -1456,7 +1579,8 @@ public class MusicImportService {
         overrides.put("mcstan", new ArtistOverride("Desi Hip-Hop",
                 "MC Stan is a Pune rapper and producer whose catalog blends trap production, diaristic writing, and a raw street voice that reshaped modern Marathi-Hindi DHH aesthetics."));
         overrides.put("mrunalshankar", new ArtistOverride("Desi Hip-Hop",
-                "Mrunal Shankar is an Indian rapper and songwriter known for technical versatility, performance-heavy cyphers, and bilingual records that bridge DHH and wider pop visibility."));
+                "Mrunal Shankar is an Indian rapper and songwriter known for technical versatility, performance-heavy cyphers, and bilingual records that bridge DHH and wider pop visibility.",
+                ""));
         overrides.put("raftaar", new ArtistOverride("Desi Hip-Hop",
                 "Raftaar is a Delhi rapper, songwriter, and producer whose catalog spans hardcore rap, crossover hits, battle records, and one of the strongest collaborative networks in DHH."));
         overrides.put("rawal", new ArtistOverride("Desi Hip-Hop",
@@ -1475,7 +1599,60 @@ public class MusicImportService {
                 "Brodha V is a Bengaluru rapper, writer, and performer known for fast cadences, multilingual flows, mythic references, and one of the longest-running independent rap catalogs in Indian hip-hop."));
         overrides.put("chaardiwaari", new ArtistOverride("Desi Hip-Hop",
                 "Chaar Diwaari is a Delhi artist and producer whose catalog pushes experimental Hindi hip-hop through abrasive production, unconventional songwriting, and a strong visual identity."));
+        overrides.put("dopeadelicz", new ArtistOverride("Desi Hip-Hop",
+                "Dopeadelicz are a Mumbai hip-hop collective linked to street rap, soundtrack crossovers, and the broader wave of artists who moved city rap into the mainstream conversation."));
+        overrides.put("enkore", new ArtistOverride("Desi Hip-Hop",
+                "ENKORE is a Mumbai rapper and songwriter whose catalog balances lyrical technique, reflective writing, and one of the earlier independent voices in the Indian rap scene."));
+        overrides.put("flowbo", new ArtistOverride("Desi Hip-Hop",
+                "Flowbo is an Indian rapper associated with the newer independent wave, known for sharp cadence work, underground collaborations, and drill-leaning energy."));
+        overrides.put("fullpower", new ArtistOverride("Desi Hip-Hop",
+                "Full Power are a Delhi rap duo whose catalog mixes battle energy, underground posse cuts, and scene-rooted Hindi rap writing."));
+        overrides.put("gd47", new ArtistOverride("Desi Hip-Hop",
+                "GD47 is an Indian battle rapper and songwriter known for aggressive delivery, technical writing, and high-energy independent releases."));
+        overrides.put("harjasharjaayi", new ArtistOverride("Desi Hip-Hop",
+                "Harjas Harjaayi is a Delhi rapper whose catalog moves between sharp bar-work, diss culture, and melodic independent singles across the wider DHH circuit."));
+        overrides.put("jtrix", new ArtistOverride("Desi Hip-Hop",
+                "J Trix is a Mumbai rapper known for polished delivery, reflective hooks, and mainstream-ready rap records anchored in the Indian independent scene."));
+        overrides.put("karanaujla", new ArtistOverride("Desi Hip-Hop",
+                "Karan Aujla is a Punjabi songwriter, singer, and rapper whose catalog sits at the commercial edge of the wider desi rap ecosystem."));
+        overrides.put("lilbhavi", new ArtistOverride("Desi Hip-Hop",
+                "Lil Bhavi is a younger-wave Indian rapper whose catalog blends melodic writing, internet-era flows, and collaborative underground releases."));
+        overrides.put("mcheadshot", new ArtistOverride("Desi Hip-Hop",
+                "MC Headshot is an Indian rapper known for battle-hardened writing, sharp cypher performances, and a strong presence in the independent scene."));
+        overrides.put("mckode", new ArtistOverride("Desi Hip-Hop",
+                "MC Kode is a Delhi battle rapper and songwriter whose catalog leans on technical bars, cypher culture, and gritty independent rap energy."));
+        overrides.put("riarsaab", new ArtistOverride("Desi Hip-Hop",
+                "Riar Saab is a Punjabi singer and rapper whose catalog connects melodic crossover records with the broader desi rap and independent music audience."));
+        overrides.put("sammohit", new ArtistOverride("Desi Hip-Hop",
+                "Sammohit is an Indian rapper known for underground collaborations, technical writing, and deep roots in battle and cypher culture."));
+        overrides.put("tsumyoki", new ArtistOverride("Desi Hip-Hop",
+                "Tsumyoki is a Goa artist whose catalog blends rap, melody, alt-pop instincts, and one of the most versatile English-language sounds in modern DHH."));
+        overrides.put("wolfcryman", new ArtistOverride("Desi Hip-Hop",
+                "wolf.cryman is a bilingual Indian rapper whose catalog mixes humor, melody, and left-field songwriting with a strong internet-native DHH identity."));
         return overrides;
+    }
+
+    private static Map<String, String> buildDisplayNameOverrides() {
+        Map<String, String> overrides = new HashMap<>();
+        overrides.put("devil", "D'Evil");
+        overrides.put("deemc", "Dee MC");
+        overrides.put("epriyer", "EPR Iyer");
+        overrides.put("hanumankind", "Hanumankind");
+        overrides.put("krna", "KR$NA");
+        overrides.put("mcaltaf", "MC Altaf");
+        overrides.put("mcamrit", "MC Amrit");
+        overrides.put("mcheadshot", "MC Headshot");
+        overrides.put("mckode", "MC Kode");
+        overrides.put("mcsquare", "MC Square");
+        overrides.put("mcstan", "MC Stan");
+        overrides.put("prabhdeep", "Prabh Deep");
+        overrides.put("shahrule", "Shah Rule");
+        overrides.put("bagimunda", "BAGI MUNDA");
+        return overrides;
+    }
+
+    private static Set<String> buildPublicDhhArtistKeys() {
+        return Set.copyOf(ARTIST_OVERRIDES.keySet());
     }
 
     private static Map<String, List<Long>> buildPreferredItunesArtistIds() {
@@ -1514,7 +1691,6 @@ public class MusicImportService {
         ids.put("rawal", List.of(1512171268L));
         ids.put("seedhemaut", List.of(1233336608L));
         ids.put("shahrule", List.of(605505326L));
-        ids.put("sos", List.of(1021628309L, 1450563783L));
         ids.put("srushtitawade", List.of(1635306761L));
         ids.put("sambata", List.of(1585494169L));
         ids.put("bella", List.of(1529015408L));
@@ -1695,6 +1871,20 @@ public class MusicImportService {
                 new TrackQueryOverride("Encore ABJ Seedhe Maut", "Seedhe Maut", true),
                 new TrackQueryOverride("Sez on the Beat Seedhe Maut", "Seedhe Maut", true),
                 new TrackQueryOverride("Sos Seedhe Maut", "Seedhe Maut", true)));
+        overrides.put("sos", List.of(
+                new TrackQueryOverride("SOS 30KEY", "SOS", true),
+                new TrackQueryOverride("SOS Prxphecy", "SOS", true),
+                new TrackQueryOverride("SOS Ahmer", "SOS", true),
+                new TrackQueryOverride("SOS Kashmir", "SOS", true),
+                new TrackQueryOverride("SOS Tufail", "SOS", true)));
+        overrides.put("naamsujal", List.of(
+                new TrackQueryOverride("Naam Sujal Aditya Pushkarna", "Naam Sujal", true),
+                new TrackQueryOverride("Naam Sujal MTV Hustle", "Naam Sujal", true),
+                new TrackQueryOverride("Naam Sujal Gravity 30KEY", "Naam Sujal", true)));
+        overrides.put("gd47", List.of(
+                new TrackQueryOverride("GD 47", "GD 47", true),
+                new TrackQueryOverride("GD 47 Hustle", "GD 47", true),
+                new TrackQueryOverride("GD 47 MTV Hustle", "GD 47", true)));
         overrides.put("shahrule", List.of(
                 new TrackQueryOverride("DIVINE Shah Rule", "Shah Rule", true),
                 new TrackQueryOverride("D Evil Shah Rule", "Shah Rule", true),
@@ -1780,6 +1970,10 @@ public class MusicImportService {
         blacklists.put("emiwaybantai", Set.of(
                 "believememaxedit",
                 "companyremix"));
+        blacklists.put("gd47", Set.of(
+                "minhavirginiana",
+                "trackervinhoesaudades",
+                "porquetolinda"));
         blacklists.put("drv", Set.of(
                 "righthere",
                 "blessings",
@@ -1936,7 +2130,35 @@ public class MusicImportService {
     private boolean isMixedVariant(ITunesTrackDTO track) {
         String titleKey = normalizeKey(track.getTrackName());
         String collectionKey = normalizeKey(track.getCollectionName());
-        return titleKey.contains("mixed") || collectionKey.contains("djmix");
+        return titleKey.contains("mixed")
+                || titleKey.contains("remix")
+                || titleKey.contains("phonk")
+                || titleKey.contains("acoustic")
+                || titleKey.contains("slowed")
+                || titleKey.contains("reverb")
+                || titleKey.contains("lofi")
+                || titleKey.contains("synthwave")
+                || titleKey.contains("sythwave")
+                || titleKey.contains("alternateversion")
+                || collectionKey.contains("djmix");
+    }
+
+    private boolean containsAnyKeyword(Set<String> keywords, String... values) {
+        if (keywords == null || keywords.isEmpty() || values == null) {
+            return false;
+        }
+        for (String value : values) {
+            String normalized = normalizeKey(value);
+            if (normalized.isBlank()) {
+                continue;
+            }
+            for (String keyword : keywords) {
+                if (normalized.contains(keyword)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private void deleteEmptyAlbums(Artist artist) {

@@ -18,6 +18,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -34,8 +35,9 @@ public class YouTubeResolverService {
     private static final String WATCH_URL_PREFIX = "https://www.youtube.com/watch?v=";
     private static final String SEARCH_URL_PREFIX = "https://www.youtube.com/results?search_query=";
     private static final String OEMBED_URL_PREFIX = "https://www.youtube.com/oembed?format=json&url=";
+    private static final java.util.Map<String, String> ARTIST_QUERY_ALIASES = buildArtistQueryAliases();
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate = buildRestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ConcurrentMap<String, String> cache = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, OEmbedResponse> oEmbedCache = new ConcurrentHashMap<>();
@@ -54,12 +56,14 @@ public class YouTubeResolverService {
         String artist = safe(artistName);
         String title = safe(albumTitle);
 
-        List<String> queries = List.of(
-                artist + " " + title + " full album",
-                artist + " " + title + " official album",
-                artist + " " + title + " album");
+        String artistAlias = artistQueryAlias(artist);
+        LinkedHashSet<String> queries = new LinkedHashSet<>();
+        addAlbumQueryVariants(queries, artist, title);
+        if (!artistAlias.equalsIgnoreCase(artist)) {
+            addAlbumQueryVariants(queries, artistAlias, title);
+        }
 
-        return resolveDirectUrl(queries, artist, title);
+        return resolveDirectUrl(new ArrayList<>(queries), artist, title);
     }
 
     private String resolveDirectUrl(List<String> queries, String artistName, String targetTitle) {
@@ -67,9 +71,16 @@ public class YouTubeResolverService {
             if (query == null || query.isBlank()) {
                 continue;
             }
-            String resolved = cache.computeIfAbsent(
-                    normalizeKey(query),
-                    key -> searchBestVideoUrl(query, artistName, targetTitle));
+            String cacheKey = normalizeKey(query);
+            String resolved = cache.get(cacheKey);
+            if (!isDirectWatchUrl(resolved)) {
+                resolved = searchBestVideoUrl(query, artistName, targetTitle);
+                if (isDirectWatchUrl(resolved)) {
+                    cache.put(cacheKey, resolved);
+                } else {
+                    cache.remove(cacheKey);
+                }
+            }
             if (isDirectWatchUrl(resolved)) {
                 return resolved;
             }
@@ -82,8 +93,15 @@ public class YouTubeResolverService {
     private List<String> buildSongQueries(String artist, String title, String strippedTitle) {
         LinkedHashSet<String> queries = new LinkedHashSet<>();
         addSongQueryVariants(queries, artist, title);
+        String artistAlias = artistQueryAlias(artist);
+        if (!artistAlias.equalsIgnoreCase(artist)) {
+            addSongQueryVariants(queries, artistAlias, title);
+        }
         if (!strippedTitle.isBlank() && !strippedTitle.equalsIgnoreCase(title)) {
             addSongQueryVariants(queries, artist, strippedTitle);
+            if (!artistAlias.equalsIgnoreCase(artist)) {
+                addSongQueryVariants(queries, artistAlias, strippedTitle);
+            }
         }
         return new ArrayList<>(queries);
     }
@@ -96,6 +114,15 @@ public class YouTubeResolverService {
         queries.add((artist + " " + title + " official audio").trim());
         queries.add((artist + " " + title + " lyric video").trim());
         queries.add((artist + " " + title).trim());
+    }
+
+    private void addAlbumQueryVariants(Set<String> queries, String artist, String title) {
+        if (title == null || title.isBlank()) {
+            return;
+        }
+        queries.add((artist + " " + title + " full album").trim());
+        queries.add((artist + " " + title + " official album").trim());
+        queries.add((artist + " " + title + " album").trim());
     }
 
     private String searchBestVideoUrl(String query, String artistName, String targetTitle) {
@@ -116,9 +143,9 @@ public class YouTubeResolverService {
             return candidateIds.stream()
                     .map(videoId -> new ScoredVideo(videoId, scoreVideo(videoId, artistName, targetTitle)))
                     .max(Comparator.comparingInt(ScoredVideo::score))
-                    .filter(scored -> scored.score() > Integer.MIN_VALUE)
+                    .filter(scored -> scored.score() > 0)
                     .map(scored -> WATCH_URL_PREFIX + scored.videoId())
-                    .orElse(url);
+                    .orElse(WATCH_URL_PREFIX + candidateIds.get(0));
         } catch (Exception e) {
             return SEARCH_URL_PREFIX + encode(query);
         }
@@ -295,5 +322,51 @@ public class YouTubeResolverService {
 
     private String normalizeKey(String value) {
         return value.toLowerCase(Locale.ROOT).replaceAll("\\s+", " ").trim();
+    }
+
+    private String artistQueryAlias(String artistName) {
+        String alias = ARTIST_QUERY_ALIASES.get(normalizeComparable(artistName));
+        return alias == null || alias.isBlank() ? safe(artistName) : alias;
+    }
+
+    private RestTemplate buildRestTemplate() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(5000);
+        factory.setReadTimeout(7000);
+        return new RestTemplate(factory);
+    }
+
+    private static java.util.Map<String, String> buildArtistQueryAliases() {
+        java.util.Map<String, String> aliases = new java.util.HashMap<>();
+        aliases.put("ab17", "ab17 rapper india");
+        aliases.put("agsy", "Agsy rapper india");
+        aliases.put("ahmer", "Ahmer rapper india");
+        aliases.put("bagi munda", "BAGI MUNDA rapper india");
+        aliases.put("bella", "Bella rapper india");
+        aliases.put("brodha v", "Brodha V rapper india");
+        aliases.put("king", "King rapper india");
+        aliases.put("karma", "Karma rapper india");
+        aliases.put("calm", "Calm Seedhe Maut");
+        aliases.put("chaar diwaari", "Chaar Diwaari rapper india");
+        aliases.put("d evil", "D Evil rapper india");
+        aliases.put("dee mc", "Dee MC rapper india");
+        aliases.put("deep kalsi", "Deep Kalsi official");
+        aliases.put("dhanji", "Dhanji rapper india");
+        aliases.put("dino james", "Dino James official");
+        aliases.put("divine", "DIVINE rapper india");
+        aliases.put("dopeadelicz", "Dopeadelicz rapper india");
+        aliases.put("drv", "DRV rapper india");
+        aliases.put("encore abj", "Encore ABJ Seedhe Maut");
+        aliases.put("gravity", "Gravity rapper india");
+        aliases.put("panther", "Panther rapper india");
+        aliases.put("nanku", "Nanku rapper india");
+        aliases.put("rawal", "Rawal rapper india");
+        aliases.put("shah rule", "Shah Rule rapper india");
+        aliases.put("dakait shaddy", "Dakait Shaddy rapper india");
+        aliases.put("mc kode", "MC Kode rapper india");
+        aliases.put("mc headshot", "MC Headshot rapper india");
+        aliases.put("mrunal shankar", "Mrunal Shankar rapper india");
+        aliases.put("yashraj", "YashRaj rapper india");
+        return aliases;
     }
 }

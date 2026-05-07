@@ -12,6 +12,7 @@ interface SongOption {
 }
 
 const SESSION_TIME = 60
+const ROUND_TIME = 7
 
 const shuffle = <T,>(items: T[]) => {
     const copy = [...items]
@@ -30,6 +31,7 @@ export default function CoverShuffleGame() {
     const [selected, setSelected] = useState<string | null>(null)
     const [status, setStatus] = useState<string | null>(null)
     const [started, setStarted] = useState(false)
+    const [roundTimeLeft, setRoundTimeLeft] = useState(ROUND_TIME)
 
     useEffect(() => {
         fetch('/api/songs/top/dhh?days=365&limit=60')
@@ -54,11 +56,29 @@ export default function CoverShuffleGame() {
     }, [over, started])
 
     useEffect(() => {
+        if (!started || over || selected || !current) return
+        setRoundTimeLeft(ROUND_TIME)
+        const timer = window.setInterval(() => {
+            setRoundTimeLeft(prev => {
+                if (prev <= 1) {
+                    window.clearInterval(timer)
+                    setSelected('__timeout__')
+                    setStatus(`Time up. Correct title: ${current.title}`)
+                    return 0
+                }
+                return prev - 1
+            })
+        }, 1000)
+        return () => window.clearInterval(timer)
+    }, [current, over, selected, started])
+
+    useEffect(() => {
         if (!selected || over) return
         const timeout = window.setTimeout(() => {
             setSelected(null)
             setStatus(null)
             setIndex(prev => prev + 1)
+            setRoundTimeLeft(ROUND_TIME)
         }, 800)
         return () => window.clearTimeout(timeout)
     }, [over, selected])
@@ -70,6 +90,7 @@ export default function CoverShuffleGame() {
         setSelected(null)
         setStatus(null)
         setStarted(true)
+        setRoundTimeLeft(ROUND_TIME)
     }
 
     const choose = (option: string) => {
@@ -92,6 +113,7 @@ export default function CoverShuffleGame() {
             <div className="lyric-status-row">
                 <span className="lyric-chip">Score: {score}</span>
                 <span className="lyric-chip">Timer: {timeLeft}s</span>
+                <span className="lyric-chip">Round: {roundTimeLeft}s</span>
             </div>
             {!started || over ? (
                 <div className="blitz-launch">

@@ -35,6 +35,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/albums")
 @CrossOrigin(origins = { "http://localhost:3000", "http://localhost:5173" })
 public class AlbumController {
+    private static final int CATALOG_FALLBACK_THRESHOLD = 6;
 
     @Autowired
     private AlbumRepository albumRepository;
@@ -113,11 +114,16 @@ public class AlbumController {
     @GetMapping("/artist/{artistId}")
     public List<AlbumDTO> getAlbumsByArtist(@PathVariable Long artistId) {
         List<Album> directAlbums = albumRepository.findByArtistId(artistId);
-        if (directAlbums.isEmpty()) {
+        if (directAlbums.size() < CATALOG_FALLBACK_THRESHOLD) {
+            List<Album> baseAlbums = directAlbums;
             directAlbums = artistRepository.findById(artistId)
                     .flatMap(artist -> musicImportService.resolveCatalogFallbackArtist(artist.getName()))
-                    .map(fallbackArtist -> albumRepository.findByArtistId(fallbackArtist.getId()))
-                    .orElse(List.of());
+                    .map(fallbackArtist -> {
+                        List<Album> merged = new java.util.ArrayList<>(baseAlbums);
+                        merged.addAll(albumRepository.findByArtistId(fallbackArtist.getId()));
+                        return merged;
+                    })
+                    .orElse(baseAlbums);
         }
 
         return dedupeAlbums(directAlbums).stream()
@@ -202,8 +208,6 @@ public class AlbumController {
                 || key.contains("hyped up")
                 || key.contains("power pack mix")
                 || key.contains("mashup")
-                || key.contains("episode.")
-                || key.contains("episode ")
                 || key.contains("trending version")
                 || (key.contains("mass appeal") && key.contains("shutdown"));
     }

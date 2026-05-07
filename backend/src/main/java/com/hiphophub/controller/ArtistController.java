@@ -9,7 +9,6 @@ import com.hiphophub.repository.ArtistRepository;
 import com.hiphophub.repository.SongRepository;
 import com.hiphophub.repository.TourRepository;
 import com.hiphophub.service.MusicImportService;
-import com.hiphophub.util.DhhArtistClassifier;
 import org.springframework.data.domain.PageRequest;
 import java.time.LocalDate;
 import java.util.Comparator;
@@ -72,9 +71,7 @@ public class ArtistController {
 
         if ("dhh".equalsIgnoreCase(scope)) {
             artists = artists.stream()
-                    .filter(artist -> DhhArtistClassifier.isDhhArtist(artist.getName(), artist.getGenre()))
-                    .filter(artist -> songRepository.countByAlbumArtistId(artist.getId()) > 0
-                            || musicImportService.hasCatalogFallback(artist.getName()))
+                    .filter(musicImportService::shouldFeatureArtistInDhhCatalog)
                     .collect(Collectors.toList());
         }
 
@@ -121,7 +118,10 @@ public class ArtistController {
                 System.err.println("Music import failed for search '" + q + "': " + e.getMessage());
             }
         }
-        return results;
+        return results.stream()
+                .map(musicImportService::enrichArtistForDisplay)
+                .sorted(Comparator.comparing(Artist::getName, String.CASE_INSENSITIVE_ORDER))
+                .collect(Collectors.toList());
     }
 
     /**
@@ -197,8 +197,6 @@ public class ArtistController {
                 || key.contains("independence day special")
                 || key.contains("power pack mix")
                 || key.contains("mashup")
-                || key.contains("episode.")
-                || key.contains("episode ")
                 || key.contains("trending version")
                 || (key.contains("mass appeal") && key.contains("shutdown"));
     }

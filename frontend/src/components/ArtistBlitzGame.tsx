@@ -13,6 +13,7 @@ interface SongOption {
 
 const SESSION_TIME = 60
 const ROUND_DELAY_MS = 900
+const ROUND_TIME = 6
 
 const shuffle = <T,>(items: T[]) => {
     const copy = [...items]
@@ -32,6 +33,7 @@ export default function ArtistBlitzGame() {
     const [status, setStatus] = useState<string | null>(null)
     const [sessionStarted, setSessionStarted] = useState(false)
     const [correctCount, setCorrectCount] = useState(0)
+    const [roundTimeLeft, setRoundTimeLeft] = useState(ROUND_TIME)
 
     useEffect(() => {
         fetch('/api/songs/top/dhh?days=365&limit=60')
@@ -62,11 +64,19 @@ export default function ArtistBlitzGame() {
 
     useEffect(() => {
         if (!sessionStarted || sessionOver || selectedAnswer || !current) return
-        const timeout = window.setTimeout(() => {
-            setStatus(`Time up. Correct artist: ${current.artistName}`)
-            setSelectedAnswer('__timeout__')
-        }, ROUND_DELAY_MS * 3)
-        return () => window.clearTimeout(timeout)
+        setRoundTimeLeft(ROUND_TIME)
+        const timer = window.setInterval(() => {
+            setRoundTimeLeft(prev => {
+                if (prev <= 1) {
+                    window.clearInterval(timer)
+                    setStatus(`Time up. Correct artist: ${current.artistName}`)
+                    setSelectedAnswer('__timeout__')
+                    return 0
+                }
+                return prev - 1
+            })
+        }, 1000)
+        return () => window.clearInterval(timer)
     }, [current, selectedAnswer, sessionOver, sessionStarted])
 
     useEffect(() => {
@@ -75,6 +85,7 @@ export default function ArtistBlitzGame() {
             setIndex(prev => prev + 1)
             setSelectedAnswer(null)
             setStatus(null)
+            setRoundTimeLeft(ROUND_TIME)
         }, ROUND_DELAY_MS)
         return () => window.clearTimeout(timeout)
     }, [selectedAnswer, sessionOver])
@@ -87,6 +98,7 @@ export default function ArtistBlitzGame() {
         setSelectedAnswer(null)
         setStatus(null)
         setCorrectCount(0)
+        setRoundTimeLeft(ROUND_TIME)
     }
 
     const choose = (answer: string) => {
@@ -119,6 +131,7 @@ export default function ArtistBlitzGame() {
             <div className="lyric-status-row">
                 <span className="lyric-chip">Score: {score}</span>
                 <span className="lyric-chip">Timer: {totalTimeLeft}s</span>
+                <span className="lyric-chip">Round: {roundTimeLeft}s</span>
                 <span className="lyric-chip">Correct: {correctCount}</span>
             </div>
 

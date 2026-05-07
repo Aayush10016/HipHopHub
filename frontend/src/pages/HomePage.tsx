@@ -682,7 +682,7 @@ export default function HomePage() {
                         <div className="artists-section fade-in">
                             <div className="section-header">
                                 <h2 className="section-title">Featured Artists</h2>
-                                <p className="section-sub">Tap to open 8-tab profiles</p>
+                                <p className="section-sub">Open full artist profiles with songs, releases, facts, tours, and games</p>
                             </div>
                             {filteredArtists.length > 0 ? (
                                 <div className="artists-grid">
@@ -723,7 +723,7 @@ export default function HomePage() {
                             <div className="section-header">
                                 <div>
                                     <h2 className="section-title">Play</h2>
-                                    <p className="game-description">Three game slots for replayable DHH sessions. The first two are live now.</p>
+                                    <p className="game-description">Six replayable DHH game modes built around tracks, artists, covers, and scene knowledge.</p>
                                 </div>
                             </div>
 
