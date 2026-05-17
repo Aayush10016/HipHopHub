@@ -1678,17 +1678,26 @@ public class MusicImportService {
         ids.put("yashraj", List.of(1530263031L));
         ids.put("frappeash", List.of(1140931280L));
         ids.put("hanumankind", List.of(1458932353L));
+        ids.put("flowbo", List.of(1526226858L));
+        ids.put("fullpower", List.of(1457022401L));
         ids.put("king", List.of(1489995981L));
+        ids.put("karma", List.of(1454799960L));
         ids.put("krna", List.of(1462405977L));
+        ids.put("lilbhavi", List.of(1652286991L, 1810312048L));
         ids.put("loka", List.of(1462573207L, 1473667022L, 1766187119L));
         ids.put("mcaltaf", List.of(1398832173L));
         ids.put("mcamrit", List.of(1500017565L));
+        ids.put("mcheadshot", List.of(1496073677L, 1524726515L));
+        ids.put("mckode", List.of(1514620241L));
         ids.put("mcsquare", List.of(1604955410L));
         ids.put("mcstan", List.of(1530205305L));
         ids.put("mrunalshankar", List.of(1481856751L));
+        ids.put("naamsujal", List.of(1537799827L));
         ids.put("paradox", List.of(1680197168L));
         ids.put("raftaar", List.of(574786227L));
         ids.put("rawal", List.of(1512171268L));
+        ids.put("riarsaab", List.of(1584317505L));
+        ids.put("sammohit", List.of(1450421938L));
         ids.put("seedhemaut", List.of(1233336608L));
         ids.put("shahrule", List.of(605505326L));
         ids.put("srushtitawade", List.of(1635306761L));
@@ -1701,7 +1710,12 @@ public class MusicImportService {
         ids.put("vijaydk", List.of(1538654885L));
         ids.put("kidshot", List.of(1130075101L));
         ids.put("kaambhaari", List.of(1450523832L));
+        ids.put("thesiege", List.of(1476131739L));
+        ids.put("dhanji", List.of(1356034033L));
+        ids.put("dopeadelicz", List.of(1016344980L));
+        ids.put("siyaahi", List.of(1475741015L));
         ids.put("yungsta", List.of(1489187757L, 289017644L));
+        ids.put("wolfcryman", List.of(1529460842L));
         return ids;
     }
 
@@ -1846,15 +1860,51 @@ public class MusicImportService {
                 new TrackQueryOverride("Qaab Frappe Ash", "Frappe Ash", true),
                 new TrackQueryOverride("Dhanji Frappe Ash", "Frappe Ash", true),
                 new TrackQueryOverride("Rawal Frappe Ash", "Frappe Ash", true)));
+        overrides.put("hanumankind", List.of(
+                new TrackQueryOverride("Hanumankind Kalmi", "Hanumankind", true),
+                new TrackQueryOverride("Hanumankind Shashwat Sachdev", "Hanumankind", true),
+                new TrackQueryOverride("Hanumankind Roisee", "Hanumankind", true),
+                new TrackQueryOverride("Hanumankind Colors", "Hanumankind", true),
+                new TrackQueryOverride("Hanumankind Arivu", "Hanumankind", true)));
+        overrides.put("flowbo", List.of(
+                new TrackQueryOverride("Flowbo Swaalina", "Flowbo", true),
+                new TrackQueryOverride("Flowbo Hitzone", "Flowbo", true),
+                new TrackQueryOverride("Flowbo MEMAX", "Flowbo", true),
+                new TrackQueryOverride("Flowbo Young Galib", "Flowbo", true),
+                new TrackQueryOverride("Flowbo Veer", "Flowbo", true)));
+        overrides.put("fullpower", List.of(
+                new TrackQueryOverride("Full Power Banjop", "Full Power", true),
+                new TrackQueryOverride("Full Power Roy", "Full Power", true),
+                new TrackQueryOverride("Full Power DRV", "Full Power", true)));
+        overrides.put("karma", List.of(
+                new TrackQueryOverride("Karma Sez on the Beat", "Karma", true),
+                new TrackQueryOverride("Karma Deep Kalsi", "Karma", true),
+                new TrackQueryOverride("Karma Raftaar", "Karma", true),
+                new TrackQueryOverride("Karma KR$NA", "Karma", true)));
         overrides.put("krna", List.of(
                 new TrackQueryOverride("Raftaar KR$NA", "KR$NA", true),
                 new TrackQueryOverride("Badshah KR$NA", "KR$NA", true),
                 new TrackQueryOverride("Deep Kalsi KR$NA", "KR$NA", true),
                 new TrackQueryOverride("Karma KR$NA", "KR$NA", true)));
+        overrides.put("lilbhavi", List.of(
+                new TrackQueryOverride("Lil Bhavi Bhaskar", "Lil Bhavi", true),
+                new TrackQueryOverride("Lil Bhavi Omkar Singh", "Lil Bhavi", true),
+                new TrackQueryOverride("Lil Bhavi OG Lucifer", "Lil Bhavi", true)));
         overrides.put("mcaltaf", List.of(
                 new TrackQueryOverride("DIVINE MC Altaf", "MC Altaf", true),
                 new TrackQueryOverride("D Evil MC Altaf", "MC Altaf", true),
                 new TrackQueryOverride("Stylo G MC Altaf", "MC Altaf", true)));
+        overrides.put("mcheadshot", List.of(
+                new TrackQueryOverride("MC Headshot Bella", "MC Headshot", true),
+                new TrackQueryOverride("MC Headshot Rishi Roy", "MC Headshot", true),
+                new TrackQueryOverride("MC Headshot Gravity", "MC Headshot", true),
+                new TrackQueryOverride("MC Headshot EPR Iyer", "MC Headshot", true),
+                new TrackQueryOverride("MC Headshot MC Insane", "MC Headshot", true)));
+        overrides.put("mckode", List.of(
+                new TrackQueryOverride("MC Kode Logan on the beat", "MC Kode", true),
+                new TrackQueryOverride("MC Kode Karun", "MC Kode", true),
+                new TrackQueryOverride("MC Kode Kozz", "MC Kode", true),
+                new TrackQueryOverride("MC Kode Tabish Wani", "MC Kode", true)));
         overrides.put("raftaar", List.of(
                 new TrackQueryOverride("Badshah Raftaar", "Raftaar", true),
                 new TrackQueryOverride("KR$NA Raftaar", "Raftaar", true),
@@ -1866,6 +1916,26 @@ public class MusicImportService {
                 new TrackQueryOverride("Karan Kanchan Rawal", "Rawal", true),
                 new TrackQueryOverride("Saar Punch Rawal", "Rawal", true),
                 new TrackQueryOverride("Dhanji Rawal", "Rawal", true)));
+        overrides.put("riarsaab", List.of(
+                new TrackQueryOverride("Riar Saab Abhijay Sharma", "Riar Saab", true),
+                new TrackQueryOverride("Riar Saab Dikshyant", "Riar Saab", true),
+                new TrackQueryOverride("Riar Saab MXRCI", "Riar Saab", true),
+                new TrackQueryOverride("Riar Saab DIVINE", "Riar Saab", true),
+                new TrackQueryOverride("Riar Saab Sambata", "Riar Saab", true),
+                new TrackQueryOverride("Riar Saab Xplicit", "Riar Saab", true),
+                new TrackQueryOverride("Riar Saab Hashbass", "Riar Saab", true),
+                new TrackQueryOverride("Riar Saab Mr Doss", "Riar Saab", true),
+                new TrackQueryOverride("Riar Saab Stunnah Beatz", "Riar Saab", true)));
+        overrides.put("sammohit", List.of(
+                new TrackQueryOverride("Sammohit MC Altaf", "Sammohit", true),
+                new TrackQueryOverride("Sammohit Mahlan Wala 59", "Sammohit", true),
+                new TrackQueryOverride("Sammohit Aavrutti", "Sammohit", true),
+                new TrackQueryOverride("Sammohit Shah Rule", "Sammohit", true)));
+        overrides.put("sambata", List.of(
+                new TrackQueryOverride("SAMBATA Karan Kanchan", "SAMBATA", true),
+                new TrackQueryOverride("SAMBATA Riar Saab", "SAMBATA", true),
+                new TrackQueryOverride("SAMBATA Basspaper", "SAMBATA", true),
+                new TrackQueryOverride("SAMBATA Phenom", "SAMBATA", true)));
         overrides.put("seedhemaut", List.of(
                 new TrackQueryOverride("Calm Seedhe Maut", "Seedhe Maut", true),
                 new TrackQueryOverride("Encore ABJ Seedhe Maut", "Seedhe Maut", true),
@@ -1885,6 +1955,29 @@ public class MusicImportService {
                 new TrackQueryOverride("GD 47", "GD 47", true),
                 new TrackQueryOverride("GD 47 Hustle", "GD 47", true),
                 new TrackQueryOverride("GD 47 MTV Hustle", "GD 47", true)));
+        overrides.put("thesiege", List.of(
+                new TrackQueryOverride("The Siege Shreyas", "The Siege", true),
+                new TrackQueryOverride("The Siege Mr Doss", "The Siege", true),
+                new TrackQueryOverride("The Siege Devoniàn", "The Siege", true),
+                new TrackQueryOverride("The Siege Nanku", "The Siege", true),
+                new TrackQueryOverride("The Siege Kaala", "The Siege", true)));
+        overrides.put("dhanji", List.of(
+                new TrackQueryOverride("Dhanji dox", "Dhanji", true),
+                new TrackQueryOverride("Dhanji RASLA", "Dhanji", true),
+                new TrackQueryOverride("Dhanji BAGI MUNDA", "Dhanji", true),
+                new TrackQueryOverride("Dhanji Siyaahi", "Dhanji", true),
+                new TrackQueryOverride("Dhanji Nanku", "Dhanji", true)));
+        overrides.put("dopeadelicz", List.of(
+                new TrackQueryOverride("Dopeadelicz Kaala", "DopeadelicZ", true),
+                new TrackQueryOverride("Dopeadelicz Arunraja Kamaraj", "DopeadelicZ", true),
+                new TrackQueryOverride("Dopeadelicz Dharavi United", "DopeadelicZ", true),
+                new TrackQueryOverride("Dopeadelicz Bluesanova", "DopeadelicZ", true)));
+        overrides.put("siyaahi", List.of(
+                new TrackQueryOverride("Siyaahi Aditya Pushkarna", "Siyaahi", true),
+                new TrackQueryOverride("Siyaahi UZIII", "Siyaahi", true),
+                new TrackQueryOverride("Siyaahi Bella", "Siyaahi", true),
+                new TrackQueryOverride("Siyaahi Dhanji", "Siyaahi", true),
+                new TrackQueryOverride("Siyaahi Pahaad", "Siyaahi", true)));
         overrides.put("shahrule", List.of(
                 new TrackQueryOverride("DIVINE Shah Rule", "Shah Rule", true),
                 new TrackQueryOverride("D Evil Shah Rule", "Shah Rule", true),
@@ -1894,6 +1987,17 @@ public class MusicImportService {
                 new TrackQueryOverride("Frappe Ash Yungsta", "Yungsta", true),
                 new TrackQueryOverride("KR$NA Yungsta", "Yungsta", true),
                 new TrackQueryOverride("Seedhe Maut Yungsta", "Yungsta", true)));
+        overrides.put("wolfcryman", List.of(
+                new TrackQueryOverride("wolf cryman Nanku", "wolf.cryman", true),
+                new TrackQueryOverride("wolf cryman Dhanji", "wolf.cryman", true),
+                new TrackQueryOverride("wolf cryman Arpit Bala", "wolf.cryman", true),
+                new TrackQueryOverride("wolf cryman Sidd Coutto", "wolf.cryman", true),
+                new TrackQueryOverride("wolf cryman Faizan", "wolf.cryman", true)));
+        overrides.put("vijaydk", List.of(
+                new TrackQueryOverride("VIJAY DK MC Altaf", "VIJAY DK", true),
+                new TrackQueryOverride("VIJAY DK Loka", "VIJAY DK", true),
+                new TrackQueryOverride("VIJAY DK Karan Kanchan", "VIJAY DK", true),
+                new TrackQueryOverride("VIJAY DK Andy Sirdard", "VIJAY DK", true)));
         overrides.put("dinojames", List.of(
                 new TrackQueryOverride("Ikka Dino James Badshah", "Dino James", true),
                 new TrackQueryOverride("Vishal Mishra Dino James", "Dino James", true),

@@ -92,7 +92,19 @@ public class GameController {
      */
     @PostMapping("/submit-guess")
     public ResponseEntity<Map<String, Object>> submitGuess(@RequestBody Map<String, Object> guessData) {
-        Long songId = Long.valueOf(guessData.get("songId").toString());
+        if (guessData == null || guessData.get("songId") == null) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "songId is required"));
+        }
+
+        Long songId;
+        try {
+            songId = Long.valueOf(guessData.get("songId").toString());
+        } catch (NumberFormatException ex) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "songId must be a valid number"));
+        }
+
         String guessedTitle = guessData.get("guessedTitle") != null
                 ? guessData.get("guessedTitle").toString()
                 : "";
@@ -105,8 +117,10 @@ public class GameController {
 
         Map<String, Object> response = new HashMap<>();
         response.put("correctTitle", song.getTitle());
-        response.put("artistName", song.getAlbum().getArtist().getName());
-        response.put("albumName", song.getAlbum().getTitle());
+        response.put("artistName", song.getAlbum() != null && song.getAlbum().getArtist() != null
+                ? song.getAlbum().getArtist().getName()
+                : "");
+        response.put("albumName", song.getAlbum() != null ? song.getAlbum().getTitle() : "");
         response.put("albumCover", resolveAlbumCover(song));
 
         // Check if guess is correct. Empty guesses should never score.

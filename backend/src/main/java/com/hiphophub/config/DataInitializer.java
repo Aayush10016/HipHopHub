@@ -80,7 +80,17 @@ public class DataInitializer {
                 System.out.println("Seed data disabled (app.seed.enabled=false). Skipping seed import.");
                 return;
             }
-            Thread seedThread = new Thread(() -> runSeedPipeline(musicImportService, artistRepo, songRepository), "hiphophub-seed");
+            Thread seedThread = new Thread(() -> {
+                try {
+                    runSeedPipeline(musicImportService, artistRepo, songRepository);
+                } catch (Throwable t) {
+                    if (isStorageClosedException(t)) {
+                        System.out.println("Seed pipeline stopped because the database storage closed during shutdown/restart.");
+                        return;
+                    }
+                    System.out.println("Seed pipeline stopped unexpectedly: " + t.getMessage());
+                }
+            }, "hiphophub-seed");
             seedThread.setDaemon(true);
             seedThread.start();
             System.out.println("Seed import scheduled in background. App startup will not wait for catalog refresh.");
@@ -253,5 +263,23 @@ public class DataInitializer {
 
         boolean listenersMissing = artist.getMonthlyListeners() == null || artist.getMonthlyListeners() <= 0;
         return imageMissingOrWrong || listenersMissing;
+    }
+
+    private boolean isStorageClosedException(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null) {
+                String normalized = message.toLowerCase();
+                if (normalized.contains("closedchannelexception")
+                        || normalized.contains("mvstoreexception")
+                        || normalized.contains("database is already closed")
+                        || normalized.contains("seed pipeline stopped because the database storage closed")) {
+                    return true;
+                }
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 }
