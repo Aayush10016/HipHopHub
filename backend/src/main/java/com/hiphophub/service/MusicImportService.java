@@ -102,11 +102,6 @@ public class MusicImportService {
                 artist.setGenre(pickedGenre);
             }
 
-            String lastFmImage = pickImage(info);
-            if (shouldOverrideArtistImage(artist.getImageUrl(), lastFmImage)) {
-                artist.setImageUrl(lastFmImage);
-            }
-
             Long listeners = parseLong(info.getStats() != null ? info.getStats().getListeners() : null);
             if (listeners > 0) {
                 artist.setMonthlyListeners(listeners);
@@ -189,11 +184,6 @@ public class MusicImportService {
                 artist.setGenre(pickedGenre);
             }
 
-            String lastFmImage = pickImage(info);
-            if (shouldOverrideArtistImage(artist.getImageUrl(), lastFmImage)) {
-                artist.setImageUrl(lastFmImage);
-            }
-
             Long listeners = parseLong(info.getStats() != null ? info.getStats().getListeners() : null);
             if (listeners > 0) {
                 artist.setMonthlyListeners(listeners);
@@ -232,6 +222,7 @@ public class MusicImportService {
         saveTracksForArtist(artist, tracks);
         purgeBlacklistedCatalogEntries(artist);
         mergeDuplicateOwnedAlbums(artist);
+        mergeAppearsOnDuplicatesAgainstOwnedAlbums(artist);
         reclassifyLikelyFeatureAlbums(artist);
         deleteEmptyAlbums(artist);
 
@@ -261,9 +252,107 @@ public class MusicImportService {
         saveTracksForArtist(artist, tracks);
         purgeBlacklistedCatalogEntries(artist);
         mergeDuplicateOwnedAlbums(artist);
+        mergeAppearsOnDuplicatesAgainstOwnedAlbums(artist);
         reclassifyLikelyFeatureAlbums(artist);
         deleteEmptyAlbums(artist);
         return artist;
+    }
+
+    public Map<String, Object> debugTrackImport(String artistName) {
+        Optional<Artist> existing = artistRepository.findByNameIgnoreCase(artistName);
+        String canonicalName = existing.map(Artist::getName)
+                .filter(name -> name != null && !name.isBlank())
+                .orElse(artistName);
+        String artistKey = normalizeKey(firstNonBlank(artistName, canonicalName));
+        int lookupLimit = Math.max(trackLimit, 100);
+        int searchLimit = Math.max(trackLimit, 50);
+
+        List<TrackQueryOverride> attempts = new ArrayList<>();
+        attempts.add(new TrackQueryOverride(canonicalName, canonicalName, false));
+        if (artistName != null && !artistName.equalsIgnoreCase(canonicalName)) {
+            attempts.add(new TrackQueryOverride(artistName, artistName, false));
+        }
+        List<TrackQueryOverride> overrides = TRACK_QUERY_OVERRIDES.get(artistKey);
+        if (overrides != null) {
+            attempts.addAll(overrides);
+        }
+
+        Map<String, Object> debug = new LinkedHashMap<>();
+        debug.put("artistName", artistName);
+        debug.put("canonicalName", canonicalName);
+        debug.put("artistKey", artistKey);
+        debug.put("lookupLimit", lookupLimit);
+        debug.put("searchLimit", searchLimit);
+
+        List<Map<String, Object>> preferredSources = new ArrayList<>();
+        Map<Long, ITunesTrackDTO> mergedByTrackId = new LinkedHashMap<>();
+        List<Long> preferredArtistIds = PREFERRED_ITUNES_ARTIST_IDS.get(artistKey);
+        debug.put("preferredArtistIds", preferredArtistIds);
+        if (preferredArtistIds != null) {
+            for (Long artistId : preferredArtistIds) {
+                if ("mcstan".equals(artistKey)) {
+                    preferredSources.add(iTunesService.debugLookupByArtistId(artistId, lookupLimit, "IN"));
+                }
+                List<ITunesTrackDTO> lookedUp = retainOwnedTracks(
+                        canonicalName,
+                        iTunesService.lookupTracksByArtistId(artistId, lookupLimit, "IN"),
+                        true);
+                Map<String, Object> source = new LinkedHashMap<>();
+                source.put("artistId", artistId);
+                source.put("count", lookedUp.size());
+                source.put("sampleTitles", lookedUp.stream()
+                        .map(ITunesTrackDTO::getTrackName)
+                        .filter(title -> title != null && !title.isBlank())
+                        .limit(12)
+                        .collect(Collectors.toList()));
+                preferredSources.add(source);
+                for (ITunesTrackDTO track : lookedUp) {
+                    if (track.getTrackId() != null) {
+                        mergedByTrackId.putIfAbsent(track.getTrackId(), track);
+                    }
+                }
+            }
+        }
+        debug.put("preferredLookupSources", preferredSources);
+        debug.put("afterPreferredLookupCount", mergedByTrackId.size());
+
+        List<Map<String, Object>> searchSources = new ArrayList<>();
+        for (TrackQueryOverride attempt : attempts) {
+            List<ITunesTrackDTO> rawTracks = iTunesService.searchTracksByArtist(attempt.searchTerm(), searchLimit);
+            List<ITunesTrackDTO> retained = retainOwnedTracks(
+                    attempt.ownershipName(),
+                    rawTracks,
+                    attempt.allowContributorMatches());
+            Map<String, Object> source = new LinkedHashMap<>();
+            source.put("searchTerm", attempt.searchTerm());
+            source.put("ownershipName", attempt.ownershipName());
+            source.put("allowContributorMatches", attempt.allowContributorMatches());
+            source.put("rawCount", rawTracks.size());
+            source.put("retainedCount", retained.size());
+            source.put("sampleTitles", retained.stream()
+                    .map(ITunesTrackDTO::getTrackName)
+                    .filter(title -> title != null && !title.isBlank())
+                    .limit(12)
+                    .collect(Collectors.toList()));
+            searchSources.add(source);
+            for (ITunesTrackDTO track : retained) {
+                if (track.getTrackId() != null) {
+                    mergedByTrackId.putIfAbsent(track.getTrackId(), track);
+                }
+            }
+        }
+        debug.put("searchSources", searchSources);
+        debug.put("beforeSupplementsMergedCount", mergedByTrackId.size());
+
+        appendCuratedTrackSupplements(artistKey, mergedByTrackId, searchLimit);
+        debug.put("afterSupplementsMergedCount", mergedByTrackId.size());
+        debug.put("finalSampleTitles", mergedByTrackId.values().stream()
+                .map(ITunesTrackDTO::getTrackName)
+                .filter(title -> title != null && !title.isBlank())
+                .distinct()
+                .limit(40)
+                .collect(Collectors.toList()));
+        return debug;
     }
 
     public List<ArtistFactDTO> buildFacts(Artist artist) {
@@ -406,7 +495,10 @@ public class MusicImportService {
         List<Long> preferredArtistIds = PREFERRED_ITUNES_ARTIST_IDS.get(artistKey);
         if (preferredArtistIds != null) {
             for (Long artistId : preferredArtistIds) {
-                for (ITunesTrackDTO track : iTunesService.lookupTracksByArtistId(artistId, lookupLimit, "IN")) {
+                for (ITunesTrackDTO track : retainOwnedTracks(
+                        canonicalArtistName,
+                        iTunesService.lookupTracksByArtistId(artistId, lookupLimit, "IN"),
+                        true)) {
                     if (track.getTrackId() != null) {
                         mergedByTrackId.putIfAbsent(track.getTrackId(), track);
                     }
@@ -523,6 +615,36 @@ public class MusicImportService {
                     "lionheartfeatjeremyoceansandkarra",
                     "osajna",
                     "nayasherfeatviratkohlipunjabiedit");
+        } else if ("mcstan".equals(artistKey)) {
+            exactQueries = List.of(
+                    new TrackQueryOverride("MC Stan Basti Ka Hasti", "MC Stan", true),
+                    new TrackQueryOverride("MC Stan Ek Din Pyaar", "MC Stan", true),
+                    new TrackQueryOverride("MC Stan Astaghfirullah", "MC Stan", true),
+                    new TrackQueryOverride("MC Stan Shana Bann", "MC Stan", true),
+                    new TrackQueryOverride("MC Stan Dil Pe Mat Le", "MC Stan", true),
+                    new TrackQueryOverride("MC Stan Bitch", "MC Stan", true),
+                    new TrackQueryOverride("MC Stan Haath Varthi", "MC Stan", true),
+                    new TrackQueryOverride("MC Stan Farrey Title Track", "MC Stan", true),
+                    new TrackQueryOverride("Ikka MC Stan Urvashi", "MC Stan", true),
+                    new TrackQueryOverride("MC Stan Kahan Par Hai", "MC Stan", true),
+                    new TrackQueryOverride("MC Stan Broke Is A Joke", "MC Stan", true),
+                    new TrackQueryOverride("MC Stan Inn Log Ne Maare", "MC Stan", true));
+
+            allowedTitles = Set.of(
+                    "bastikahasti",
+                    "ekdinpyaar",
+                    "ekdinpyaartadipaar",
+                    "astaghfirullah",
+                    "shanabann",
+                    "dilpematle",
+                    "bitch",
+                    "haathvarthi",
+                    "farreytitletrackfromfarrey",
+                    "farreytitletrack",
+                    "urvashi",
+                    "kahanparhai",
+                    "brokeisajoke",
+                    "innlognemaare");
         } else if ("naamsujal".equals(artistKey)) {
             exactQueries = List.of(
                     new TrackQueryOverride("Naam Sujal Aditya Pushkarna", "Naam Sujal", true),
@@ -570,6 +692,20 @@ public class MusicImportService {
                     "realtalk",
                     "24ghante",
                     "bipolarstudioversion2020");
+        } else if ("king".equals(artistKey)) {
+            exactQueries = List.of(
+                    new TrackQueryOverride("Alan Walker King Story of a Bird", "King", true),
+                    new TrackQueryOverride("Uchana Amit High High King", "King", true),
+                    new TrackQueryOverride("Amit Bhadana Father Saab King", "King", true),
+                    new TrackQueryOverride("Karma Gangster King", "King", true),
+                    new TrackQueryOverride("Pritam Mere Sawaal Ka King Version", "King", true));
+
+            allowedTitles = Set.of(
+                    "storyofabird",
+                    "highhighfeatking",
+                    "fathersaabfeatking",
+                    "gangsterfeatking",
+                    "meresawaalkakingversionfromshehzada");
         } else if ("sos".equals(artistKey)) {
             exactQueries = List.of(
                     new TrackQueryOverride("SOS 30KEY Ahmer", "SOS", true),
@@ -718,10 +854,13 @@ public class MusicImportService {
                 "dinojames",
                 "divine",
                 "emiwaybantai",
+                "gravity",
                 "krna",
                 "mcstan",
                 "rawal",
-                "seedhemaut").contains(artistKey);
+                "raga",
+                "seedhemaut",
+                "yungsta").contains(artistKey);
     }
 
     private void saveTracksForArtist(Artist artist, List<ITunesTrackDTO> tracks) {
@@ -939,7 +1078,7 @@ public class MusicImportService {
         Map<String, List<Album>> grouped = albumRepository.findByArtistId(artist.getId()).stream()
                 .filter(album -> album.getTitle() != null && !album.getTitle().isBlank())
                 .filter(album -> album.getType() != Album.AlbumType.APPEARS_ON)
-                .collect(Collectors.groupingBy(album -> album.getType() + ":" + normalizeKey(album.getTitle())));
+                .collect(Collectors.groupingBy(album -> album.getType() + ":" + normalizeReleaseTitle(album.getTitle())));
 
         for (List<Album> duplicates : grouped.values()) {
             if (duplicates.size() <= 1) {
@@ -980,15 +1119,69 @@ public class MusicImportService {
         }
     }
 
+    private void mergeAppearsOnDuplicatesAgainstOwnedAlbums(Artist artist) {
+        if (artist == null || artist.getId() == null) {
+            return;
+        }
+
+        Map<String, Album> ownedAlbumsByTitle = albumRepository.findByArtistId(artist.getId()).stream()
+                .filter(album -> album.getTitle() != null && !album.getTitle().isBlank())
+                .filter(album -> album.getType() != Album.AlbumType.APPEARS_ON)
+                .collect(Collectors.toMap(
+                        album -> normalizeReleaseTitle(album.getTitle()),
+                        album -> album,
+                        (left, right) -> {
+                            int leftSongs = songRepository.findByAlbumId(left.getId()).size();
+                            int rightSongs = songRepository.findByAlbumId(right.getId()).size();
+                            if (rightSongs > leftSongs) {
+                                return right;
+                            }
+                            if (rightSongs == leftSongs) {
+                                LocalDate leftDate = left.getReleaseDate() != null ? left.getReleaseDate() : LocalDate.MIN;
+                                LocalDate rightDate = right.getReleaseDate() != null ? right.getReleaseDate() : LocalDate.MIN;
+                                return rightDate.isAfter(leftDate) ? right : left;
+                            }
+                            return left;
+                        }));
+
+        List<Album> appearsOnAlbums = albumRepository.findByArtistId(artist.getId()).stream()
+                .filter(album -> album.getType() == Album.AlbumType.APPEARS_ON)
+                .filter(album -> album.getTitle() != null && !album.getTitle().isBlank())
+                .toList();
+
+        for (Album appearsOn : appearsOnAlbums) {
+            Album owned = ownedAlbumsByTitle.get(normalizeReleaseTitle(appearsOn.getTitle()));
+            if (owned == null || owned.getId().equals(appearsOn.getId())) {
+                continue;
+            }
+
+            Map<String, Song> ownedSongsByTitle = songRepository.findByAlbumId(owned.getId()).stream()
+                    .collect(Collectors.toMap(
+                            song -> normalizeKey(song.getTitle()),
+                            song -> song,
+                            (left, right) -> left,
+                            LinkedHashMap::new));
+
+            for (Song song : songRepository.findByAlbumId(appearsOn.getId())) {
+                String titleKey = normalizeKey(song.getTitle());
+                if (ownedSongsByTitle.containsKey(titleKey)) {
+                    songRepository.delete(song);
+                    continue;
+                }
+                song.setAlbum(owned);
+                songRepository.save(song);
+                ownedSongsByTitle.put(titleKey, song);
+            }
+            albumRepository.delete(appearsOn);
+        }
+    }
+
     private void purgeBlacklistedCatalogEntries(Artist artist) {
         if (artist == null || artist.getId() == null) {
             return;
         }
 
         for (Song song : songRepository.findByAlbumArtistId(artist.getId())) {
-            if (!isManagedItunesSong(song)) {
-                continue;
-            }
             if (!isBlacklistedStoredSong(artist, song)) {
                 continue;
             }
@@ -1405,6 +1598,17 @@ public class MusicImportService {
         return value.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "");
     }
 
+    private String normalizeReleaseTitle(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.toLowerCase(Locale.ROOT)
+                .replaceAll("\\((feat|ft|from)[^\\)]*\\)", "")
+                .replaceAll("\\[(feat|ft|from)[^\\]]*\\]", "")
+                .replaceAll("\\s*-\\s*(single|ep)\\s*$", "")
+                .replaceAll("[^a-z0-9]+", "");
+    }
+
     private void reclassifyLikelyFeatureAlbums(Artist artist) {
         List<Album> artistAlbums = albumRepository.findByArtistId(artist.getId());
         for (Album album : artistAlbums) {
@@ -1674,7 +1878,7 @@ public class MusicImportService {
         ids.put("encoreabj", List.of(1112331589L));
         ids.put("devil", List.of(1246923845L));
         ids.put("drv", List.of(1618943292L));
-        ids.put("farhankhan", List.of(1519162480L, 391552685L));
+        ids.put("farhankhan", List.of(1519162480L));
         ids.put("yashraj", List.of(1530263031L));
         ids.put("frappeash", List.of(1140931280L));
         ids.put("hanumankind", List.of(1458932353L));
@@ -1690,10 +1894,11 @@ public class MusicImportService {
         ids.put("mcheadshot", List.of(1496073677L, 1524726515L));
         ids.put("mckode", List.of(1514620241L));
         ids.put("mcsquare", List.of(1604955410L));
-        ids.put("mcstan", List.of(1530205305L));
+        ids.put("mcstan", List.of(1530205305L, 1762549861L, 1775489848L));
         ids.put("mrunalshankar", List.of(1481856751L));
         ids.put("naamsujal", List.of(1537799827L));
         ids.put("paradox", List.of(1680197168L));
+        ids.put("prabhdeep", List.of(992745608L));
         ids.put("raftaar", List.of(574786227L));
         ids.put("rawal", List.of(1512171268L));
         ids.put("riarsaab", List.of(1584317505L));
@@ -1710,11 +1915,12 @@ public class MusicImportService {
         ids.put("vijaydk", List.of(1538654885L));
         ids.put("kidshot", List.of(1130075101L));
         ids.put("kaambhaari", List.of(1450523832L));
+        ids.put("karanaujla", List.of(914892130L));
         ids.put("thesiege", List.of(1476131739L));
         ids.put("dhanji", List.of(1356034033L));
         ids.put("dopeadelicz", List.of(1016344980L));
         ids.put("siyaahi", List.of(1475741015L));
-        ids.put("yungsta", List.of(1489187757L, 289017644L));
+        ids.put("yungsta", List.of(289017644L));
         ids.put("wolfcryman", List.of(1529460842L));
         return ids;
     }
@@ -1866,6 +2072,12 @@ public class MusicImportService {
                 new TrackQueryOverride("Hanumankind Roisee", "Hanumankind", true),
                 new TrackQueryOverride("Hanumankind Colors", "Hanumankind", true),
                 new TrackQueryOverride("Hanumankind Arivu", "Hanumankind", true)));
+        overrides.put("king", List.of(
+                new TrackQueryOverride("Alan Walker King", "King", true),
+                new TrackQueryOverride("Uchana Amit King", "King", true),
+                new TrackQueryOverride("Karma King", "King", true),
+                new TrackQueryOverride("Amit Bhadana King", "King", true),
+                new TrackQueryOverride("Pritam King Shehzada", "King", true)));
         overrides.put("flowbo", List.of(
                 new TrackQueryOverride("Flowbo Swaalina", "Flowbo", true),
                 new TrackQueryOverride("Flowbo Hitzone", "Flowbo", true),
@@ -1950,7 +2162,10 @@ public class MusicImportService {
         overrides.put("naamsujal", List.of(
                 new TrackQueryOverride("Naam Sujal Aditya Pushkarna", "Naam Sujal", true),
                 new TrackQueryOverride("Naam Sujal MTV Hustle", "Naam Sujal", true),
-                new TrackQueryOverride("Naam Sujal Gravity 30KEY", "Naam Sujal", true)));
+                new TrackQueryOverride("Naam Sujal Gravity 30KEY", "Naam Sujal", true),
+                new TrackQueryOverride("Naam Sujal Hard trip", "Naam Sujal", true),
+                new TrackQueryOverride("Naam Sujal Samjhe nhi", "Naam Sujal", true),
+                new TrackQueryOverride("Naam Sujal Block", "Naam Sujal", true)));
         overrides.put("gd47", List.of(
                 new TrackQueryOverride("GD 47", "GD 47", true),
                 new TrackQueryOverride("GD 47 Hustle", "GD 47", true),
@@ -2056,9 +2271,42 @@ public class MusicImportService {
                 "murdershewroteexcusesmundiantobachkesantochglremixmixed"));
         blacklists.put("bella", Set.of(
                 "tiamopersemprefeatbellanonvocalextendedmix",
-                "tiamopersemprefeatbellavocalextendedmix"));
+                "tiamopersemprefeatbellavocalextendedmix",
+                "kaam"));
         blacklists.put("bharg", Set.of(
-                "roshnimixed"));
+                "roshnimixed",
+                "pewpewremixmixed",
+                "khaifeattrosklofiremix"));
+        blacklists.put("badshah", Set.of(
+                "paanipaanipressurepumpmix",
+                "bachelorpartynonstopmix",
+                "paanipaanielectrohousemix",
+                "gendaphooldaytimerspresentsalterations",
+                "paanipaaniafrohousemix",
+                "paanipaanidubstepmix",
+                "navratrikiraatdjdharak",
+                "paanipaanideephousemix",
+                "gendaphoolspedup",
+                "djwaleybabuspedup",
+                "paanipaanimoombahtonmix",
+                "paanipaaniafromix",
+                "properpatolaspedup",
+                "paanipaaniarabictrapmix",
+                "paanipaanianaloguemix",
+                "paanipaanitrapmix",
+                "sawanmeinlaggayiaagdandiyabeatmixfromginnywedssunny",
+                "bollywoodnonstopdandiya2020",
+                "gendaphoolgujarativersion",
+                "paanipaanichillwave",
+                "baawlajhankarbeats",
+                "paanipaanijhankarbeats",
+                "kalachashmaclubmixdjnotorious",
+                "nonstopbollywooddandiya",
+                "mazakarlononstopbollywooddandiya2017",
+                "thebreakupsongdesimixbypanjabihitsquadfromaedilhaimushkil",
+                "kargayichullbhangramixbytesherfromkapoorsonssince1921",
+                "matargashti52nonstop",
+                "discodeewanesaturdaysaturdaysangeetmix"));
         blacklists.put("brodhav", Set.of(
                 "partyallnight52nonstop",
                 "brodhavaathmaraama",
@@ -2071,13 +2319,92 @@ public class MusicImportService {
                 "lionheartfeatjeremyoceansandkarraextendedmix",
                 "monstamashup2019bydjnotoriousandlijogeorge",
                 "osajna"));
+        blacklists.put("ikka", Set.of(
+                "wohdjshadowdubaiclubmix"));
         blacklists.put("emiwaybantai", Set.of(
                 "believememaxedit",
                 "companyremix"));
+        blacklists.put("dinojames", Set.of(
+                "wohdjshadowdubaiclubmix"));
         blacklists.put("gd47", Set.of(
                 "minhavirginiana",
                 "trackervinhoesaudades",
-                "porquetolinda"));
+                "porquetolinda",
+                "noreasonlofi"));
+        blacklists.put("gravity", Set.of(
+                "amasiko",
+                "digitalrevolution",
+                "embargo",
+                "embargorawkickvocaledit",
+                "evasion",
+                "vasion",
+                "imposible"));
+        blacklists.put("farhankhan", Set.of(
+                "jeerahemaatumharesaharefeatshivanitivariandramkaransahusajal",
+                "khelengeholihumsathmein",
+                "teribewafi",
+                "ladkakariyafeatprateekkumarandjyotipatel",
+                "maahi",
+                "resham",
+                "paheli",
+                "pehlimohabbat",
+                "aankhonnemaara",
+                "ajnabi",
+                "masoom",
+                "raaz",
+                "ghar",
+                "terihihawamein",
+                "sarajahanhai",
+                "dilyemera",
+                "khudsekhafa",
+                "phiraajdil",
+                "phirseikbaar",
+                "chandlamhaat",
+                "jannat",
+                "maulayasalliwasallim",
+                "bairipiya",
+                "meresanam",
+                "ehsaas",
+                "parshawan",
+                "teriankhiyan",
+                "dardedil",
+                "bepanahmohabbatkartehain",
+                "teresathsathchaloonmain",
+                "beintehanmohabbatkartehain",
+                "kahanivalmikikisingle",
+                "thestoryofhanumanandbhimpt1",
+                "thestoryofhanumanandbhimpt2",
+                "thestoryofhanumanandbhimpt3",
+                "kahanisheraurunthkipt1",
+                "kahanisheraurunthkipt2",
+                "kahanisheraurunthkipt3",
+                "naina",
+                "pyarhai",
+                "miankitodipt1",
+                "miankitodipt2",
+                "miankitodipt3",
+                "miankitodipt4"));
+        blacklists.put("harjasharjaayi", Set.of(
+                "blessedfeatabixremix",
+                "jhootisifeattrosklofiremix"));
+        blacklists.put("karma", Set.of(
+                "telecinesifeatkarma",
+                "2aminsauga",
+                "perinaise2p3"));
+        blacklists.put("king", Set.of(
+                "maanmerijaanafterlifespedupversion"));
+        blacklists.put("mckode", Set.of(
+                "trajedalacostefeattriste",
+                "cobrana",
+                "noitemaravilhosafeatmckode",
+                "unitedstatesof4pregnantgoldenretrievers"));
+        blacklists.put("raga", Set.of(
+                "dekattanpanama",
+                "lovereborn",
+                "teachmetofly"));
+        blacklists.put("raftaar", Set.of(
+                "theultimatenewyearanthemnonstopmix",
+                "ghanakasootaspedup"));
         blacklists.put("drv", Set.of(
                 "righthere",
                 "blessings",
@@ -2175,6 +2502,57 @@ public class MusicImportService {
                 "micdropscene"));
         blacklists.put("deemc", Set.of(
                 "garbleddeemccatalognoise"));
+        blacklists.put("badshah", Set.of(
+                "paanipaanipressurepumpmixsingle",
+                "bachelorpartynonstopmixsingle",
+                "paanipaanielectrohousemixsingle",
+                "daytimerspresentsalterations",
+                "daytimerspresentsalterationsextendedcut",
+                "paanipaaniafrohousemixsingle",
+                "paanipaanidubstepmixsingle",
+                "navratrikiraatdjdharak",
+                "paanipaanideephousemixsingle",
+                "gendaphoolspedupsingle",
+                "djwaleybabuspedupsingle",
+                "nonstopsuperhitbollywoodsongs",
+                "paanipaanimoombahtonmixsingle",
+                "diwalipartymix",
+                "phonktrapmixesvol3",
+                "paanipaaniafromixsingle",
+                "properpatolaspedupsingle",
+                "paanipaaniarabictrapmixsingle",
+                "paanipaanianaloguemixsingle",
+                "paanipaaniclubmixsingle",
+                "paanipaanitrapmixsingle",
+                "christmaspartymix2021",
+                "holilovemix2022ep",
+                "holiafterpartymix",
+                "holiromanticpartymix2022",
+                "holipartymix2023",
+                "valentinespartymix2023",
+                "valentinespartymix",
+                "twenty20partymix",
+                "newyearpartymix2021",
+                "holipartymixsingle",
+                "holipartymix2021ep",
+                "punjabipartymixsingle",
+                "sawanmeinlaggayiaagdandiyabeatmixfromginnywedssunnysingle",
+                "bollywoodnonstopdandiya2020",
+                "gendaphoolgujarativersionsingle",
+                "paanipaanichillwavesingle",
+                "baawlajhankarbeatssingle",
+                "paanipaanijhankarbeatssingle",
+                "kalachashmaclubmixdjnotorioussingle",
+                "nonstopbollywooddandiya",
+                "nonstopbollywoodsuperhitpartysongs",
+                "mazakarlononstopbollywooddandiya2017",
+                "highheelstenachche52nonstop",
+                "thebreakupsongdesimixbypanjabihitsquadfromaedilhaimushkilsingle",
+                "kargayichullbhangramixbytesherfromkapoorsonssince1921single",
+                "matargashti52nonstop",
+                "shorshagunshaadimixbyaishwaryatripathi"));
+        blacklists.put("bella", Set.of(
+                "kaamsingle"));
         blacklists.put("divine", Set.of(
                 "30minsdance",
                 "30minsgrwm",
@@ -2193,7 +2571,15 @@ public class MusicImportService {
                 "pumpingiron",
                 "rapkingsvol7",
                 "shashwatsachdevhits",
-                "urbanasiavol1vibepresents"));
+                "urbanasiavol1vibepresents",
+                "thecomeup"));
+        blacklists.put("ikka", Set.of(
+                "wohdjshadowdubaiclubmixsingle"));
+        blacklists.put("karanaujla", Set.of(
+                "rapreign",
+                "nightride2025",
+                "ultimatecricketmix",
+                "holipartymix2023"));
         blacklists.put("drv", Set.of(
                 "rightheresingle",
                 "blessingssingle",
@@ -2219,6 +2605,34 @@ public class MusicImportService {
                 "bhartiyahiphop",
                 "electronicdeepsoundvol2",
                 "orphanblackthednasamplermusicfromtheoriginaltvseries"));
+        blacklists.put("farhankhan", Set.of(
+                "kahanivalmikikisingle",
+                "thestoryofhanumanandbhim",
+                "kahanisheraurunthki",
+                "miankitodi"));
+        blacklists.put("dinojames", Set.of(
+                "holipartymix2023",
+                "valentinespartymix2023",
+                "twenty20partymix",
+                "wohdjshadowdubaiclubmixsingle"));
+        blacklists.put("king", Set.of(
+                "maanmerijaanafterlifespedupversionsingle",
+                "opmlovemix"));
+        blacklists.put("mckode", Set.of(
+                "trajedalacostesingle",
+                "cobranasingle",
+                "noitemaravilhosasingle"));
+        blacklists.put("raftaar", Set.of(
+                "theultimatenewyearanthemnonstopmix",
+                "ghanakasootaspedupsingle"));
+        blacklists.put("sammohit", Set.of(
+                "scenariomixed",
+                "baatcheetmixed",
+                "saariraateinmixed"));
+        blacklists.put("yungsta", Set.of(
+                "hardestguerooutwedolokzvol1",
+                "htownchronic22",
+                "karoshi"));
         return blacklists;
     }
 
@@ -2237,7 +2651,6 @@ public class MusicImportService {
         return titleKey.contains("mixed")
                 || titleKey.contains("remix")
                 || titleKey.contains("phonk")
-                || titleKey.contains("acoustic")
                 || titleKey.contains("slowed")
                 || titleKey.contains("reverb")
                 || titleKey.contains("lofi")

@@ -161,18 +161,7 @@ public class MusicAdminController {
 
     @PostMapping("/refresh-tracks")
     public ResponseEntity<Map<String, Object>> refreshTracks(@RequestBody Map<String, Object> request) {
-        Object rawNames = request.get("artistNames");
-        List<String> artistNames = new ArrayList<>();
-        if (rawNames instanceof List<?> rawList) {
-            for (Object item : rawList) {
-                if (item != null) {
-                    String name = item.toString().trim();
-                    if (!name.isBlank()) {
-                        artistNames.add(name);
-                    }
-                }
-            }
-        }
+        List<String> artistNames = extractArtistNames(request);
 
         if (artistNames.isEmpty()) {
             artistNames = artistRepository.findAll().stream().map(Artist::getName).toList();
@@ -205,20 +194,8 @@ public class MusicAdminController {
 
     @PostMapping("/refresh-images")
     public ResponseEntity<Map<String, Object>> refreshImages(@RequestBody Map<String, Object> request) {
-        Object rawNames = request.get("artistNames");
         boolean force = request.get("force") instanceof Boolean && (Boolean) request.get("force");
-
-        List<String> artistNames = new ArrayList<>();
-        if (rawNames instanceof List<?> rawList) {
-            for (Object item : rawList) {
-                if (item != null) {
-                    String name = item.toString().trim();
-                    if (!name.isBlank()) {
-                        artistNames.add(name);
-                    }
-                }
-            }
-        }
+        List<String> artistNames = extractArtistNames(request);
 
         if (artistNames.isEmpty()) {
             artistNames = artistRepository.findAll().stream().map(Artist::getName).toList();
@@ -250,6 +227,41 @@ public class MusicAdminController {
         response.put("updatedArtists", updated);
         response.put("succeeded", successCount);
         return ResponseEntity.ok(response);
+    }
+
+    private List<String> extractArtistNames(Map<String, Object> request) {
+        List<String> artistNames = new ArrayList<>();
+        if (request == null) {
+            return artistNames;
+        }
+
+        Object rawNames = request.get("artistNames");
+        if (rawNames instanceof List<?> rawList) {
+            for (Object item : rawList) {
+                appendArtistName(artistNames, item);
+            }
+        } else if (rawNames != null) {
+            appendArtistName(artistNames, rawNames);
+        }
+
+        appendArtistName(artistNames, request.get("artistName"));
+        return artistNames;
+    }
+
+    private void appendArtistName(List<String> artistNames, Object rawValue) {
+        if (rawValue == null) {
+            return;
+        }
+        String name = rawValue.toString().trim();
+        if (!name.isBlank() && !artistNames.contains(name)) {
+            artistNames.add(name);
+        }
+    }
+
+    @GetMapping("/debug-track-import")
+    public ResponseEntity<Map<String, Object>> debugTrackImport(@RequestParam String artistName) {
+        Map<String, Object> debug = musicImportService.debugTrackImport(artistName);
+        return ResponseEntity.ok(debug);
     }
 
     @PostMapping("/sync-images-from-covers")

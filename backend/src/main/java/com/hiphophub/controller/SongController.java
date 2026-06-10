@@ -37,6 +37,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/songs")
 @CrossOrigin(origins = { "http://localhost:3000", "http://localhost:5173" })
 public class SongController {
+    private static final String WATCH_URL_PREFIX = "https://www.youtube.com/watch?v=";
 
     private static final String DEFAULT_COVER =
             "https://images.unsplash.com/photo-1511379938547-c1f69419868d?auto=format&fit=crop&w=800&q=80";
@@ -287,23 +288,16 @@ public class SongController {
         String combined = title + " " + albumTitle;
         return combined.contains("remix")
                 || combined.contains("mixed")
-                || combined.contains("acoustic")
                 || combined.contains("phonk")
                 || combined.contains("synthwave")
                 || combined.contains("sythwave")
+                || combined.contains("sped up")
                 || combined.contains("slowed")
                 || combined.contains("reverb")
-                || combined.contains("lo-fi")
-                || combined.contains("alternate version")
-                || combined.contains("extended mix")
-                || combined.contains("punjabi edit")
-                || combined.contains("english edit")
                 || combined.contains("lofi")
-                || combined.contains("radio edit")
+                || combined.contains("lo-fi")
                 || combined.contains("club mix")
                 || combined.contains("party mix")
-                || combined.contains("drill version")
-                || combined.contains("boombox")
                 || combined.contains("nashik dhol remix");
     }
 
@@ -350,8 +344,8 @@ public class SongController {
             return "";
         }
         String normalized = title.toLowerCase(Locale.ROOT)
-                .replaceAll("\\((feat|from)[^)]*\\)", "")
-                .replaceAll("\\[(feat|from)[^\\]]*\\]", "")
+                .replaceAll("\\((from)[^)]*\\)", "")
+                .replaceAll("\\[(from)[^\\]]*\\]", "")
                 .replaceAll("[^a-z0-9]+", "");
         return normalized;
     }
@@ -375,7 +369,8 @@ public class SongController {
             return false;
         }
         Artist artist = album.getArtist();
-        return DhhArtistClassifier.isDhhArtist(artist.getName(), artist.getGenre());
+        return DhhArtistClassifier.isDhhArtist(artist.getName(), artist.getGenre())
+                && musicImportService.shouldFeatureArtistInDhhCatalog(artist);
     }
 
     private List<Song> getPlayableSongPool(boolean dhhOnly) {
@@ -434,6 +429,8 @@ public class SongController {
         Artist artist = album.getArtist();
         String artistName = artist.getName();
         String coverUrl = resolveSongCover(song);
+        String songYoutubeUrl = directWatchUrlOrNull(YouTubeLinkBuilder.forSong(artistName, song.getTitle()));
+        String albumYoutubeUrl = directWatchUrlOrNull(YouTubeLinkBuilder.forAlbum(artistName, album.getTitle()));
 
         ArtistSimpleDTO artistDTO = new ArtistSimpleDTO(
                 artist.getId(),
@@ -448,7 +445,7 @@ public class SongController {
                 album.getReleaseDate(),
                 album.getType().toString(),
                 coverUrl,
-                YouTubeLinkBuilder.forAlbum(artistName, album.getTitle()),
+                albumYoutubeUrl,
                 artistDTO);
 
         return new SongDTO(
@@ -459,7 +456,14 @@ public class SongController {
                 song.getTrackNumber(),
                 artistName,
                 coverUrl,
-                YouTubeLinkBuilder.forSong(artistName, song.getTitle()),
+                songYoutubeUrl,
                 albumDTO);
+    }
+
+    private String directWatchUrlOrNull(String url) {
+        if (url == null || !url.startsWith(WATCH_URL_PREFIX)) {
+            return null;
+        }
+        return url;
     }
 }

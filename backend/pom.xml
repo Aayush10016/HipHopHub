@@ -88,14 +88,6 @@
             <scope>runtime</scope>
         </dependency>
         
-        <!-- Spring Boot DevTools (Hot reload) -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-devtools</artifactId>
-            <scope>runtime</scope>
-            <optional>true</optional>
-        </dependency>
-        
         <!-- Spring Boot Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
