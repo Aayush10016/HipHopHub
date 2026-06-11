@@ -2,6 +2,19 @@ import { useEffect, useMemo, useState } from 'react'
 import GameComponent from '../components/GameComponent'
 import './ArtistProfile.css'
 
+const ARTIST_PROFILE_CACHE_TTL_MS = 5 * 60 * 1000
+
+type ArtistProfileCacheEntry = {
+    artist: Artist | null
+    albums: Album[]
+    songs: Song[]
+    tours: Tour[]
+    facts: Fact[]
+    cachedAt: number
+}
+
+const artistProfileCache = new Map<number, ArtistProfileCacheEntry>()
+
 interface Artist {
     id: number
     name: string
@@ -52,6 +65,24 @@ interface ArtistProfileProps {
     onBack: () => void
 }
 
+const isFreshArtistProfileCache = (entry?: ArtistProfileCacheEntry) =>
+    !!entry && Date.now() - entry.cachedAt < ARTIST_PROFILE_CACHE_TTL_MS
+
+const fetchJsonWithTimeout = async <T,>(url: string, timeoutMs = 12000): Promise<T | null> => {
+    const controller = new AbortController()
+    const timer = window.setTimeout(() => controller.abort(), timeoutMs)
+    try {
+        const res = await fetch(url, { signal: controller.signal })
+        if (!res.ok) return null
+        return await res.json() as T
+    } catch (err) {
+        console.error(`Request failed for ${url}:`, err)
+        return null
+    } finally {
+        window.clearTimeout(timer)
+    }
+}
+
 export default function ArtistProfile({ artistId, initialArtist, onBack }: ArtistProfileProps) {
     const [activeTab, setActiveTab] = useState('overview')
     const [artist, setArtist] = useState<Artist | null>(initialArtist || null)
@@ -67,50 +98,82 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
 
     useEffect(() => {
         let isMounted = true
-        setLoading(true)
+        const cached = artistProfileCache.get(artistId)
+
+        const hasFreshCache = isFreshArtistProfileCache(cached)
+
+        if (hasFreshCache) {
+            setArtist(cached?.artist || initialArtist || null)
+            setAlbums(cached?.albums || [])
+            setSongs(cached?.songs || [])
+            setTours(cached?.tours || [])
+            setFacts(cached?.facts || [])
+            setLoading(false)
+        } else {
+            setLoading(true)
+            setArtist(initialArtist || null)
+            setAlbums([])
+            setSongs([])
+            setTours([])
+            setFacts([])
+        }
+
+        setLoading(!hasFreshCache)
         setError(null)
-        setArtist(initialArtist || null)
-        setAlbums([])
-        setSongs([])
-        setTours([])
-        setFacts([])
         setArtistImageFailed(false)
         setSongCurrentTime({})
         setActiveSongId(null)
 
-        Promise.all([
-            fetch(`/api/artists/${artistId}`),
-            fetch(`/api/artists/${artistId}/albums`),
-            fetch(`/api/songs/artist/${artistId}`),
-            fetch(`/api/artists/${artistId}/tours`),
-            fetch(`/api/artists/${artistId}/facts`)
+        Promise.allSettled([
+            fetchJsonWithTimeout<Artist>(`/api/artists/${artistId}`),
+            fetchJsonWithTimeout<Album[]>(`/api/artists/${artistId}/albums`),
+            fetchJsonWithTimeout<Song[]>(`/api/songs/artist/${artistId}`)
         ])
-            .then(async ([artistRes, albumsRes, songsRes, toursRes, factsRes]) => {
+            .then(([artistResult, albumsResult, songsResult]) => {
                 if (!isMounted) return
 
-                if (artistRes.ok) {
-                    setArtist(await artistRes.json())
-                } else {
+                const nextArtist = artistResult.status === 'fulfilled'
+                    ? (artistResult.value || initialArtist || null)
+                    : (initialArtist || null)
+                const nextAlbums = albumsResult.status === 'fulfilled' ? (albumsResult.value || []) : []
+                const nextSongs = songsResult.status === 'fulfilled' ? (songsResult.value || []) : []
+
+                if (!nextArtist) {
                     setError('Artist not found')
                 }
 
-                if (albumsRes.ok) {
-                    setAlbums((await albumsRes.json()) || [])
-                }
-
-                if (songsRes.ok) {
-                    setSongs((await songsRes.json()) || [])
-                }
-
-                if (toursRes.ok) {
-                    setTours((await toursRes.json()) || [])
-                }
-
-                if (factsRes.ok) {
-                    setFacts((await factsRes.json()) || [])
-                }
-
+                setArtist(nextArtist)
+                setAlbums(nextAlbums)
+                setSongs(nextSongs)
                 setLoading(false)
+
+                artistProfileCache.set(artistId, {
+                    artist: nextArtist,
+                    albums: nextAlbums,
+                    songs: nextSongs,
+                    tours: cached?.tours || [],
+                    facts: cached?.facts || [],
+                    cachedAt: Date.now()
+                })
+
+                void Promise.allSettled([
+                    fetchJsonWithTimeout<Tour[]>(`/api/artists/${artistId}/tours`, 8000),
+                    fetchJsonWithTimeout<Fact[]>(`/api/artists/${artistId}/facts`, 8000)
+                ]).then(([toursResult, factsResult]) => {
+                    if (!isMounted) return
+                    const nextTours = toursResult.status === 'fulfilled' ? (toursResult.value || []) : (cached?.tours || [])
+                    const nextFacts = factsResult.status === 'fulfilled' ? (factsResult.value || []) : (cached?.facts || [])
+                    setTours(nextTours)
+                    setFacts(nextFacts)
+                    artistProfileCache.set(artistId, {
+                        artist: nextArtist,
+                        albums: nextAlbums,
+                        songs: nextSongs,
+                        tours: nextTours,
+                        facts: nextFacts,
+                        cachedAt: Date.now()
+                    })
+                })
             })
             .catch(err => {
                 if (!isMounted) return

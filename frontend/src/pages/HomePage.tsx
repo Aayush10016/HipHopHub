@@ -10,6 +10,8 @@ import SceneDecoderGame from '../components/SceneDecoderGame'
 import CoverShuffleGame from '../components/CoverShuffleGame'
 import './HomePage.css'
 
+const HOME_CACHE_TTL_MS = 5 * 60 * 1000
+
 interface Song {
     id: number
     title: string
@@ -71,6 +73,18 @@ interface NewsStory {
     source?: string
 }
 
+type HomePageCacheEntry = {
+    songOfDay: Song | null
+    top5OfDay: Song[]
+    topSongs: Song[]
+    recentReleases: Album[]
+    upcomingReleases: Album[]
+    artists: Artist[]
+    cachedAt: number
+}
+
+let homePageCache: HomePageCacheEntry | null = null
+
 const isValidDate = (date?: string) => {
     if (!date) return false
     return !Number.isNaN(new Date(date).getTime())
@@ -101,6 +115,9 @@ const mapSongOfDayResponse = (payload: SongOfDayResponse): Song | null => {
     }
 }
 
+const isFreshHomeCache = (entry: HomePageCacheEntry | null) =>
+    !!entry && Date.now() - entry.cachedAt < HOME_CACHE_TTL_MS
+
 export default function HomePage() {
     const navigate = useNavigate()
     const [activeTab, setActiveTab] = useState('songOfDay')
@@ -123,6 +140,17 @@ export default function HomePage() {
 
     useEffect(() => {
         let isMounted = true
+        const cached = homePageCache
+
+        if (isFreshHomeCache(cached)) {
+            setSongOfDay(cached.songOfDay)
+            setTop5OfDay(cached.top5OfDay)
+            setTopSongs(cached.topSongs)
+            setRecentReleases(cached.recentReleases)
+            setUpcomingReleases(cached.upcomingReleases)
+            setArtists(cached.artists)
+            setLoading(false)
+        }
 
         const fetchSongOfDay = async () => {
             try {
@@ -154,28 +182,38 @@ export default function HomePage() {
                 if (!isMounted) return
 
                 const [songResult, artistsResult, latestResult, upcomingResult, topSongsResult, top5Result] = results
+                let nextSongOfDay = cached?.songOfDay || null
+                let nextArtists = cached?.artists || []
+                let nextRecentReleases = cached?.recentReleases || []
+                let nextUpcomingReleases = cached?.upcomingReleases || []
+                let nextTopSongs = cached?.topSongs || []
+                let nextTop5 = cached?.top5OfDay || []
 
                 if (songResult.status === 'fulfilled') {
-                    setSongOfDay(songResult.value)
+                    nextSongOfDay = songResult.value
+                    setSongOfDay(nextSongOfDay)
                 }
 
                 if (artistsResult.status === 'fulfilled' && artistsResult.value.ok) {
                     const artistData = await artistsResult.value.json()
-                    if (isMounted) setArtists(artistData || [])
+                    nextArtists = artistData || []
+                    if (isMounted) setArtists(nextArtists)
                 } else if (artistsResult.status === 'rejected') {
                     setArtists([])
                 }
 
                 if (latestResult.status === 'fulfilled' && latestResult.value.ok) {
                     const latestData = await latestResult.value.json()
-                    if (isMounted) setRecentReleases(latestData || [])
+                    nextRecentReleases = latestData || []
+                    if (isMounted) setRecentReleases(nextRecentReleases)
                 } else if (latestResult.status === 'rejected') {
                     setRecentReleases([])
                 }
 
                 if (upcomingResult.status === 'fulfilled' && upcomingResult.value.ok) {
                     const upcomingData = await upcomingResult.value.json()
-                    if (isMounted) setUpcomingReleases(upcomingData || [])
+                    nextUpcomingReleases = upcomingData || []
+                    if (isMounted) setUpcomingReleases(nextUpcomingReleases)
                 } else if (upcomingResult.status === 'rejected') {
                     setUpcomingReleases([])
                 }
@@ -183,16 +221,28 @@ export default function HomePage() {
                 if (topSongsResult.status === 'fulfilled' && topSongsResult.value.ok) {
                     const songs = (await topSongsResult.value.json()) as Song[]
                     const withPreviews = (songs || []).filter(song => !!song.previewUrl)
-                    if (isMounted) setTopSongs(withPreviews)
+                    nextTopSongs = withPreviews
+                    if (isMounted) setTopSongs(nextTopSongs)
                 } else if (topSongsResult.status === 'rejected') {
                     setTopSongs([])
                 }
 
                 if (top5Result.status === 'fulfilled' && top5Result.value.ok) {
                     const songs5 = (await top5Result.value.json()) as Song[]
-                    if (isMounted) setTop5OfDay(songs5 || [])
+                    nextTop5 = songs5 || []
+                    if (isMounted) setTop5OfDay(nextTop5)
                 } else if (top5Result.status === 'rejected') {
                     setTop5OfDay([])
+                }
+
+                homePageCache = {
+                    songOfDay: nextSongOfDay,
+                    top5OfDay: nextTop5,
+                    topSongs: nextTopSongs,
+                    recentReleases: nextRecentReleases,
+                    upcomingReleases: nextUpcomingReleases,
+                    artists: nextArtists,
+                    cachedAt: Date.now()
                 }
 
             } catch (err) {
