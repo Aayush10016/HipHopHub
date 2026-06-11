@@ -2,19 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import GameComponent from '../components/GameComponent'
 import './ArtistProfile.css'
 
-const ARTIST_PROFILE_CACHE_TTL_MS = 5 * 60 * 1000
-
-type ArtistProfileCacheEntry = {
-    artist: Artist | null
-    albums: Album[]
-    songs: Song[]
-    tours: Tour[]
-    facts: Fact[]
-    cachedAt: number
-}
-
-const artistProfileCache = new Map<number, ArtistProfileCacheEntry>()
-
 interface Artist {
     id: number
     name: string
@@ -65,24 +52,6 @@ interface ArtistProfileProps {
     onBack: () => void
 }
 
-const isFreshArtistProfileCache = (entry?: ArtistProfileCacheEntry) =>
-    !!entry && Date.now() - entry.cachedAt < ARTIST_PROFILE_CACHE_TTL_MS
-
-const fetchJsonWithTimeout = async <T,>(url: string, timeoutMs = 12000): Promise<T | null> => {
-    const controller = new AbortController()
-    const timer = window.setTimeout(() => controller.abort(), timeoutMs)
-    try {
-        const res = await fetch(url, { signal: controller.signal })
-        if (!res.ok) return null
-        return await res.json() as T
-    } catch (err) {
-        console.error(`Request failed for ${url}:`, err)
-        return null
-    } finally {
-        window.clearTimeout(timer)
-    }
-}
-
 const getAlbumCover = (album: Album) => album.coverUrl || album.coverImageUrl
 
 export default function ArtistProfile({ artistId, initialArtist, onBack }: ArtistProfileProps) {
@@ -100,81 +69,50 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
 
     useEffect(() => {
         let isMounted = true
-        const cached = artistProfileCache.get(artistId)
-
-        const hasFreshCache = isFreshArtistProfileCache(cached)
-
-        if (hasFreshCache) {
-            setArtist(cached?.artist || initialArtist || null)
-            setAlbums(cached?.albums || [])
-            setSongs(cached?.songs || [])
-            setTours(cached?.tours || [])
-            setFacts(cached?.facts || [])
-            setLoading(false)
-        } else {
-            setLoading(true)
-            setArtist(initialArtist || null)
-            setAlbums([])
-            setSongs([])
-            setTours([])
-            setFacts([])
-        }
-
+        setLoading(true)
         setError(null)
+        setArtist(initialArtist || null)
+        setAlbums([])
+        setSongs([])
+        setTours([])
+        setFacts([])
         setArtistImageFailed(false)
         setSongCurrentTime({})
         setActiveSongId(null)
 
-        Promise.allSettled([
-            fetchJsonWithTimeout<Artist>(`/api/artists/${artistId}`),
-            fetchJsonWithTimeout<Album[]>(`/api/artists/${artistId}/albums`),
-            fetchJsonWithTimeout<Song[]>(`/api/songs/artist/${artistId}`)
+        Promise.all([
+            fetch(`/api/artists/${artistId}`),
+            fetch(`/api/artists/${artistId}/albums`),
+            fetch(`/api/songs/artist/${artistId}`),
+            fetch(`/api/artists/${artistId}/tours`),
+            fetch(`/api/artists/${artistId}/facts`)
         ])
-            .then(([artistResult, albumsResult, songsResult]) => {
+            .then(async ([artistRes, albumsRes, songsRes, toursRes, factsRes]) => {
                 if (!isMounted) return
 
-                const nextArtist = artistResult.status === 'fulfilled'
-                    ? (artistResult.value || initialArtist || null)
-                    : (initialArtist || null)
-                const nextAlbums = albumsResult.status === 'fulfilled' ? (albumsResult.value || []) : []
-                const nextSongs = songsResult.status === 'fulfilled' ? (songsResult.value || []) : []
-
-                if (!nextArtist) {
+                if (artistRes.ok) {
+                    setArtist(await artistRes.json())
+                } else {
                     setError('Artist not found')
                 }
 
-                setArtist(nextArtist)
-                setAlbums(nextAlbums)
-                setSongs(nextSongs)
+                if (albumsRes.ok) {
+                    setAlbums((await albumsRes.json()) || [])
+                }
+
+                if (songsRes.ok) {
+                    setSongs((await songsRes.json()) || [])
+                }
+
+                if (toursRes.ok) {
+                    setTours((await toursRes.json()) || [])
+                }
+
+                if (factsRes.ok) {
+                    setFacts((await factsRes.json()) || [])
+                }
+
                 setLoading(false)
-
-                artistProfileCache.set(artistId, {
-                    artist: nextArtist,
-                    albums: nextAlbums,
-                    songs: nextSongs,
-                    tours: cached?.tours || [],
-                    facts: cached?.facts || [],
-                    cachedAt: Date.now()
-                })
-
-                void Promise.allSettled([
-                    fetchJsonWithTimeout<Tour[]>(`/api/artists/${artistId}/tours`, 8000),
-                    fetchJsonWithTimeout<Fact[]>(`/api/artists/${artistId}/facts`, 8000)
-                ]).then(([toursResult, factsResult]) => {
-                    if (!isMounted) return
-                    const nextTours = toursResult.status === 'fulfilled' ? (toursResult.value || []) : (cached?.tours || [])
-                    const nextFacts = factsResult.status === 'fulfilled' ? (factsResult.value || []) : (cached?.facts || [])
-                    setTours(nextTours)
-                    setFacts(nextFacts)
-                    artistProfileCache.set(artistId, {
-                        artist: nextArtist,
-                        albums: nextAlbums,
-                        songs: nextSongs,
-                        tours: nextTours,
-                        facts: nextFacts,
-                        cachedAt: Date.now()
-                    })
-                })
             })
             .catch(err => {
                 if (!isMounted) return
@@ -215,8 +153,8 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
         [albums]
     )
 
-    const artistImageSrc = !artistImageFailed
-        ? displayArtist?.imageUrl
+    const artistImageSrc = !artistImageFailed && displayArtist?.id
+        ? `/api/images/artist/${displayArtist.id}`
         : undefined
 
     const toggleSongPreview = async (songId: number) => {
@@ -310,12 +248,11 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
             <div className="artist-header">
                 <div className="artist-header-image">
                     {artistImageSrc ? (
-                            <img
-                                src={artistImageSrc}
-                                alt={displayArtist.name}
-                                loading="lazy"
-                                onError={() => setArtistImageFailed(true)}
-                            />
+                        <img
+                            src={artistImageSrc}
+                            alt={displayArtist.name}
+                            onError={() => setArtistImageFailed(true)}
+                        />
                     ) : (
                         <div className="artist-initial-large">{displayArtist.name.charAt(0)}</div>
                     )}
