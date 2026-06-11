@@ -33,6 +33,13 @@ public interface SongRepository extends JpaRepository<Song, Long> {
      */
     long countByAlbumArtistId(Long artistId);
 
+    @Query("""
+            SELECT DISTINCT a.artist.id
+            FROM Song s
+            JOIN s.album a
+            """)
+    List<Long> findDistinctArtistIdsWithSongs();
+
     /**
      * Find song by external ID
      */

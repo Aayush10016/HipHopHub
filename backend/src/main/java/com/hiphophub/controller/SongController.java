@@ -58,6 +58,7 @@ public class SongController {
 
     private volatile List<Song> cachedDhhPlayableSongs = List.of();
     private volatile Instant cachedDhhPlayableSongsAt;
+    private final Object playableSongsCacheLock = new Object();
 
     @GetMapping
     public List<SongDTO> getAllSongs() {
@@ -389,19 +390,36 @@ public class SongController {
             }
         }
 
-        List<Song> refreshed = new ArrayList<>(songRepository.findLatestPlayableSongs(PageRequest.of(0, 600)).stream()
-                .filter(this::isPlayableSong)
-                .filter(song -> !dhhOnly || isDhhSong(song))
-                .toList());
+        synchronized (playableSongsCacheLock) {
+            now = Instant.now();
+            if (dhhOnly) {
+                if (cachedDhhPlayableSongsAt != null
+                        && Duration.between(cachedDhhPlayableSongsAt, now).compareTo(RANDOM_CACHE_TTL) < 0
+                        && !cachedDhhPlayableSongs.isEmpty()) {
+                    return cachedDhhPlayableSongs;
+                }
+            } else {
+                if (cachedPlayableSongsAt != null
+                        && Duration.between(cachedPlayableSongsAt, now).compareTo(RANDOM_CACHE_TTL) < 0
+                        && !cachedPlayableSongs.isEmpty()) {
+                    return cachedPlayableSongs;
+                }
+            }
 
-        if (dhhOnly) {
-            cachedDhhPlayableSongs = refreshed;
-            cachedDhhPlayableSongsAt = now;
-        } else {
-            cachedPlayableSongs = refreshed;
-            cachedPlayableSongsAt = now;
+            List<Song> refreshed = new ArrayList<>(songRepository.findLatestPlayableSongs(PageRequest.of(0, 600)).stream()
+                    .filter(this::isPlayableSong)
+                    .filter(song -> !dhhOnly || isDhhSong(song))
+                    .toList());
+
+            if (dhhOnly) {
+                cachedDhhPlayableSongs = refreshed;
+                cachedDhhPlayableSongsAt = now;
+            } else {
+                cachedPlayableSongs = refreshed;
+                cachedPlayableSongsAt = now;
+            }
+            return refreshed;
         }
-        return refreshed;
     }
 
     private boolean isPlayableSong(Song song) {

@@ -10,6 +10,8 @@ import com.hiphophub.model.Song;
 import com.hiphophub.repository.AlbumRepository;
 import com.hiphophub.repository.ArtistRepository;
 import com.hiphophub.repository.SongRepository;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -22,6 +24,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -44,6 +47,7 @@ public class MusicImportService {
     }
 
     private static final Logger log = LoggerFactory.getLogger(MusicImportService.class);
+    private static final Duration ARTIST_SONG_CACHE_TTL = Duration.ofMinutes(5);
 
     @Value("${music.import.track.limit:25}")
     private int trackLimit;
@@ -75,6 +79,9 @@ public class MusicImportService {
 
     @Autowired
     private DeezerService deezerService;
+
+    private volatile Set<Long> cachedArtistIdsWithSongs = Set.of();
+    private volatile Instant cachedArtistIdsWithSongsAt;
 
     public Artist refreshArtistMetadata(String artistName) {
         Optional<Artist> existing = artistRepository.findByNameIgnoreCase(artistName);
@@ -456,7 +463,29 @@ public class MusicImportService {
             return false;
         }
 
-        return songRepository.countByAlbumArtistId(artist.getId()) > 0 || hasCatalogFallback(artist.getName());
+        return hasStoredCatalogSongs(artist.getId()) || hasCatalogFallback(artist.getName());
+    }
+
+    private boolean hasStoredCatalogSongs(Long artistId) {
+        if (artistId == null) {
+            return false;
+        }
+        return getArtistIdsWithSongs().contains(artistId);
+    }
+
+    private Set<Long> getArtistIdsWithSongs() {
+        Instant now = Instant.now();
+        if (cachedArtistIdsWithSongsAt != null
+                && Duration.between(cachedArtistIdsWithSongsAt, now).compareTo(ARTIST_SONG_CACHE_TTL) < 0
+                && !cachedArtistIdsWithSongs.isEmpty()) {
+            return cachedArtistIdsWithSongs;
+        }
+
+        Set<Long> refreshed = ConcurrentHashMap.newKeySet();
+        refreshed.addAll(songRepository.findDistinctArtistIdsWithSongs());
+        cachedArtistIdsWithSongs = Set.copyOf(refreshed);
+        cachedArtistIdsWithSongsAt = now;
+        return cachedArtistIdsWithSongs;
     }
 
     public boolean hasCatalogFallback(String artistName) {

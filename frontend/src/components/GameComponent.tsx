@@ -258,7 +258,10 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
         }
         stopAtRef.current = null
         try {
-            audioRef.current.currentTime = 0
+            if (audioRef.current.currentTime >= previewLimit || currentTime >= previewLimit) {
+                audioRef.current.currentTime = 0
+                setCurrentTime(0)
+            }
             await audioRef.current.play()
             setIsPlaying(true)
         } catch (err) {

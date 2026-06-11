@@ -83,6 +83,8 @@ const fetchJsonWithTimeout = async <T,>(url: string, timeoutMs = 12000): Promise
     }
 }
 
+const getAlbumCover = (album: Album) => album.coverUrl || album.coverImageUrl
+
 export default function ArtistProfile({ artistId, initialArtist, onBack }: ArtistProfileProps) {
     const [activeTab, setActiveTab] = useState('overview')
     const [artist, setArtist] = useState<Artist | null>(initialArtist || null)
@@ -118,7 +120,6 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
             setFacts([])
         }
 
-        setLoading(!hasFreshCache)
         setError(null)
         setArtistImageFailed(false)
         setSongCurrentTime({})
@@ -214,8 +215,8 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
         [albums]
     )
 
-    const artistImageSrc = !artistImageFailed && displayArtist?.id
-        ? `/api/images/artist/${displayArtist.id}`
+    const artistImageSrc = !artistImageFailed
+        ? displayArtist?.imageUrl
         : undefined
 
     const toggleSongPreview = async (songId: number) => {
@@ -309,11 +310,12 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
             <div className="artist-header">
                 <div className="artist-header-image">
                     {artistImageSrc ? (
-                        <img
-                            src={artistImageSrc}
-                            alt={displayArtist.name}
-                            onError={() => setArtistImageFailed(true)}
-                        />
+                            <img
+                                src={artistImageSrc}
+                                alt={displayArtist.name}
+                                loading="lazy"
+                                onError={() => setArtistImageFailed(true)}
+                            />
                     ) : (
                         <div className="artist-initial-large">{displayArtist.name.charAt(0)}</div>
                     )}

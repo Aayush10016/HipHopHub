@@ -85,6 +85,21 @@ type HomePageCacheEntry = {
 
 let homePageCache: HomePageCacheEntry | null = null
 
+const fetchJsonWithTimeout = async <T,>(url: string, timeoutMs = 12000): Promise<T | null> => {
+    const controller = new AbortController()
+    const timer = window.setTimeout(() => controller.abort(), timeoutMs)
+    try {
+        const res = await fetch(url, { signal: controller.signal })
+        if (!res.ok) return null
+        return await res.json() as T
+    } catch (err) {
+        console.error(`Request failed for ${url}:`, err)
+        return null
+    } finally {
+        window.clearTimeout(timer)
+    }
+}
+
 const isValidDate = (date?: string) => {
     if (!date) return false
     return !Number.isNaN(new Date(date).getTime())
@@ -131,7 +146,11 @@ export default function HomePage() {
     const [artists, setArtists] = useState<Artist[]>([])
     const [selectedArtistId, setSelectedArtistId] = useState<number | null>(null)
     const [selectedArtist, setSelectedArtist] = useState<Artist | null>(null)
-    const [loading, setLoading] = useState(true)
+    const [songOfDayLoading, setSongOfDayLoading] = useState(true)
+    const [topSongsLoading, setTopSongsLoading] = useState(true)
+    const [recentLoading, setRecentLoading] = useState(true)
+    const [upcomingLoading, setUpcomingLoading] = useState(true)
+    const [artistsLoading, setArtistsLoading] = useState(true)
     const [isSongPlaying, setIsSongPlaying] = useState(false)
     const [topSongPlayingId, setTopSongPlayingId] = useState<number | null>(null)
     const [topSongCurrentTime, setTopSongCurrentTime] = useState<Record<number, number>>({})
@@ -149,115 +168,106 @@ export default function HomePage() {
             setRecentReleases(cached.recentReleases)
             setUpcomingReleases(cached.upcomingReleases)
             setArtists(cached.artists)
-            setLoading(false)
+            setSongOfDayLoading(false)
+            setTopSongsLoading(false)
+            setRecentLoading(false)
+            setUpcomingLoading(false)
+            setArtistsLoading(false)
         }
 
         const fetchSongOfDay = async () => {
-            try {
-                const res = await fetch('/api/songs/song-of-day')
-                if (res.ok) {
-                    const data = await res.json()
-                    if (data?.id && data?.previewUrl) {
-                        return data as Song
-                    }
-                }
-            } catch (err) {
-                console.error('Fallback fetch failed for /api/songs/random/dhh:', err)
+            const data = await fetchJsonWithTimeout<Song>('/api/songs/song-of-day', 10000)
+            if (data?.id && data?.previewUrl) {
+                return data
             }
-
             return null
         }
 
         const loadData = async () => {
-            try {
-                const results = await Promise.allSettled([
-                    fetchSongOfDay(),
-                    fetch('/api/artists?scope=dhh'),
-                    fetch('/api/albums/latest?scope=dhh'),
-                    fetch('/api/albums/upcoming?scope=dhh'),
-                    fetch('/api/songs/top/dhh?days=30&limit=30'),
-                    fetch('/api/songs/top5-of-day')
-                ])
+            const cacheDraft: HomePageCacheEntry = {
+                songOfDay: cached?.songOfDay || null,
+                top5OfDay: cached?.top5OfDay || [],
+                topSongs: cached?.topSongs || [],
+                recentReleases: cached?.recentReleases || [],
+                upcomingReleases: cached?.upcomingReleases || [],
+                artists: cached?.artists || [],
+                cachedAt: Date.now()
+            }
 
-                if (!isMounted) return
-
-                const [songResult, artistsResult, latestResult, upcomingResult, topSongsResult, top5Result] = results
-                let nextSongOfDay = cached?.songOfDay || null
-                let nextArtists = cached?.artists || []
-                let nextRecentReleases = cached?.recentReleases || []
-                let nextUpcomingReleases = cached?.upcomingReleases || []
-                let nextTopSongs = cached?.topSongs || []
-                let nextTop5 = cached?.top5OfDay || []
-
-                if (songResult.status === 'fulfilled') {
-                    nextSongOfDay = songResult.value
-                    setSongOfDay(nextSongOfDay)
-                }
-
-                if (artistsResult.status === 'fulfilled' && artistsResult.value.ok) {
-                    const artistData = await artistsResult.value.json()
-                    nextArtists = artistData || []
-                    if (isMounted) setArtists(nextArtists)
-                } else if (artistsResult.status === 'rejected') {
-                    setArtists([])
-                }
-
-                if (latestResult.status === 'fulfilled' && latestResult.value.ok) {
-                    const latestData = await latestResult.value.json()
-                    nextRecentReleases = latestData || []
-                    if (isMounted) setRecentReleases(nextRecentReleases)
-                } else if (latestResult.status === 'rejected') {
-                    setRecentReleases([])
-                }
-
-                if (upcomingResult.status === 'fulfilled' && upcomingResult.value.ok) {
-                    const upcomingData = await upcomingResult.value.json()
-                    nextUpcomingReleases = upcomingData || []
-                    if (isMounted) setUpcomingReleases(nextUpcomingReleases)
-                } else if (upcomingResult.status === 'rejected') {
-                    setUpcomingReleases([])
-                }
-
-                if (topSongsResult.status === 'fulfilled' && topSongsResult.value.ok) {
-                    const songs = (await topSongsResult.value.json()) as Song[]
-                    const withPreviews = (songs || []).filter(song => !!song.previewUrl)
-                    nextTopSongs = withPreviews
-                    if (isMounted) setTopSongs(nextTopSongs)
-                } else if (topSongsResult.status === 'rejected') {
-                    setTopSongs([])
-                }
-
-                if (top5Result.status === 'fulfilled' && top5Result.value.ok) {
-                    const songs5 = (await top5Result.value.json()) as Song[]
-                    nextTop5 = songs5 || []
-                    if (isMounted) setTop5OfDay(nextTop5)
-                } else if (top5Result.status === 'rejected') {
-                    setTop5OfDay([])
-                }
-
+            const updateCache = () => {
                 homePageCache = {
-                    songOfDay: nextSongOfDay,
-                    top5OfDay: nextTop5,
-                    topSongs: nextTopSongs,
-                    recentReleases: nextRecentReleases,
-                    upcomingReleases: nextUpcomingReleases,
-                    artists: nextArtists,
+                    ...cacheDraft,
                     cachedAt: Date.now()
                 }
-
-            } catch (err) {
-                console.error('Failed to load home page data:', err)
-                if (!isMounted) return
-                setSongOfDay(null)
-                setArtists([])
-                setRecentReleases([])
-                setUpcomingReleases([])
-                setTopSongs([])
-                setReleaseRadar([])
-            } finally {
-                if (!isMounted) return
-                setLoading(false)
             }
+
+            void fetchSongOfDay()
+                .then(data => {
+                    if (!isMounted) return
+                    cacheDraft.songOfDay = data
+                    setSongOfDay(data)
+                    updateCache()
+                })
+                .finally(() => {
+                    if (isMounted) setSongOfDayLoading(false)
+                })
+
+            void fetchJsonWithTimeout<Artist[]>('/api/artists?scope=dhh', 12000)
+                .then(data => {
+                    if (!isMounted) return
+                    const nextArtists = data || []
+                    cacheDraft.artists = nextArtists
+                    setArtists(nextArtists)
+                    updateCache()
+                })
+                .finally(() => {
+                    if (isMounted) setArtistsLoading(false)
+                })
+
+            void fetchJsonWithTimeout<Album[]>('/api/albums/latest?scope=dhh', 12000)
+                .then(data => {
+                    if (!isMounted) return
+                    const nextReleases = data || []
+                    cacheDraft.recentReleases = nextReleases
+                    setRecentReleases(nextReleases)
+                    updateCache()
+                })
+                .finally(() => {
+                    if (isMounted) setRecentLoading(false)
+                })
+
+            void fetchJsonWithTimeout<Album[]>('/api/albums/upcoming?scope=dhh', 12000)
+                .then(data => {
+                    if (!isMounted) return
+                    const nextUpcoming = data || []
+                    cacheDraft.upcomingReleases = nextUpcoming
+                    setUpcomingReleases(nextUpcoming)
+                    updateCache()
+                })
+                .finally(() => {
+                    if (isMounted) setUpcomingLoading(false)
+                })
+
+            void fetchJsonWithTimeout<Song[]>('/api/songs/top/dhh?days=30&limit=30', 12000)
+                .then(data => {
+                    if (!isMounted) return
+                    const nextSongs = (data || []).filter(song => !!song.previewUrl)
+                    cacheDraft.topSongs = nextSongs
+                    setTopSongs(nextSongs)
+                    updateCache()
+                })
+                .finally(() => {
+                    if (isMounted) setTopSongsLoading(false)
+                })
+
+            void fetchJsonWithTimeout<Song[]>('/api/songs/top5-of-day', 12000)
+                .then(data => {
+                    if (!isMounted) return
+                    const nextTop5 = data || []
+                    cacheDraft.top5OfDay = nextTop5
+                    setTop5OfDay(nextTop5)
+                    updateCache()
+                })
         }
 
         loadData()
@@ -265,12 +275,6 @@ export default function HomePage() {
         return () => {
             isMounted = false
         }
-    }, [])
-
-    useEffect(() => {
-        const controller = new AbortController()
-        fetch('/api/game/random-song', { signal: controller.signal }).catch(() => undefined)
-        return () => controller.abort()
     }, [])
 
     useEffect(() => {
@@ -555,7 +559,7 @@ export default function HomePage() {
                                     </div>
                                 </div>
                             ) : (
-                                <p className="empty-message">{loading ? 'Loading spotlight...' : 'No playable Song of the Day is available yet.'}</p>
+                                <p className="empty-message">{songOfDayLoading ? 'Loading spotlight...' : 'No playable Song of the Day is available yet.'}</p>
                             )}
                         </div>
                     )}
@@ -635,7 +639,7 @@ export default function HomePage() {
                                     })}
                                 </div>
                             ) : (
-                                <p className="empty-message">{loading ? 'Loading top songs...' : 'No DHH songs found for the last 30 days.'}</p>
+                                <p className="empty-message">{topSongsLoading ? 'Loading top songs...' : 'No DHH songs found for the last 30 days.'}</p>
                             )}
                         </div>
                     )}
@@ -673,7 +677,7 @@ export default function HomePage() {
                                     ))}
                                 </div>
                             ) : (
-                                <p className="empty-message">{loading ? 'Loading recent releases...' : 'No DHH releases in the last 30 days.'}</p>
+                                <p className="empty-message">{recentLoading ? 'Loading recent releases...' : 'No DHH releases in the last 30 days.'}</p>
                             )}
                         </div>
                     )}
@@ -722,7 +726,7 @@ export default function HomePage() {
                                     ))}
                                 </div>
                             ) : (
-                                <p className="empty-message">{loading ? 'Loading upcoming releases...' : 'No upcoming DHH albums are available yet.'}</p>
+                                <p className="empty-message">{upcomingLoading ? 'Loading upcoming releases...' : 'No upcoming DHH albums are available yet.'}</p>
                             )}
                         </div>
                     )}
@@ -744,8 +748,9 @@ export default function HomePage() {
                                             <div className="artist-image">
                                                 {!artistImageErrorMap[artist.id] ? (
                                                     <img
-                                                        src={`/api/images/artist/${artist.id}`}
+                                                        src={artist.imageUrl || `/api/images/artist/${artist.id}`}
                                                         alt={artist.name}
+                                                        loading="lazy"
                                                         onError={() => setArtistImageErrorMap(prev => ({ ...prev, [artist.id]: true }))}
                                                     />
                                                 ) : (
@@ -758,7 +763,7 @@ export default function HomePage() {
                                     ))}
                                 </div>
                             ) : (
-                                <p className="empty-message">{loading ? 'Loading artists...' : 'No artists available yet'}</p>
+                                <p className="empty-message">{artistsLoading ? 'Loading artists...' : 'No artists available yet'}</p>
                             )}
                         </div>
                     )}

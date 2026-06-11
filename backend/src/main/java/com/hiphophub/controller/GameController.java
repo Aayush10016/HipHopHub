@@ -62,6 +62,7 @@ public class GameController {
     private volatile Instant cachedGlobalGameSongsAt;
     private final Map<Long, List<Song>> cachedArtistGameSongs = new ConcurrentHashMap<>();
     private final Map<Long, Instant> cachedArtistGameSongsAt = new ConcurrentHashMap<>();
+    private final Object globalGamePoolLock = new Object();
 
     /**
      * GET /api/game/random-song
@@ -200,13 +201,22 @@ public class GameController {
             return cachedGlobalGameSongs;
         }
 
-        List<Song> refreshed = new ArrayList<>(songRepository.findLatestPlayableSongs(PageRequest.of(0, 600)).stream()
-                .filter(this::isPlayableSong)
-                .filter(this::isDhhSong)
-                .toList());
-        cachedGlobalGameSongs = refreshed;
-        cachedGlobalGameSongsAt = now;
-        return refreshed;
+        synchronized (globalGamePoolLock) {
+            now = Instant.now();
+            if (cachedGlobalGameSongsAt != null
+                    && Duration.between(cachedGlobalGameSongsAt, now).compareTo(GAME_POOL_TTL) < 0
+                    && !cachedGlobalGameSongs.isEmpty()) {
+                return cachedGlobalGameSongs;
+            }
+
+            List<Song> refreshed = new ArrayList<>(songRepository.findLatestPlayableSongs(PageRequest.of(0, 600)).stream()
+                    .filter(this::isPlayableSong)
+                    .filter(this::isDhhSong)
+                    .toList());
+            cachedGlobalGameSongs = refreshed;
+            cachedGlobalGameSongsAt = now;
+            return refreshed;
+        }
     }
 
     private List<Song> getArtistGamePool(Long artistId) {
