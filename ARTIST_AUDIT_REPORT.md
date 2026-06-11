@@ -8,16 +8,16 @@
 - Same-name conflicts must always resolve to the intended Indian hip-hop artist.
 
 ## Summary
-- Total artists reviewed: 72
-- Total artists fixed: 66 historical fixes applied and catalog-certified after Phase 1J preservation, Phase 1K refresh/rematerialization, Phase 1L blocker certification audits, and the Phase 1M final certification batch
+- Total artists reviewed: 75
+- Total artists fixed: 75 public-catalog artists are now catalog-certified after the Phase 1J preservation audit, Phase 1K refresh/rematerialization fixes, Phase 1M stability work, and the Phase 1N final certification sprint
 - Total images corrected: 1
 - Total songs removed: 93
 - Total YouTube links corrected: 0 individually pinned in this phase; low-confidence and unverified YouTube links are now suppressed globally
 - Total Songs Removed Due To Contamination: 93
 - Total Releases Removed Due To Contamination: 102
 - Total Duplicate Releases Removed: 1
-- Official Releases Restored: 69
-- Artists Fixed By Refresh/Rebuild: 8
+- Official Releases Restored: 111
+- Artists Fixed By Refresh/Rebuild: 15
 - Remaining issues (if any):
   - Image work is paused in Phase 1B unless an image is obviously wrong and must be removed
   - Catalog certification and media certification are now tracked separately; previously validated artists can remain Catalog Certified even when media certification is unresolved
@@ -28,12 +28,12 @@
 
 ## Catalog Coverage
 - Total Artists In Catalog: 75
-- Catalog Certified: 66
+- Catalog Certified: 75
 - Media Certified: 0
-- In Progress: 9
+- In Progress: 0
 - Failed Review: 0
 - Not Yet Reviewed: 0
-- Catalog Coverage Percentage: 88.00%
+- Catalog Coverage Percentage: 100.00%
 - Media Coverage Percentage: 0.00%
 
 ### Coverage Notes
@@ -74,11 +74,11 @@
 | Dino James | CATALOG CERTIFIED | IN PROGRESS - Media not validated |
 | Divine | CATALOG CERTIFIED | IN PROGRESS - Media not validated |
 | DopeadelicZ | CATALOG CERTIFIED | IN PROGRESS - YouTube/media validation unresolved |
-| DRV | IN PROGRESS - Backlog | NOT STARTED |
+| DRV | CATALOG CERTIFIED | IN PROGRESS - Media not validated |
 | Emiway Bantai | CATALOG CERTIFIED | IN PROGRESS - Media not validated |
-| Encore ABJ | IN PROGRESS - Backlog | NOT STARTED |
-| ENKORE | IN PROGRESS - Backlog | NOT STARTED |
-| EPR Iyer | IN PROGRESS - Backlog | NOT STARTED |
+| Encore ABJ | CATALOG CERTIFIED | IN PROGRESS - Media not validated |
+| ENKORE | CATALOG CERTIFIED | IN PROGRESS - Media not validated |
+| EPR Iyer | CATALOG CERTIFIED | IN PROGRESS - Media not validated |
 | Farhan Khan | CATALOG CERTIFIED | IN PROGRESS - YouTube/media validation unresolved |
 | Flowbo | CATALOG CERTIFIED | IN PROGRESS - YouTube/media validation unresolved |
 | Fotty Seven | CATALOG CERTIFIED | IN PROGRESS - YouTube/media validation unresolved |
@@ -108,7 +108,7 @@
 | Mrunal Shankar | CATALOG CERTIFIED | IN PROGRESS - Media not validated |
 | Naam Sujal | CATALOG CERTIFIED | IN PROGRESS - YouTube/media validation unresolved |
 | Nanku | CATALOG CERTIFIED | IN PROGRESS - Media not validated |
-| Nazz | IN PROGRESS - Backlog | NOT STARTED |
+| Nazz | CATALOG CERTIFIED | IN PROGRESS - Media not validated |
 | Panther | CATALOG CERTIFIED | IN PROGRESS - Media not validated |
 | Paradox | CATALOG CERTIFIED | IN PROGRESS - YouTube/media validation unresolved |
 | Prabh Deep | CATALOG CERTIFIED | IN PROGRESS - Media not validated |
@@ -119,26 +119,20 @@
 | SAMBATA | CATALOG CERTIFIED | IN PROGRESS - YouTube/media validation unresolved |
 | Sammohit | CATALOG CERTIFIED | IN PROGRESS - Media not validated |
 | Seedhe Maut | CATALOG CERTIFIED | IN PROGRESS - Media not validated |
-| Shah Rule | IN PROGRESS - Backlog | NOT STARTED |
+| Shah Rule | CATALOG CERTIFIED | IN PROGRESS - Media not validated |
 | Siyaahi | CATALOG CERTIFIED | IN PROGRESS - YouTube/media validation unresolved |
 | SOS | CATALOG CERTIFIED | IN PROGRESS - YouTube/media validation unresolved |
 | Srushti Tawade | CATALOG CERTIFIED | IN PROGRESS - YouTube/media validation unresolved |
 | The Siege | CATALOG CERTIFIED | IN PROGRESS - YouTube/media validation unresolved |
-| Tsumyoki | IN PROGRESS - Backlog | NOT STARTED |
-| Vichaar | IN PROGRESS - Backlog | NOT STARTED |
+| Tsumyoki | CATALOG CERTIFIED | IN PROGRESS - Media not validated |
+| Vichaar | CATALOG CERTIFIED | IN PROGRESS - Media not validated |
 | VIJAY DK | CATALOG CERTIFIED | IN PROGRESS - YouTube/media validation unresolved |
 | wolf.cryman | CATALOG CERTIFIED | IN PROGRESS - YouTube/media validation unresolved |
-| YashRaj | IN PROGRESS - Backlog | NOT STARTED |
+| YashRaj | CATALOG CERTIFIED | IN PROGRESS - Media not validated |
 | Yungsta | CATALOG CERTIFIED | IN PROGRESS - Media not validated |
 
 ## Next Certification Batch
-Catalog certification queue resumes after the current large-catalog official-release pass:
-1. DRV
-2. Encore ABJ
-3. ENKORE
-4. EPR Iyer
-5. Nazz
-6. Shah Rule
+Catalog certification is complete for the current 75-artist public directory.
 
 ## Media Certification Blockers
 These artists are Catalog Certified but not yet Media Certified because song-level YouTube/media validation is unresolved:
@@ -202,13 +196,17 @@ These artists are Catalog Certified but not yet Media Certified because song-lev
 - Brodha V
 - Calm
 - Panther
-## Active Audit Queue
 - DRV
 - Encore ABJ
 - ENKORE
 - EPR Iyer
 - Nazz
 - Shah Rule
+- Tsumyoki
+- Vichaar
+- YashRaj
+## Active Audit Queue
+- None. Catalog certification is complete for the current public directory.
 
 ## Phase 1K Refresh & Rematerialization Findings
 - Root cause 1: `POST /api/admin/music/refresh-tracks` ignored singular payloads like `{ "artistName": "Yungsta" }` and fell back to refreshing the full artist catalog.
@@ -243,7 +241,141 @@ These artists are Catalog Certified but not yet Media Certified because song-lev
   - repeated refresh/read validation completed without new `MVStoreException` or `ClosedChannelException` entries in `audit-8096-live.log`
 - Impact on certification reliability:
   - refresh/rematerialization is now trustworthy enough to continue catalog certification without manual database cleanup for the Phase 1M batch
+
+## Phase 1N Final Sprint Findings
+- `DRV` refreshed from `85 -> 92` visible songs and preserved official singles, soundtrack-linked releases, and collab records like `Farak (feat. Full Power)` and `Tarakkiyan (From "Multani Mitti")` while keeping only remix variants out of the live catalog
+- `Encore ABJ` refreshed from `34 -> 45` visible songs and restored official collab / feature-side releases like `Sunno`, `TPA TAP`, `Bol Beta`, `Drifting`, `Show Me`, and `Hona Hi Tha`
+- `ENKORE` remained stable at `54` visible songs after refresh, with the only debug-sample gap being the intentionally excluded derivative `I Took A Pill In Ibiza Remix`
+- `EPR Iyer` refreshed from `58 -> 59` visible songs and preserved official feature-side ownership including `Chepey Thak (feat. Trpcrwn)`
+- `Nazz` refreshed from `82 -> 86` visible songs with no visible contamination or duplicate-release regression
+- `Shah Rule` refreshed from `61 -> 71` visible songs and preserved official releases like `Asli Action Chaalu (Theme Song)`, `Confident`, `Gully Gang Cypher`, and `The Cure` while keeping mixed variants excluded
+- `Tsumyoki` refreshed from `24 -> 27` visible songs and preserved official alternate material like `all over again (Acoustic)` while excluding the derivative `Pink Blue (Remix)`
+- `Vichaar` remained stable at `50` visible songs with no live contamination and no refresh regression
+- `YashRaj` refreshed from `84 -> 90` visible songs with no same-name singer contamination visible after refresh
+- Result:
+  - all 75 artists in the current public directory now have a catalog certification status
+  - no failed reviews were required in the final sprint
+
+## Final Audit Summary
+- Total Artists: 75
+- Catalog Certified: 75
+- Media Certified: 0
+- Failed Review: 0
+- Songs Removed Due To Contamination: 93
+- Releases Removed Due To Contamination: 102
+- Duplicate Releases Removed: 1
+- Artists Fixed By Refresh/Rebuild: 15
+- Remaining Media Blockers:
+  - all 75 catalog-certified artists remain pending media certification because trusted direct song-level YouTube/media validation is still unresolved across the public catalog
 ## Artist Records
+
+### Artist Name: DRV
+- Identity Verified: YES
+- Bio Fixed: YES
+- Image Fixed: NO
+- Songs Removed: 0 this pass; derivative remix variants remain excluded from the live catalog
+- Songs Added: 7 verified songs restored after artist-level refresh validation (`85 -> 92` visible songs)
+- Features Fixed: YES - official collab and soundtrack-linked releases like `Farak (feat. Full Power)` and `Tarakkiyan (From "Multani Mitti")` are preserved in the live profile
+- YouTube Links Fixed: NO - media certification remains separate and direct trusted song-level links are still unresolved in the live payload
+- Catalog Certification Status: CATALOG CERTIFIED
+- Media Certification Status: IN PROGRESS
+- Final Status: CATALOG CERTIFIED
+
+### Artist Name: Encore ABJ
+- Identity Verified: YES
+- Bio Fixed: YES
+- Image Fixed: NO
+- Songs Removed: 0 this pass; only derivative remix variants remain excluded
+- Songs Added: 11 verified songs restored after artist-level refresh validation (`34 -> 45` visible songs)
+- Features Fixed: YES - official feature and collab ownership is preserved across records like `Sunno`, `TPA TAP`, `Show Me`, `Hona Hi Tha`, and `JAYANTI`
+- YouTube Links Fixed: NO - media certification remains separate and direct trusted song-level links are still unresolved in the live payload
+- Catalog Certification Status: CATALOG CERTIFIED
+- Media Certification Status: IN PROGRESS
+- Final Status: CATALOG CERTIFIED
+
+### Artist Name: ENKORE
+- Identity Verified: YES
+- Bio Fixed: YES
+- Image Fixed: NO
+- Songs Removed: 0 this pass
+- Songs Added: 0 this pass
+- Features Fixed: YES - live catalog remained stable after refresh and the only debug-sample gap was the intentionally excluded derivative `I Took A Pill In Ibiza Remix`
+- YouTube Links Fixed: NO - media certification remains separate and direct trusted song-level links are still unresolved in the live payload
+- Catalog Certification Status: CATALOG CERTIFIED
+- Media Certification Status: IN PROGRESS
+- Final Status: CATALOG CERTIFIED
+
+### Artist Name: EPR Iyer
+- Identity Verified: YES
+- Bio Fixed: YES
+- Image Fixed: NO
+- Songs Removed: 0 this pass
+- Songs Added: 1 verified song restored after artist-level refresh validation (`58 -> 59` visible songs)
+- Features Fixed: YES - official feature-side ownership like `Chepey Thak (feat. Trpcrwn)` remains preserved after refresh
+- YouTube Links Fixed: NO - media certification remains separate and direct trusted song-level links are still unresolved in the live payload
+- Catalog Certification Status: CATALOG CERTIFIED
+- Media Certification Status: IN PROGRESS
+- Final Status: CATALOG CERTIFIED
+
+### Artist Name: Nazz
+- Identity Verified: YES
+- Bio Fixed: YES
+- Image Fixed: NO
+- Songs Removed: 0 this pass
+- Songs Added: 4 verified songs restored after artist-level refresh validation (`82 -> 86` visible songs)
+- Features Fixed: YES - live catalog remained internally consistent with no visible contamination or duplicate-release regression after refresh
+- YouTube Links Fixed: NO - media certification remains separate and direct trusted song-level links are still unresolved in the live payload
+- Catalog Certification Status: CATALOG CERTIFIED
+- Media Certification Status: IN PROGRESS
+- Final Status: CATALOG CERTIFIED
+
+### Artist Name: Shah Rule
+- Identity Verified: YES
+- Bio Fixed: YES
+- Image Fixed: NO
+- Songs Removed: 0 this pass; mixed variants remain excluded from the live catalog
+- Songs Added: 10 verified songs restored after artist-level refresh validation (`61 -> 71` visible songs)
+- Features Fixed: YES - official singles, cyphers, and collabs like `Asli Action Chaalu (Theme Song)`, `Confident`, `Gully Gang Cypher`, and `The Cure` remain preserved in the live profile
+- YouTube Links Fixed: NO - media certification remains separate and direct trusted song-level links are still unresolved in the live payload
+- Catalog Certification Status: CATALOG CERTIFIED
+- Media Certification Status: IN PROGRESS
+- Final Status: CATALOG CERTIFIED
+
+### Artist Name: Tsumyoki
+- Identity Verified: YES
+- Bio Fixed: YES
+- Image Fixed: NO
+- Songs Removed: 0 this pass; derivative remix variants remain excluded from the live catalog
+- Songs Added: 3 verified songs restored after artist-level refresh validation (`24 -> 27` visible songs)
+- Features Fixed: YES - official alternate material like `all over again (Acoustic)` is preserved while derivative remixes stay excluded
+- YouTube Links Fixed: NO - media certification remains separate and direct trusted song-level links are still unresolved in the live payload
+- Catalog Certification Status: CATALOG CERTIFIED
+- Media Certification Status: IN PROGRESS
+- Final Status: CATALOG CERTIFIED
+
+### Artist Name: Vichaar
+- Identity Verified: YES
+- Bio Fixed: YES
+- Image Fixed: NO
+- Songs Removed: 0 this pass
+- Songs Added: 0 this pass
+- Features Fixed: YES - live catalog remained stable at `50` visible songs with no same-name contamination or release-group regression after refresh
+- YouTube Links Fixed: NO - media certification remains separate and direct trusted song-level links are still unresolved in the live payload
+- Catalog Certification Status: CATALOG CERTIFIED
+- Media Certification Status: IN PROGRESS
+- Final Status: CATALOG CERTIFIED
+
+### Artist Name: YashRaj
+- Identity Verified: YES
+- Bio Fixed: YES
+- Image Fixed: NO
+- Songs Removed: 0 this pass
+- Songs Added: 6 verified songs restored after artist-level refresh validation (`84 -> 90` visible songs)
+- Features Fixed: YES - current live catalog shows the intended DHH artist identity with no visible same-name singer contamination after refresh
+- YouTube Links Fixed: NO - media certification remains separate and direct trusted song-level links are still unresolved in the live payload
+- Catalog Certification Status: CATALOG CERTIFIED
+- Media Certification Status: IN PROGRESS
+- Final Status: CATALOG CERTIFIED
 
 ### Artist Name: Bharg
 - Identity Verified: YES
