@@ -6,6 +6,7 @@ import com.hiphophub.model.User;
 import com.hiphophub.repository.GameScoreRepository;
 import com.hiphophub.repository.SongRepository;
 import com.hiphophub.repository.UserRepository;
+import com.hiphophub.service.MusicImportService;
 import com.hiphophub.util.DhhArtistClassifier;
 import com.hiphophub.util.YouTubeLinkBuilder;
 import org.springframework.data.domain.PageRequest;
@@ -39,6 +40,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/game")
 @CrossOrigin(origins = { "http://localhost:3000", "http://localhost:5173" })
 public class GameController {
+    private static final String WATCH_URL_PREFIX = "https://www.youtube.com/watch?v=";
 
     private static final String DEFAULT_COVER_URL =
             "https://images.unsplash.com/photo-1511379938547-c1f69419868d?auto=format&fit=crop&w=800&q=80";
@@ -52,6 +54,9 @@ public class GameController {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private MusicImportService musicImportService;
 
     private volatile List<Song> cachedGlobalGameSongs = List.of();
     private volatile Instant cachedGlobalGameSongsAt;
@@ -162,8 +167,15 @@ public class GameController {
         response.put("albumCover", resolveAlbumCover(song));
         response.put("artistName", artistName);
         response.put("songTitle", song.getTitle());
-        response.put("youtubeUrl", YouTubeLinkBuilder.forSong(artistName, song.getTitle()));
+        response.put("youtubeUrl", directWatchUrlOrNull(YouTubeLinkBuilder.forSong(artistName, song.getTitle())));
         return response;
+    }
+
+    private String directWatchUrlOrNull(String url) {
+        if (url == null || !url.startsWith(WATCH_URL_PREFIX)) {
+            return null;
+        }
+        return url;
     }
 
     private boolean isPlayableSong(Song song) {
@@ -176,7 +188,8 @@ public class GameController {
 
     private boolean isDhhSong(Song song) {
         return DhhArtistClassifier.isDhhArtist(song.getAlbum().getArtist().getName(),
-                song.getAlbum().getArtist().getGenre());
+                song.getAlbum().getArtist().getGenre())
+                && musicImportService.shouldFeatureArtistInDhhCatalog(song.getAlbum().getArtist());
     }
 
     private List<Song> getGlobalGamePool() {

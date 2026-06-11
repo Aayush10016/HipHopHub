@@ -6,6 +6,7 @@ import com.hiphophub.model.Song;
 import com.hiphophub.repository.ArtistRepository;
 import com.hiphophub.repository.BackgroundMusicRepository;
 import com.hiphophub.repository.SongRepository;
+import com.hiphophub.service.MusicImportService;
 import com.hiphophub.util.DhhArtistClassifier;
 import com.hiphophub.util.YouTubeLinkBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +32,7 @@ import java.util.concurrent.ThreadLocalRandom;
 @CrossOrigin(origins = "*")
 public class LandingController {
 
+    private static final String WATCH_URL_PREFIX = "https://www.youtube.com/watch?v=";
     private static final Duration TRACK_POOL_TTL = Duration.ofMinutes(3);
 
     @Autowired
@@ -41,6 +43,9 @@ public class LandingController {
 
     @Autowired
     private ArtistRepository artistRepository;
+
+    @Autowired
+    private MusicImportService musicImportService;
 
     private volatile List<Song> cachedLandingTracks = List.of();
     private volatile Instant cachedLandingTracksAt;
@@ -92,7 +97,7 @@ public class LandingController {
         payload.put("previewUrl", song.getPreviewUrl());
         payload.put("artistName", song.getAlbum().getArtist().getName());
         payload.put("coverUrl", song.getAlbum().getCoverUrl());
-        payload.put("youtubeUrl", YouTubeLinkBuilder.forSong(song.getAlbum().getArtist().getName(), song.getTitle()));
+        payload.put("youtubeUrl", directWatchUrlOrNull(YouTubeLinkBuilder.forSong(song.getAlbum().getArtist().getName(), song.getTitle())));
 
         Map<String, Object> album = new HashMap<>();
         album.put("title", song.getAlbum().getTitle());
@@ -110,6 +115,7 @@ public class LandingController {
         return songs.stream()
                 .filter(song -> song.getAlbum() != null && song.getAlbum().getArtist() != null)
                 .filter(song -> DhhArtistClassifier.isDhhArtist(song.getAlbum().getArtist().getName(), song.getAlbum().getArtist().getGenre()))
+                .filter(song -> musicImportService.shouldFeatureArtistInDhhCatalog(song.getAlbum().getArtist()))
                 .limit(5)
                 .map(song -> {
                     Map<String, Object> row = new HashMap<>();
@@ -124,6 +130,7 @@ public class LandingController {
     private List<Map<String, Object>> buildUndergroundArtistsPayload() {
         List<Artist> pool = artistRepository.findAll().stream()
                 .filter(artist -> DhhArtistClassifier.isDhhArtist(artist.getName(), artist.getGenre()))
+                .filter(musicImportService::shouldFeatureArtistInDhhCatalog)
                 .filter(artist -> artist.getMonthlyListeners() != null && artist.getMonthlyListeners() > 0)
                 .sorted(Comparator.comparing(Artist::getMonthlyListeners))
                 .limit(30)
@@ -147,6 +154,7 @@ public class LandingController {
         List<Map<String, String>> trivia = new ArrayList<>();
         List<Artist> artists = artistRepository.findAll().stream()
                 .filter(artist -> DhhArtistClassifier.isDhhArtist(artist.getName(), artist.getGenre()))
+                .filter(musicImportService::shouldFeatureArtistInDhhCatalog)
                 .filter(artist -> artist.getBio() != null && !artist.getBio().isBlank())
                 .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
         java.util.Collections.shuffle(artists);
@@ -201,5 +209,12 @@ public class LandingController {
         cachedLandingTracks = refreshed;
         cachedLandingTracksAt = now;
         return refreshed;
+    }
+
+    private String directWatchUrlOrNull(String url) {
+        if (url == null || !url.startsWith(WATCH_URL_PREFIX)) {
+            return null;
+        }
+        return url;
     }
 }

@@ -1,15 +1,12 @@
 package com.hiphophub.controller;
 
-import com.hiphophub.model.Album;
 import com.hiphophub.model.Artist;
-import com.hiphophub.repository.AlbumRepository;
 import com.hiphophub.repository.ArtistRepository;
 import java.net.URI;
 import java.security.MessageDigest;
 import java.time.Duration;
-import java.util.Comparator;
+import java.util.Set;
 import java.util.HexFormat;
-import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpEntity;
@@ -29,14 +26,12 @@ import org.springframework.web.client.RestTemplate;
 @CrossOrigin(origins = { "http://localhost:3000", "http://localhost:5173" })
 public class ImageController {
 
-    private static final String DEEZER_PLACEHOLDER_HASH = "AA398423834EED25E1221BD2D4CE4C528F98AD1D1FEDC45F4164DFA859E5EBB5";
-    private static final int MIN_ACCEPTABLE_IMAGE_BYTES = 35_000;
+    private static final Set<String> KNOWN_PLACEHOLDER_HASHES = Set.of(
+            "AA398423834EED25E1221BD2D4CE4C528F98AD1D1FEDC45F4164DFA859E5EBB5",
+            "BD8DAE144DC585A7EB090E2071FE386BBE0DF6EBCC47EE0D96D5EC5C23274530");
 
     @Autowired
     private ArtistRepository artistRepository;
-
-    @Autowired
-    private AlbumRepository albumRepository;
 
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -46,41 +41,30 @@ public class ImageController {
         if (artist == null) {
             return ResponseEntity.notFound().build();
         }
+
         String imageUrl = artist.getImageUrl();
         if (imageUrl == null || imageUrl.isBlank()) {
-            String fallbackCover = findFallbackCover(artistId);
-            if (fallbackCover == null || fallbackCover.isBlank()) {
-                return ResponseEntity.notFound().build();
-            }
-            return proxyImage(fallbackCover);
+            return ResponseEntity.notFound().build();
         }
-        return proxyImageWithFallback(imageUrl, artistId);
+
+        return proxyArtistImage(imageUrl);
     }
 
-    private ResponseEntity<byte[]> proxyImageWithFallback(String imageUrl, Long artistId) {
+    private ResponseEntity<byte[]> proxyArtistImage(String imageUrl) {
         ResponseEntity<byte[]> primary = proxyImage(imageUrl);
         if (!primary.getStatusCode().is2xxSuccessful()) {
-            return primary;
+            return ResponseEntity.notFound().build();
         }
 
         byte[] body = primary.getBody();
         if (body == null || body.length == 0) {
-            return primary;
+            return ResponseEntity.notFound().build();
         }
 
-        if (!isDeezerPlaceholder(body) && body.length >= MIN_ACCEPTABLE_IMAGE_BYTES) {
-            return primary;
+        if (isDeezerPlaceholder(body)) {
+            return ResponseEntity.notFound().build();
         }
 
-        String fallbackCover = findFallbackCover(artistId);
-        if (fallbackCover == null || fallbackCover.isBlank()) {
-            return primary;
-        }
-
-        ResponseEntity<byte[]> fallback = proxyImage(fallbackCover);
-        if (fallback.getStatusCode().is2xxSuccessful() && fallback.getBody() != null && fallback.getBody().length > 0) {
-            return fallback;
-        }
         return primary;
     }
 
@@ -112,22 +96,11 @@ public class ImageController {
         }
     }
 
-    private String findFallbackCover(Long artistId) {
-        List<Album> albums = albumRepository.findByArtistId(artistId);
-        return albums.stream()
-                .filter(album -> album.getCoverUrl() != null && !album.getCoverUrl().isBlank())
-                .sorted(Comparator.comparing(Album::getReleaseDate, Comparator.nullsLast(Comparator.naturalOrder()))
-                        .reversed())
-                .map(Album::getCoverUrl)
-                .findFirst()
-                .orElse(null);
-    }
-
     private boolean isDeezerPlaceholder(byte[] body) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             String hash = HexFormat.of().formatHex(digest.digest(body)).toUpperCase();
-            return DEEZER_PLACEHOLDER_HASH.equals(hash);
+            return KNOWN_PLACEHOLDER_HASHES.contains(hash);
         } catch (Exception e) {
             return false;
         }

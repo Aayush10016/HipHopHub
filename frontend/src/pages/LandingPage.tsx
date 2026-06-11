@@ -68,9 +68,6 @@ interface LandingOverviewResponse {
 let cachedLandingTrack: LandingTrack | null = null
 let pendingLandingTrackPromise: Promise<LandingTrack | null> | null = null
 
-const toYoutubeSearch = (query: string) =>
-    `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`
-
 const normalizeRandomSong = (song: RandomSongResponse): LandingTrack | null => {
     if (!song?.previewUrl || !song?.title) {
         return null
@@ -87,7 +84,7 @@ const normalizeRandomSong = (song: RandomSongResponse): LandingTrack | null => {
         artistName,
         albumTitle,
         coverUrl,
-        youtubeUrl: song.youtubeUrl || toYoutubeSearch(`${artistName} ${song.title} official audio`)
+        youtubeUrl: song.youtubeUrl
     }
 }
 
@@ -104,7 +101,7 @@ const normalizeFallbackSong = (fallback: LandingFallbackResponse): LandingTrack 
         artistName,
         albumTitle: 'Fresh drops + classics',
         coverUrl: DEFAULT_COVER,
-        youtubeUrl: toYoutubeSearch(`${artistName} ${fallback.songName} official audio`)
+        youtubeUrl: undefined
     }
 }
 
@@ -295,23 +292,20 @@ export default function LandingPage() {
 
     const openYouTube = async () => {
         if (!selectedTrack) return
-        let targetUrl = selectedTrack.youtubeUrl || toYoutubeSearch(`${selectedTrack.artistName} ${selectedTrack.title} official audio`)
 
         if (selectedTrack.id) {
             try {
                 const res = await fetch(`/api/youtube/song/${selectedTrack.id}`)
                 if (res.ok) {
                     const payload = await res.json()
-                    if (payload?.url) {
-                        targetUrl = payload.url
+                    if (payload?.url?.startsWith('https://www.youtube.com/watch?v=')) {
+                        window.open(payload.url, '_blank', 'noopener,noreferrer')
                     }
                 }
             } catch (err) {
                 console.error('Failed to resolve direct YouTube URL for landing track:', err)
             }
         }
-
-        window.open(targetUrl, '_blank', 'noopener,noreferrer')
     }
 
     return (
@@ -404,7 +398,7 @@ export default function LandingPage() {
                                 <p className="np-track">{selectedTrack?.title || 'HipHopHub mix'}</p>
                                 <p className="np-artist">{selectedTrack?.artistName || 'Featured artists'}</p>
                                 <p className="np-album">{selectedTrack?.albumTitle || 'Fresh drops + classics'}</p>
-                                {selectedTrack?.youtubeUrl && (
+                                {selectedTrack?.id && selectedTrack?.youtubeUrl && (
                                     <button type="button" className="np-yt" onClick={openYouTube}>
                                         Play on YT
                                     </button>

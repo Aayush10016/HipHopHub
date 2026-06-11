@@ -35,6 +35,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/albums")
 @CrossOrigin(origins = { "http://localhost:3000", "http://localhost:5173" })
 public class AlbumController {
+    private static final String WATCH_URL_PREFIX = "https://www.youtube.com/watch?v=";
     private static final int CATALOG_FALLBACK_THRESHOLD = 6;
 
     @Autowired
@@ -215,7 +216,18 @@ public class AlbumController {
     private String albumIdentityKey(Album album) {
         String title = album != null && album.getTitle() != null ? album.getTitle() : "";
         String type = album != null && album.getType() != null ? album.getType().name() : "UNKNOWN";
-        return type + ":" + title.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "");
+        return type + ":" + normalizeReleaseTitle(title);
+    }
+
+    private String normalizeReleaseTitle(String title) {
+        if (title == null) {
+            return "";
+        }
+        return title.toLowerCase(Locale.ROOT)
+                .replaceAll("\\((feat|ft|from)[^\\)]*\\)", "")
+                .replaceAll("\\[(feat|ft|from)[^\\]]*\\]", "")
+                .replaceAll("\\s*-\\s*(single|ep)\\s*$", "")
+                .replaceAll("[^a-z0-9]+", "");
     }
 
     /**
@@ -234,7 +246,9 @@ public class AlbumController {
         return albums.stream()
                 .filter(album -> {
                     Artist artist = album.getArtist();
-                    return artist != null && DhhArtistClassifier.isDhhArtist(artist.getName(), artist.getGenre());
+                    return artist != null
+                            && DhhArtistClassifier.isDhhArtist(artist.getName(), artist.getGenre())
+                            && musicImportService.shouldFeatureArtistInDhhCatalog(artist);
                 })
                 .collect(Collectors.toList());
     }
@@ -254,7 +268,14 @@ public class AlbumController {
                 album.getReleaseDate(),
                 album.getType().toString(),
                 album.getCoverUrl(),
-                YouTubeLinkBuilder.forAlbum(artist.getName(), album.getTitle()),
+                directWatchUrlOrNull(YouTubeLinkBuilder.forAlbum(artist.getName(), album.getTitle())),
                 artistDTO);
+    }
+
+    private String directWatchUrlOrNull(String url) {
+        if (url == null || !url.startsWith(WATCH_URL_PREFIX)) {
+            return null;
+        }
+        return url;
     }
 }

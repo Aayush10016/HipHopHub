@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/youtube")
 @CrossOrigin(origins = { "http://localhost:3000", "http://localhost:5173" })
 public class YouTubeController {
+    private static final String WATCH_URL_PREFIX = "https://www.youtube.com/watch?v=";
 
     @Autowired
     private SongRepository songRepository;
@@ -42,8 +43,8 @@ public class YouTubeController {
         if (url == null || url.isBlank() || url.contains("youtube.com/results?search_query=")) {
             url = youTubeResolverService.resolveSongUrl(artistName, song.getTitle());
         }
-        if (url == null || url.isBlank()) {
-            url = YouTubeLinkBuilder.forSong(artistName, song.getTitle());
+        if (!isDirectWatchUrl(url)) {
+            return ResponseEntity.notFound().build();
         }
 
         Map<String, Object> response = new HashMap<>();
@@ -69,18 +70,23 @@ public class YouTubeController {
                     url = youTubeResolverService.resolveSongUrl(artistName, representativeTrack.getTitle());
                 }
             } else {
-                url = YouTubeLinkBuilder.forAlbum(artistName, album.getTitle());
+                url = null;
             }
         } else {
             url = youTubeResolverService.resolveAlbumUrl(artistName, album.getTitle());
-            if (url == null || url.isBlank()) {
-                url = YouTubeLinkBuilder.forAlbum(artistName, album.getTitle());
-            }
+        }
+
+        if (!isDirectWatchUrl(url)) {
+            return ResponseEntity.notFound().build();
         }
 
         Map<String, Object> response = new HashMap<>();
         response.put("url", url);
         response.put("albumId", albumId);
         return ResponseEntity.ok(response);
+    }
+
+    private boolean isDirectWatchUrl(String url) {
+        return url != null && url.startsWith(WATCH_URL_PREFIX);
     }
 }

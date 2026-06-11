@@ -81,8 +81,6 @@ const formatDate = (date?: string) => {
     return new Date(date as string).toLocaleDateString()
 }
 
-const toYouTubeSearch = (query: string) => `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`
-
 const mapSongOfDayResponse = (payload: SongOfDayResponse): Song | null => {
     const source = payload?.song
     if (!source?.id || !source?.title) return null
@@ -290,39 +288,31 @@ export default function HomePage() {
     const openDirectSongYoutube = async (song: Song | null) => {
         if (!song) return
 
-        let targetUrl = song.youtubeUrl || toYouTubeSearch(`${resolveSongArtist(song)} ${song.title} official audio`)
-
         try {
             const res = await fetch(`/api/youtube/song/${song.id}`)
             if (res.ok) {
                 const payload = await res.json()
-                if (payload?.url) {
-                    targetUrl = payload.url
+                if (payload?.url?.startsWith('https://www.youtube.com/watch?v=')) {
+                    window.open(payload.url, '_blank', 'noopener,noreferrer')
                 }
             }
         } catch (err) {
             console.error(`Failed to resolve direct YouTube URL for song ${song.id}:`, err)
         }
-
-        window.open(targetUrl, '_blank', 'noopener,noreferrer')
     }
 
     const openDirectAlbumYoutube = async (album: Album) => {
-        let targetUrl = album.youtubeUrl || toYouTubeSearch(`${album.artist?.name || ''} ${album.title} full album`)
-
         try {
             const res = await fetch(`/api/youtube/album/${album.id}`)
             if (res.ok) {
                 const payload = await res.json()
-                if (payload?.url) {
-                    targetUrl = payload.url
+                if (payload?.url?.startsWith('https://www.youtube.com/watch?v=')) {
+                    window.open(payload.url, '_blank', 'noopener,noreferrer')
                 }
             }
         } catch (err) {
             console.error(`Failed to resolve direct YouTube URL for album ${album.id}:`, err)
         }
-
-        window.open(targetUrl, '_blank', 'noopener,noreferrer')
     }
 
     const toggleTopSongPreview = async (song: Song) => {
@@ -463,13 +453,15 @@ export default function HomePage() {
                                                             <span>0:30</span>
                                                         </div>
                                                     </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => openDirectSongYoutube(songOfDay)}
-                                                        className="yt-link-btn"
-                                                    >
-                                                        Play on YT
-                                                    </button>
+                                                    {songOfDay.youtubeUrl && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => openDirectSongYoutube(songOfDay)}
+                                                            className="yt-link-btn"
+                                                        >
+                                                            Play on YT
+                                                        </button>
+                                                    )}
                                                     <audio
                                                         id="song-of-day-player"
                                                         src={songOfDay.previewUrl}
@@ -496,6 +488,7 @@ export default function HomePage() {
                                                     key={song.id}
                                                     type="button"
                                                     className="spotlight-row"
+                                                    disabled={!song.youtubeUrl}
                                                     onClick={() => openDirectSongYoutube(song)}
                                                 >
                                                     <span className="spotlight-rank">0{index + 1}</span>
@@ -578,13 +571,15 @@ export default function HomePage() {
                                                         <span className="preview-unavailable">Preview unavailable</span>
                                                     )}
                                                 </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => openDirectSongYoutube(song)}
-                                                    className="yt-link-btn"
-                                                >
-                                                    Play on YT
-                                                </button>
+                                                {song.youtubeUrl && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => openDirectSongYoutube(song)}
+                                                        className="yt-link-btn"
+                                                    >
+                                                        Play on YT
+                                                    </button>
+                                                )}
                                             </div>
                                         )
                                     })}
@@ -615,13 +610,15 @@ export default function HomePage() {
                                             <h4>{album.title}</h4>
                                             <p>{album.artist?.name}</p>
                                             <p className="release-date">{formatDate(album.releaseDate)}</p>
-                                            <button
-                                                type="button"
-                                                onClick={() => openDirectAlbumYoutube(album)}
-                                                className="yt-link-btn"
-                                            >
-                                                Play on YT
-                                            </button>
+                                            {album.youtubeUrl && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openDirectAlbumYoutube(album)}
+                                                    className="yt-link-btn"
+                                                >
+                                                    Play on YT
+                                                </button>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -651,13 +648,15 @@ export default function HomePage() {
                                             <h4>{album.title}</h4>
                                             <p>{album.artist?.name}</p>
                                             <p className="release-date">{formatDate(album.releaseDate)}</p>
-                                            <button
-                                                type="button"
-                                                onClick={() => openDirectAlbumYoutube(album)}
-                                                className="yt-link-btn"
-                                            >
-                                                Play on YT
-                                            </button>
+                                            {album.youtubeUrl && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openDirectAlbumYoutube(album)}
+                                                    className="yt-link-btn"
+                                                >
+                                                    Play on YT
+                                                </button>
+                                            )}
                                         </div>
                                     ))}
                                 </div>

@@ -13,7 +13,9 @@ import org.springframework.data.domain.PageRequest;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -154,7 +156,7 @@ public class ArtistController {
     public List<Album> getArtistAlbums(@PathVariable Long id) {
         List<Album> directAlbums = albumRepository.findByArtistId(id);
         if (!directAlbums.isEmpty()) {
-            return directAlbums.stream()
+            return dedupeAlbums(directAlbums).stream()
                     .filter(album -> !isLowValueCompilation(album))
                     .sorted(Comparator
                             .comparing((Album album) -> album.getReleaseDate() != null ? album.getReleaseDate() : LocalDate.MIN)
@@ -165,7 +167,7 @@ public class ArtistController {
 
         return artistRepository.findById(id)
                 .flatMap(artist -> musicImportService.resolveCatalogFallbackArtist(artist.getName()))
-                .map(fallbackArtist -> albumRepository.findByArtistId(fallbackArtist.getId()).stream()
+                .map(fallbackArtist -> dedupeAlbums(albumRepository.findByArtistId(fallbackArtist.getId())).stream()
                         .filter(album -> !isLowValueCompilation(album))
                         .sorted(Comparator
                                 .comparing((Album album) -> album.getReleaseDate() != null ? album.getReleaseDate() : LocalDate.MIN)
@@ -173,6 +175,57 @@ public class ArtistController {
                                 .thenComparing(Album::getId, Comparator.reverseOrder()))
                         .collect(Collectors.toList()))
                 .orElse(List.of());
+    }
+
+    private List<Album> dedupeAlbums(List<Album> albums) {
+        Map<String, Album> bestByKey = new LinkedHashMap<>();
+
+        albums.stream()
+                .sorted(Comparator
+                        .comparingInt(this::albumPriority)
+                        .thenComparing((Album album) -> album.getReleaseDate() != null ? album.getReleaseDate() : LocalDate.MIN,
+                                Comparator.reverseOrder())
+                        .thenComparing(Album::getId, Comparator.reverseOrder()))
+                .forEach(album -> bestByKey.putIfAbsent(albumIdentityKey(album), album));
+
+        return List.copyOf(bestByKey.values());
+    }
+
+    private int albumPriority(Album album) {
+        if (album == null || album.getType() == null) {
+            return 99;
+        }
+        int penalty = isLowValueCompilation(album) ? 10 : 0;
+        if (album.getType() == Album.AlbumType.ALBUM) {
+            return 0 + penalty;
+        }
+        if (album.getType() == Album.AlbumType.EP) {
+            return 1 + penalty;
+        }
+        if (album.getType() == Album.AlbumType.SINGLE) {
+            return 2 + penalty;
+        }
+        if (album.getType() == Album.AlbumType.APPEARS_ON) {
+            return 3 + penalty;
+        }
+        return 99 + penalty;
+    }
+
+    private String albumIdentityKey(Album album) {
+        String title = album != null && album.getTitle() != null ? album.getTitle() : "";
+        String type = album != null && album.getType() != null ? album.getType().name() : "UNKNOWN";
+        return type + ":" + normalizeReleaseTitle(title);
+    }
+
+    private String normalizeReleaseTitle(String title) {
+        if (title == null) {
+            return "";
+        }
+        return title.toLowerCase(Locale.ROOT)
+                .replaceAll("\\((feat|ft|from)[^\\)]*\\)", "")
+                .replaceAll("\\[(feat|ft|from)[^\\]]*\\]", "")
+                .replaceAll("\\s*-\\s*(single|ep)\\s*$", "")
+                .replaceAll("[^a-z0-9]+", "");
     }
 
     private boolean isLowValueCompilation(Album album) {

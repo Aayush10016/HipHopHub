@@ -141,17 +141,36 @@ public class YouTubeResolverService {
                 return url;
             }
             return candidateIds.stream()
-                    .map(videoId -> new ScoredVideo(videoId, scoreVideo(videoId, artistName, targetTitle)))
+                    .map(videoId -> buildScoredVideo(videoId, artistName, targetTitle))
                     .max(Comparator.comparingInt(ScoredVideo::score))
-                    .filter(scored -> scored.score() > 0)
+                    .filter(scored -> scored.score() >= 200 && scored.strongTitleMatch())
                     .map(scored -> WATCH_URL_PREFIX + scored.videoId())
-                    .orElse(WATCH_URL_PREFIX + candidateIds.get(0));
+                    .orElse(url);
         } catch (Exception e) {
             return SEARCH_URL_PREFIX + encode(query);
         }
     }
 
-    private record ScoredVideo(String videoId, int score) {
+    private record ScoredVideo(String videoId, int score, boolean strongTitleMatch) {
+    }
+
+    private ScoredVideo buildScoredVideo(String videoId, String artistName, String targetTitle) {
+        int score = scoreVideo(videoId, artistName, targetTitle);
+        OEmbedResponse metadata = fetchOEmbed(videoId);
+        if (metadata == null) {
+            return new ScoredVideo(videoId, Integer.MIN_VALUE, false);
+        }
+
+        String title = safe(metadata.title());
+        String normalizedVideoTitle = normalizeComparable(title);
+        String compactVideoTitle = normalizeKey(title);
+        String normalizedTitle = normalizeComparable(targetTitle);
+        String compactTitle = normalizeKey(stripDecorators(targetTitle));
+
+        boolean strongTitleMatch = (!compactTitle.isBlank() && compactVideoTitle.contains(compactTitle))
+                || (!normalizedTitle.isBlank() && containsAllTokens(normalizedVideoTitle, normalizedTitle));
+
+        return new ScoredVideo(videoId, score, strongTitleMatch);
     }
 
     private List<String> extractCandidateVideoIds(String html) {
@@ -358,14 +377,21 @@ public class YouTubeResolverService {
         aliases.put("drv", "DRV rapper india");
         aliases.put("encore abj", "Encore ABJ Seedhe Maut");
         aliases.put("gravity", "Gravity rapper india");
+        aliases.put("naam sujal", "Naam Sujal rapper india");
         aliases.put("panther", "Panther rapper india");
         aliases.put("nanku", "Nanku rapper india");
         aliases.put("rawal", "Rawal rapper india");
+        aliases.put("riar saab", "Riar Saab official");
+        aliases.put("sambata", "SAMBATA rapper india");
         aliases.put("shah rule", "Shah Rule rapper india");
+        aliases.put("sos", "SOS kashmir hip hop");
         aliases.put("dakait shaddy", "Dakait Shaddy rapper india");
+        aliases.put("the siege", "The Siege rapper india");
         aliases.put("mc kode", "MC Kode rapper india");
         aliases.put("mc headshot", "MC Headshot rapper india");
         aliases.put("mrunal shankar", "Mrunal Shankar rapper india");
+        aliases.put("wolf cryman", "wolf.cryman rapper india");
+        aliases.put("wolf.cryman", "wolf.cryman rapper india");
         aliases.put("yashraj", "YashRaj rapper india");
         return aliases;
     }

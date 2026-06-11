@@ -52,8 +52,6 @@ interface ArtistProfileProps {
     onBack: () => void
 }
 
-const toYouTubeSearch = (query: string) => `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`
-
 export default function ArtistProfile({ artistId, initialArtist, onBack }: ArtistProfileProps) {
     const [activeTab, setActiveTab] = useState('overview')
     const [artist, setArtist] = useState<Artist | null>(initialArtist || null)
@@ -153,17 +151,9 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
         [albums]
     )
 
-    const getAlbumCover = (album: Album) => album.coverUrl || album.coverImageUrl
-    const fallbackArtistImage = useMemo(() => {
-        for (const album of albums) {
-            const cover = getAlbumCover(album)
-            if (cover) return cover
-        }
-        return undefined
-    }, [albums])
     const artistImageSrc = !artistImageFailed && displayArtist?.id
         ? `/api/images/artist/${displayArtist.id}`
-        : fallbackArtistImage
+        : undefined
 
     const toggleSongPreview = async (songId: number) => {
         const currentAudio = document.getElementById(`artist-song-preview-${songId}`) as HTMLAudioElement | null
@@ -198,57 +188,45 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
     }
 
     const openDirectSongYoutube = async (song: Song) => {
-        let targetUrl = song.youtubeUrl || toYouTubeSearch(`${displayArtist?.name || song.artistName || ''} ${song.title} official audio`)
-
         try {
             const res = await fetch(`/api/youtube/song/${song.id}`)
             if (res.ok) {
                 const payload = await res.json()
-                if (payload?.url) {
-                    targetUrl = payload.url
+                if (payload?.url?.startsWith('https://www.youtube.com/watch?v=')) {
+                    window.open(payload.url, '_blank', 'noopener,noreferrer')
                 }
             }
         } catch (err) {
             console.error(`Failed to resolve direct YouTube URL for song ${song.id}:`, err)
         }
-
-        window.open(targetUrl, '_blank', 'noopener,noreferrer')
     }
 
     const openDirectAlbumYoutube = async (album: Album) => {
-        let targetUrl = album.youtubeUrl || toYouTubeSearch(`${displayArtist?.name || ''} ${album.title} full album`)
-
         try {
             const res = await fetch(`/api/youtube/album/${album.id}`)
             if (res.ok) {
                 const payload = await res.json()
-                if (payload?.url) {
-                    targetUrl = payload.url
+                if (payload?.url?.startsWith('https://www.youtube.com/watch?v=')) {
+                    window.open(payload.url, '_blank', 'noopener,noreferrer')
                 }
             }
         } catch (err) {
             console.error(`Failed to resolve direct YouTube URL for album ${album.id}:`, err)
         }
-
-        window.open(targetUrl, '_blank', 'noopener,noreferrer')
     }
 
     const openDirectSingleYoutube = async (album: Album) => {
-        let targetUrl = album.youtubeUrl || toYouTubeSearch(`${displayArtist?.name || ''} ${album.title} official audio`)
-
         try {
             const res = await fetch(`/api/youtube/album/${album.id}`)
             if (res.ok) {
                 const payload = await res.json()
-                if (payload?.url) {
-                    targetUrl = payload.url
+                if (payload?.url?.startsWith('https://www.youtube.com/watch?v=')) {
+                    window.open(payload.url, '_blank', 'noopener,noreferrer')
                 }
             }
         } catch (err) {
             console.error(`Failed to resolve direct YouTube URL for single ${album.id}:`, err)
         }
-
-        window.open(targetUrl, '_blank', 'noopener,noreferrer')
     }
 
     if (loading) {
@@ -440,13 +418,15 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
                                                     />
                                                 </div>
                                             )}
-                                            <button
-                                                type="button"
-                                                onClick={() => openDirectSongYoutube(song)}
-                                                className="yt-link-btn"
-                                            >
-                                                Play on YT
-                                            </button>
+                                            {song.youtubeUrl && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openDirectSongYoutube(song)}
+                                                    className="yt-link-btn"
+                                                >
+                                                    Play on YT
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
@@ -523,9 +503,11 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
                                         </div>
                                         <h4>{single.title}</h4>
                                         <p>{new Date(single.releaseDate).getFullYear()}</p>
-                                        <button type="button" onClick={() => openDirectSingleYoutube(single)} className="yt-link-btn">
-                                            Play on YT
-                                        </button>
+                                        {single.youtubeUrl && (
+                                            <button type="button" onClick={() => openDirectSingleYoutube(single)} className="yt-link-btn">
+                                                Play on YT
+                                            </button>
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -551,9 +533,11 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
                                         </div>
                                         <h4>{release.title}</h4>
                                         <p>{new Date(release.releaseDate).getFullYear()}</p>
-                                        <button type="button" onClick={() => openDirectSingleYoutube(release)} className="yt-link-btn">
-                                            Play on YT
-                                        </button>
+                                        {release.youtubeUrl && (
+                                            <button type="button" onClick={() => openDirectSingleYoutube(release)} className="yt-link-btn">
+                                                Play on YT
+                                            </button>
+                                        )}
                                     </div>
                                 ))}
                             </div>

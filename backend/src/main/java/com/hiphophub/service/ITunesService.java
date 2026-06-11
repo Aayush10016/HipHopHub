@@ -7,8 +7,10 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -60,12 +62,42 @@ public class ITunesService {
         if (artistId == null || artistId <= 0) {
             return Collections.emptyList();
         }
+        List<String> countryAttempts = new java.util.ArrayList<>();
+        String requestedCountry = country == null || country.isBlank() ? "IN" : country;
+        countryAttempts.add(requestedCountry);
+        if (!"US".equalsIgnoreCase(requestedCountry)) {
+            countryAttempts.add("US");
+        }
+        countryAttempts.add("");
+
+        Set<Long> seenTrackIds = new java.util.LinkedHashSet<>();
+        List<ITunesTrackDTO> merged = new java.util.ArrayList<>();
+        for (String countryAttempt : countryAttempts) {
+            List<ITunesTrackDTO> tracks = lookupTracksByArtistIdSingleCountry(artistId, limit, countryAttempt);
+            for (ITunesTrackDTO track : tracks) {
+                if (track.getTrackId() == null) {
+                    continue;
+                }
+                if (seenTrackIds.add(track.getTrackId())) {
+                    merged.add(track);
+                }
+            }
+            if (!merged.isEmpty()) {
+                break;
+            }
+        }
+        return merged;
+    }
+
+    private List<ITunesTrackDTO> lookupTracksByArtistIdSingleCountry(Long artistId, int limit, String country) {
         try {
             StringBuilder url = new StringBuilder("https://itunes.apple.com/lookup?id=")
                     .append(artistId)
                     .append("&entity=song")
-                    .append("&limit=").append(limit)
-                    .append("&country=").append(country == null || country.isBlank() ? "IN" : country);
+                    .append("&limit=").append(limit);
+            if (country != null && !country.isBlank()) {
+                url.append("&country=").append(country);
+            }
 
             HttpEntity<Void> entity = new HttpEntity<>(null, defaultHeaders());
             log.debug("iTunes lookup by artistId='{}', limit='{}', country='{}'", artistId, limit, country);
@@ -89,11 +121,71 @@ public class ITunesService {
                     .filter(track -> "track".equalsIgnoreCase(track.getWrapperType()))
                     .filter(track -> "song".equalsIgnoreCase(track.getKind()))
                     .collect(Collectors.toList());
-            log.debug("iTunes lookup by artistId='{}' returned {} tracks", artistId, tracks.size());
+            log.debug("iTunes lookup by artistId='{}' returned {} tracks for country '{}'", artistId, tracks.size(), country);
             return tracks;
         } catch (Exception e) {
             log.warn("iTunes lookup failed. artistId='{}', country='{}', error={}", artistId, country, e.getMessage());
             return Collections.emptyList();
+        }
+    }
+
+    public Map<String, Object> debugLookupByArtistId(Long artistId, int limit, String country) {
+        Map<String, Object> debug = new LinkedHashMap<>();
+        debug.put("artistId", artistId);
+        debug.put("limit", limit);
+        debug.put("country", country == null || country.isBlank() ? "IN" : country);
+        if (artistId == null || artistId <= 0) {
+            debug.put("error", "invalid artistId");
+            return debug;
+        }
+        try {
+            StringBuilder url = new StringBuilder("https://itunes.apple.com/lookup?id=")
+                    .append(artistId)
+                    .append("&entity=song")
+                    .append("&limit=").append(limit)
+                    .append("&country=").append(country == null || country.isBlank() ? "IN" : country);
+            HttpEntity<Void> entity = new HttpEntity<>(null, defaultHeaders());
+            ResponseEntity<String> response = restTemplate.exchange(
+                    url.toString(),
+                    HttpMethod.GET,
+                    entity,
+                    String.class);
+            String rawBody = response.getBody();
+            debug.put("httpStatus", response.getStatusCode().value());
+            debug.put("bodyLength", rawBody != null ? rawBody.length() : 0);
+            if (rawBody == null || rawBody.isBlank()) {
+                debug.put("rawBlank", true);
+                return debug;
+            }
+            ITunesSearchResponse body = objectMapper.readValue(rawBody, ITunesSearchResponse.class);
+            debug.put("resultCount", body != null ? body.getResultCount() : null);
+            if (body == null || body.getResults() == null) {
+                debug.put("parsedResults", 0);
+                return debug;
+            }
+            debug.put("parsedResults", body.getResults().size());
+            debug.put("wrapperSamples", body.getResults().stream()
+                    .limit(12)
+                    .map(track -> Map.of(
+                            "wrapperType", String.valueOf(track.getWrapperType()),
+                            "kind", String.valueOf(track.getKind()),
+                            "artistName", String.valueOf(track.getArtistName()),
+                            "trackName", String.valueOf(track.getTrackName()),
+                            "collectionName", String.valueOf(track.getCollectionName())))
+                    .collect(Collectors.toList()));
+            List<ITunesTrackDTO> tracks = body.getResults().stream()
+                    .filter(track -> "track".equalsIgnoreCase(track.getWrapperType()))
+                    .filter(track -> "song".equalsIgnoreCase(track.getKind()))
+                    .collect(Collectors.toList());
+            debug.put("retainedTracks", tracks.size());
+            debug.put("retainedSamples", tracks.stream()
+                    .limit(15)
+                    .map(ITunesTrackDTO::getTrackName)
+                    .collect(Collectors.toList()));
+            return debug;
+        } catch (Exception e) {
+            debug.put("error", e.getMessage());
+            return debug;
         }
     }
 

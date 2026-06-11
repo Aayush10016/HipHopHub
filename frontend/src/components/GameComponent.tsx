@@ -379,21 +379,16 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
     const openDirectYouTube = async () => {
         if (!currentSong?.songId) return
 
-        let targetUrl = currentSong.youtubeUrl || '#'
         try {
             const res = await fetch(`/api/youtube/song/${currentSong.songId}`)
             if (res.ok) {
                 const payload = await res.json()
-                if (payload?.url) {
-                    targetUrl = payload.url
+                if (payload?.url?.startsWith('https://www.youtube.com/watch?v=')) {
+                    window.open(payload.url, '_blank', 'noopener,noreferrer')
                 }
             }
         } catch (err) {
             console.error(`Failed to resolve direct YouTube URL for game song ${currentSong.songId}:`, err)
-        }
-
-        if (targetUrl && targetUrl !== '#') {
-            window.open(targetUrl, '_blank', 'noopener,noreferrer')
         }
     }
 
@@ -492,7 +487,7 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
                 )}
             </div>
 
-            {currentSong?.youtubeUrl && (
+            {currentSong?.songId && currentSong?.youtubeUrl && (
                 <div className="game-yt-wrap">
                     <button type="button" onClick={openDirectYouTube} className="game-yt-btn">
                         Play on YT

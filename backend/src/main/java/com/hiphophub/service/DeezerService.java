@@ -3,6 +3,7 @@ package com.hiphophub.service;
 import com.hiphophub.dto.DeezerArtistDTO;
 import com.hiphophub.dto.DeezerSearchResponse;
 import java.net.URLEncoder;
+import java.text.Normalizer;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.Comparator;
@@ -23,6 +24,7 @@ import org.springframework.web.client.RestTemplate;
 public class DeezerService {
 
     private static final Map<String, Long> PREFERRED_ARTIST_IDS = buildPreferredArtistIds();
+    private static final Map<String, String> ARTIST_SEARCH_ALIASES = buildArtistSearchAliases();
 
     @Value("${deezer.api.url:https://api.deezer.com}")
     private String apiUrl;
@@ -44,36 +46,45 @@ public class DeezerService {
         }
 
         try {
-            String encoded = URLEncoder.encode(artistName, StandardCharsets.UTF_8);
-            String url = apiUrl + "/search/artist?q=" + encoded;
-            HttpEntity<Void> entity = new HttpEntity<>(defaultHeaders());
-            ResponseEntity<DeezerSearchResponse> response = restTemplate.exchange(
-                    url,
-                    HttpMethod.GET,
-                    entity,
-                    DeezerSearchResponse.class);
-
-            DeezerSearchResponse body = response.getBody();
-            if (body == null || body.getData() == null || body.getData().isEmpty()) {
-                return Optional.empty();
+            for (String query : buildQueries(artistName, normalizedName)) {
+                Optional<DeezerArtistDTO> best = searchStrict(query, normalizedName);
+                if (best.isPresent()) {
+                    return best;
+                }
             }
-
-            String target = normalizedName;
-            List<DeezerArtistDTO> candidates = body.getData().stream()
-                    .filter(candidate -> candidate != null && candidate.getName() != null && !candidate.getName().isBlank())
-                    .sorted(Comparator.comparingInt((DeezerArtistDTO candidate) -> score(target, candidate))
-                            .reversed())
-                    .toList();
-
-            DeezerArtistDTO best = candidates.get(0);
-            int bestScore = score(target, best);
-            if (bestScore < 40) {
-                return Optional.empty();
-            }
-            return Optional.of(best);
+            return Optional.empty();
         } catch (Exception e) {
             return Optional.empty();
         }
+    }
+
+    private Optional<DeezerArtistDTO> searchStrict(String query, String normalizedTarget) {
+        String encoded = URLEncoder.encode(query, StandardCharsets.UTF_8);
+        String url = apiUrl + "/search/artist?q=" + encoded;
+        HttpEntity<Void> entity = new HttpEntity<>(defaultHeaders());
+        ResponseEntity<DeezerSearchResponse> response = restTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                entity,
+                DeezerSearchResponse.class);
+
+        DeezerSearchResponse body = response.getBody();
+        if (body == null || body.getData() == null || body.getData().isEmpty()) {
+            return Optional.empty();
+        }
+
+        List<DeezerArtistDTO> exactMatches = body.getData().stream()
+                .filter(candidate -> candidate != null && candidate.getName() != null && !candidate.getName().isBlank())
+                .filter(candidate -> normalize(candidate.getName()).equals(normalizedTarget))
+                .sorted(Comparator.comparingLong((DeezerArtistDTO candidate) -> candidate.getNbFan() == null ? 0L : candidate.getNbFan())
+                        .reversed())
+                .toList();
+
+        if (exactMatches.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(exactMatches.get(0));
     }
 
     private Optional<DeezerArtistDTO> fetchArtistById(Long artistId) {
@@ -114,46 +125,21 @@ public class DeezerService {
         return null;
     }
 
-    private int score(String normalizedTarget, DeezerArtistDTO candidate) {
-        String normalizedCandidate = normalize(candidate.getName());
-        int score = 0;
-
-        if (normalizedTarget.equals(normalizedCandidate)) {
-            score += 100;
-        } else if (normalizedTarget.contains(normalizedCandidate) || normalizedCandidate.contains(normalizedTarget)) {
-            score += 70;
-        } else {
-            int commonPrefix = commonPrefixLength(normalizedTarget, normalizedCandidate);
-            score += Math.min(50, commonPrefix * 8);
+    private List<String> buildQueries(String artistName, String normalizedTarget) {
+        String alias = ARTIST_SEARCH_ALIASES.get(normalizedTarget);
+        if (alias == null || alias.isBlank() || alias.equalsIgnoreCase(artistName)) {
+            return List.of(artistName);
         }
-
-        if (candidate.getNbFan() != null) {
-            if (candidate.getNbFan() > 500_000) {
-                score += 12;
-            } else if (candidate.getNbFan() > 100_000) {
-                score += 8;
-            } else if (candidate.getNbFan() > 10_000) {
-                score += 4;
-            }
-        }
-
-        return score;
-    }
-
-    private int commonPrefixLength(String first, String second) {
-        int max = Math.min(first.length(), second.length());
-        int idx = 0;
-        while (idx < max && first.charAt(idx) == second.charAt(idx)) {
-            idx++;
-        }
-        return idx;
+        return List.of(artistName, alias);
     }
 
     private String normalize(String value) {
         if (value == null) {
             return "";
         }
-        return value.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "");
+        String ascii = Normalizer.normalize(value, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "");
+        return ascii.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "");
     }
 
     private HttpHeaders defaultHeaders() {
@@ -182,8 +168,23 @@ public class DeezerService {
         ids.put("bharg", 118638462L);
         ids.put("dhanji", 14258655L);
         ids.put("siyaahi", 71380092L);
+        ids.put("thesiege", 809033L);
         ids.put("vichaar", 78836342L);
         ids.put("naamsujal", 174445827L);
+        ids.put("wolfcryman", 105288352L);
         return Collections.unmodifiableMap(ids);
+    }
+
+    private static Map<String, String> buildArtistSearchAliases() {
+        Map<String, String> aliases = new HashMap<>();
+        aliases.put("sos", "SOS kashmir");
+        aliases.put("naamsujal", "Naam Sujal");
+        aliases.put("riarsaab", "Riar Saab");
+        aliases.put("sambata", "SAMBATA");
+        aliases.put("wolfcryman", "wolf cryman");
+        aliases.put("dopeadelicz", "Dopeadelicz");
+        aliases.put("thesiege", "The Siege");
+        aliases.put("mcheadshot", "MC Headshot");
+        return Collections.unmodifiableMap(aliases);
     }
 }
