@@ -81,6 +81,12 @@ const formatDate = (date?: string) => {
     return new Date(date as string).toLocaleDateString()
 }
 
+const getArtistExcerpt = (bio?: string) => {
+    if (!bio) return 'Catalog profile and scene context inside.'
+    const firstLine = bio.split('.')[0]?.trim() || bio.trim()
+    return `${firstLine}${firstLine.endsWith('.') ? '' : '.'}`
+}
+
 const mapSongOfDayResponse = (payload: SongOfDayResponse): Song | null => {
     const source = payload?.song
     if (!source?.id || !source?.title) return null
@@ -132,6 +138,7 @@ export default function HomePage() {
                     if (data?.id && data?.previewUrl) {
                         return data as Song
                     }
+                    return mapSongOfDayResponse(data)
                 }
             } catch (err) {
                 console.error('Fallback fetch failed for /api/songs/random/dhh:', err)
@@ -194,7 +201,6 @@ export default function HomePage() {
                 } else if (top5Result.status === 'rejected') {
                     setTop5OfDay([])
                 }
-
             } catch (err) {
                 console.error('Failed to load home page data:', err)
                 if (!isMounted) return
@@ -210,7 +216,7 @@ export default function HomePage() {
             }
         }
 
-        loadData()
+        void loadData()
 
         return () => {
             isMounted = false
@@ -355,12 +361,19 @@ export default function HomePage() {
         }
     }
 
+    const introStats = [
+        { label: 'Artists', value: String(filteredArtists.length || artists.length || 0) },
+        { label: 'Playable cuts', value: String(topSongs.length || 0) },
+        { label: 'Recent drops', value: String(recentReleases.length || 0) }
+    ]
+
     return (
         <div className="home-page">
             <header className="home-header">
                 <div className="header-container">
                     <div className="brand-block">
-                        <h1 className="header-logo">HipHopHub</h1>
+                        <span className="brand-kicker">HipHopHub</span>
+                        <h1 className="header-logo">Desi hip-hop, organized like a real product.</h1>
                     </div>
 
                     <div className="header-center">
@@ -414,23 +427,61 @@ export default function HomePage() {
 
             <main className="home-content">
                 <div className="container">
+                    {activeTab !== 'artistProfile' && (
+                        <section className="home-intro card fade-in">
+                            <div className="home-intro-copy">
+                                <span className="home-intro-kicker">Scene control room</span>
+                                <h2>Browse the scene through songs, drops, artists, news, and arcade-style discovery.</h2>
+                                <p>
+                                    Every tab below runs on the existing catalog and API. This pass upgrades hierarchy, pacing,
+                                    and discoverability without disturbing the working playback and artist routes.
+                                </p>
+                            </div>
+                            <div className="home-intro-rail">
+                                <div className="home-intro-stats">
+                                    {introStats.map((stat) => (
+                                        <div key={stat.label} className="home-intro-stat">
+                                            <span>{stat.value}</span>
+                                            <small>{stat.label}</small>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="home-intro-actions">
+                                    <button type="button" className="home-chip" onClick={() => setActiveTab('artists')}>Open artists</button>
+                                    <button type="button" className="home-chip" onClick={() => setActiveTab('topSongs')}>Play top songs</button>
+                                    <button type="button" className="home-chip" onClick={() => setActiveTab('game')}>Enter arcade</button>
+                                </div>
+                            </div>
+                        </section>
+                    )}
+
                     {activeTab === 'songOfDay' && (
-                        <div className="song-of-day-section fade-in">
+                        <div className="song-of-day-section fade-in section-shell">
                             <div className="section-header">
-                                <h2 className="section-title">Song of the Day</h2>
+                                <div>
+                                    <span className="section-kicker">Spotlight rotation</span>
+                                    <h2 className="section-title">Song of the Day</h2>
+                                </div>
                                 <span className="pill small">30s preview</span>
                             </div>
                             {songOfDay ? (
                                 <div className="spotlight-layout">
                                     <div className="song-of-day-card card">
-                                        <div className="song-cover">
-                                            {resolveSongCover(songOfDay) ? (
-                                                <img src={resolveSongCover(songOfDay)} alt={songOfDay.title} />
-                                            ) : (
-                                                <div className="song-cover-placeholder">No cover</div>
-                                            )}
+                                        <div className="song-cover-shell">
+                                            <div className="song-cover">
+                                                {resolveSongCover(songOfDay) ? (
+                                                    <img src={resolveSongCover(songOfDay)} alt={songOfDay.title} />
+                                                ) : (
+                                                    <div className="song-cover-placeholder">No cover</div>
+                                                )}
+                                            </div>
+                                            <div className="song-cover-meta">
+                                                <span>Daily pick</span>
+                                                <span>{songOfDay.previewUrl ? 'Preview ready' : 'Audio unavailable'}</span>
+                                            </div>
                                         </div>
                                         <div className="song-info">
+                                            <span className="song-kicker">Curated listen</span>
                                             <h3 className="song-title">{songOfDay.title}</h3>
                                             <p className="song-artist">{resolveSongArtist(songOfDay)}</p>
                                             <p className="song-album">{songOfDay.album?.title || 'Unknown Album'}</p>
@@ -479,7 +530,10 @@ export default function HomePage() {
 
                                     <div className="spotlight-rail card">
                                         <div className="spotlight-rail-head">
-                                            <h3>Today&apos;s Top 5</h3>
+                                            <div>
+                                                <span className="section-kicker">Fast access</span>
+                                                <h3>Today&apos;s Top 5</h3>
+                                            </div>
                                             <span>Fresh picks</span>
                                         </div>
                                         <div className="spotlight-list">
@@ -492,6 +546,11 @@ export default function HomePage() {
                                                     onClick={() => openDirectSongYoutube(song)}
                                                 >
                                                     <span className="spotlight-rank">0{index + 1}</span>
+                                                    {resolveSongCover(song) ? (
+                                                        <img className="spotlight-thumb" src={resolveSongCover(song)} alt={song.title} />
+                                                    ) : (
+                                                        <span className="spotlight-thumb placeholder" />
+                                                    )}
                                                     <span className="spotlight-copy">
                                                         <strong>{song.title}</strong>
                                                         <small>{resolveSongArtist(song)}</small>
@@ -511,18 +570,22 @@ export default function HomePage() {
                     )}
 
                     {activeTab === 'topSongs' && (
-                        <div className="top-songs-section fade-in">
+                        <div className="top-songs-section fade-in section-shell">
                             <div className="section-header">
-                                <h2 className="section-title">Top DHH Songs</h2>
+                                <div>
+                                    <span className="section-kicker">Current rotation</span>
+                                    <h2 className="section-title">Top DHH Songs</h2>
+                                </div>
                                 <p className="section-sub">Recent playable DHH cuts, prioritized by the last 30 days</p>
                             </div>
                             {topSongs.length > 0 ? (
                                 <div className="songs-grid">
-                                    {topSongs.map((song) => {
+                                    {topSongs.map((song, index) => {
                                         const cover = resolveSongCover(song)
                                         return (
                                             <div key={song.id} className="song-card card">
                                                 <div className="song-card-top">
+                                                    <span className="song-card-rank">#{String(index + 1).padStart(2, '0')}</span>
                                                     <h4>{song.title}</h4>
                                                     <p>{resolveSongArtist(song)}</p>
                                                 </div>
@@ -591,9 +654,12 @@ export default function HomePage() {
                     )}
 
                     {activeTab === 'recentReleases' && (
-                        <div className="recent-releases-section fade-in">
+                        <div className="recent-releases-section fade-in section-shell">
                             <div className="section-header">
-                                <h2 className="section-title">Recent Releases</h2>
+                                <div>
+                                    <span className="section-kicker">Release radar</span>
+                                    <h2 className="section-title">Recent Releases</h2>
+                                </div>
                                 <p className="section-sub">Last 30 days</p>
                             </div>
                             {recentReleases.length > 0 ? (
@@ -607,6 +673,7 @@ export default function HomePage() {
                                                     <div className="album-cover-placeholder">No cover</div>
                                                 )}
                                             </div>
+                                            <span className="album-kicker">Recent drop</span>
                                             <h4>{album.title}</h4>
                                             <p>{album.artist?.name}</p>
                                             <p className="release-date">{formatDate(album.releaseDate)}</p>
@@ -629,9 +696,12 @@ export default function HomePage() {
                     )}
 
                     {activeTab === 'upcoming' && (
-                        <div className="recent-releases-section fade-in">
+                        <div className="recent-releases-section fade-in section-shell">
                             <div className="section-header">
-                                <h2 className="section-title">Upcoming Albums</h2>
+                                <div>
+                                    <span className="section-kicker">Forward radar</span>
+                                    <h2 className="section-title">Upcoming Albums</h2>
+                                </div>
                                 <span className="pill small">AI radar</span>
                             </div>
                             {upcomingReleases.length > 0 ? (
@@ -645,6 +715,7 @@ export default function HomePage() {
                                                     <div className="album-cover-placeholder">No cover</div>
                                                 )}
                                             </div>
+                                            <span className="album-kicker">Announced</span>
                                             <h4>{album.title}</h4>
                                             <p>{album.artist?.name}</p>
                                             <p className="release-date">{formatDate(album.releaseDate)}</p>
@@ -665,6 +736,7 @@ export default function HomePage() {
                                     {releaseRadar.map((story) => (
                                         <div key={story.id} className="album-card card">
                                             <div className="album-cover album-cover-placeholder">News</div>
+                                            <span className="album-kicker">Release watch</span>
                                             <h4>{story.title}</h4>
                                             <p>{story.tag}</p>
                                             <p className="release-date">{story.time}</p>
@@ -678,9 +750,12 @@ export default function HomePage() {
                     )}
 
                     {activeTab === 'artists' && (
-                        <div className="artists-section fade-in">
+                        <div className="artists-section fade-in section-shell">
                             <div className="section-header">
-                                <h2 className="section-title">Featured Artists</h2>
+                                <div>
+                                    <span className="section-kicker">Artist directory</span>
+                                    <h2 className="section-title">Featured Artists</h2>
+                                </div>
                                 <p className="section-sub">Open full artist profiles with songs, releases, facts, tours, and games</p>
                             </div>
                             {filteredArtists.length > 0 ? (
@@ -702,8 +777,12 @@ export default function HomePage() {
                                                     <div className="artist-initial">{artist.name.charAt(0)}</div>
                                                 )}
                                             </div>
-                                            <h3>{artist.name}</h3>
-                                            <p className="listeners">{artist.genre || 'Artist'}</p>
+                                            <div className="artist-card-copy">
+                                                <span className="artist-card-kicker">Artist universe</span>
+                                                <h3>{artist.name}</h3>
+                                                <p className="listeners">{artist.genre || 'Artist'}</p>
+                                                <p className="artist-card-bio">{getArtistExcerpt(artist.bio)}</p>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -718,9 +797,10 @@ export default function HomePage() {
                     )}
 
                     {activeTab === 'game' && (
-                        <div className="game-section fade-in">
+                        <div className="game-section fade-in section-shell">
                             <div className="section-header">
                                 <div>
+                                    <span className="section-kicker">Arcade</span>
                                     <h2 className="section-title">Play</h2>
                                     <p className="game-description">Six replayable DHH game modes built around tracks, artists, covers, and scene knowledge.</p>
                                 </div>

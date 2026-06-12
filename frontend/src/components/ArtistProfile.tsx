@@ -54,6 +54,20 @@ interface ArtistProfileProps {
 
 const getAlbumCover = (album: Album) => album.coverUrl || album.coverImageUrl
 
+const getBioLead = (bio?: string) => {
+    if (!bio) return 'A catalog view built around verified songs, releases, and scene context.'
+    const firstLine = bio.split('.')[0]?.trim() || bio.trim()
+    return `${firstLine}${firstLine.endsWith('.') ? '' : '.'}`
+}
+
+const hashThemeIndex = (value: string) => {
+    let hash = 0
+    for (let i = 0; i < value.length; i += 1) {
+        hash = (hash * 31 + value.charCodeAt(i)) % 5
+    }
+    return hash
+}
+
 export default function ArtistProfile({ artistId, initialArtist, onBack }: ArtistProfileProps) {
     const [activeTab, setActiveTab] = useState('overview')
     const [artist, setArtist] = useState<Artist | null>(initialArtist || null)
@@ -157,6 +171,19 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
         ? `/api/images/artist/${displayArtist.id}`
         : undefined
 
+    const profileThemeClass = useMemo(() => {
+        if (!displayArtist?.name) return 'theme-0'
+        return `theme-${hashThemeIndex(displayArtist.name)}`
+    }, [displayArtist?.name])
+
+    const overviewStats = [
+        { label: 'Albums', value: albumsByType.length },
+        { label: 'Songs', value: songs.length },
+        { label: 'EPs', value: eps.length },
+        { label: 'Singles', value: singles.length },
+        { label: 'Features', value: appearsOn.length }
+    ]
+
     const toggleSongPreview = async (songId: number) => {
         const currentAudio = document.getElementById(`artist-song-preview-${songId}`) as HTMLAudioElement | null
         if (!currentAudio) return
@@ -240,12 +267,15 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
     }
 
     return (
-        <div className="artist-profile fade-in">
+        <div className={`artist-profile fade-in ${profileThemeClass}`}>
+            <div className="artist-atmosphere artist-atmosphere-one" />
+            <div className="artist-atmosphere artist-atmosphere-two" />
+
             <button className="btn btn-secondary back-btn" onClick={onBack}>
                 Back to Artists
             </button>
 
-            <div className="artist-header">
+            <div className="artist-header card">
                 <div className="artist-header-image">
                     {artistImageSrc ? (
                         <img
@@ -258,9 +288,34 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
                     )}
                 </div>
                 <div className="artist-header-info">
+                    <span className="artist-kicker">Artist universe</span>
                     <h1 className="artist-name">{displayArtist.name}</h1>
                     {displayArtist.genre && <p className="artist-genre">{displayArtist.genre}</p>}
+                    <p className="artist-lead">{getBioLead(displayArtist.bio)}</p>
+                    <div className="artist-summary-row">
+                        <div className="artist-summary-chip">
+                            <strong>{songs.length}</strong>
+                            <span>verified songs</span>
+                        </div>
+                        <div className="artist-summary-chip">
+                            <strong>{albumsByType.length + eps.length + singles.length}</strong>
+                            <span>release entries</span>
+                        </div>
+                        <div className="artist-summary-chip">
+                            <strong>{appearsOn.length}</strong>
+                            <span>feature credits</span>
+                        </div>
+                    </div>
                 </div>
+            </div>
+
+            <div className="catalog-strip">
+                {overviewStats.map((item) => (
+                    <div key={item.label} className="catalog-strip-card">
+                        <span>{item.label}</span>
+                        <strong>{item.value}</strong>
+                    </div>
+                ))}
             </div>
 
             <div className="profile-tabs">
@@ -325,39 +380,29 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
                     <div className="overview-section">
                         {displayArtist.bio && (
                             <div className="bio-card card">
-                                <h3>Biography</h3>
+                                <span className="section-label">Biography</span>
+                                <h3>Inside the artist universe</h3>
                                 <p>{displayArtist.bio}</p>
                             </div>
                         )}
 
                         <div className="overview-grid">
-                            <div className="overview-card card">
-                                <h4>Total Albums</h4>
-                                <p className="overview-stat">{albumsByType.length}</p>
-                            </div>
-                            <div className="overview-card card">
-                                <h4>Total Songs</h4>
-                                <p className="overview-stat">{songs.length}</p>
-                            </div>
-                            <div className="overview-card card">
-                                <h4>Total EPs</h4>
-                                <p className="overview-stat">{eps.length}</p>
-                            </div>
-                            <div className="overview-card card">
-                                <h4>Singles</h4>
-                                <p className="overview-stat">{singles.length}</p>
-                            </div>
-                            <div className="overview-card card">
-                                <h4>Features</h4>
-                                <p className="overview-stat">{appearsOn.length}</p>
-                            </div>
+                            {overviewStats.map((item) => (
+                                <div key={item.label} className="overview-card card">
+                                    <h4>{item.label}</h4>
+                                    <p className="overview-stat">{item.value}</p>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 )}
 
                 {activeTab === 'songs' && (
                     <div className="songs-section">
-                        <h3>All Songs</h3>
+                        <div className="section-heading-block">
+                            <span className="section-label">Library</span>
+                            <h3>All Songs</h3>
+                        </div>
                         {songs.length > 0 ? (
                             <div className="songs-list">
                                 {songs.map((song, index) => (
@@ -367,7 +412,7 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
                                             {song.coverUrl ? (
                                                 <img src={song.coverUrl} alt={song.title} />
                                             ) : (
-                                                <div className="artist-song-cover-placeholder"></div>
+                                                <div className="artist-song-cover-placeholder" />
                                             )}
                                         </div>
                                         <div className="song-details">
@@ -441,7 +486,10 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
 
                 {activeTab === 'albums' && (
                     <div className="albums-section">
-                        <h3>Albums</h3>
+                        <div className="section-heading-block">
+                            <span className="section-label">Discography</span>
+                            <h3>Albums</h3>
+                        </div>
                         {albumsByType.length > 0 ? (
                             <div className="albums-grid">
                                 {albumsByType.map(album => (
@@ -450,7 +498,7 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
                                             {getAlbumCover(album) ? (
                                                 <img src={getAlbumCover(album)} alt={album.title} />
                                             ) : (
-                                                <div className="album-placeholder"></div>
+                                                <div className="album-placeholder" />
                                             )}
                                         </div>
                                         <h4>{album.title}</h4>
@@ -466,7 +514,10 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
 
                 {activeTab === 'eps' && (
                     <div className="eps-section">
-                        <h3>EPs</h3>
+                        <div className="section-heading-block">
+                            <span className="section-label">Discography</span>
+                            <h3>EPs</h3>
+                        </div>
                         {eps.length > 0 ? (
                             <div className="albums-grid">
                                 {eps.map(ep => (
@@ -475,7 +526,7 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
                                             {getAlbumCover(ep) ? (
                                                 <img src={getAlbumCover(ep)} alt={ep.title} />
                                             ) : (
-                                                <div className="album-placeholder"></div>
+                                                <div className="album-placeholder" />
                                             )}
                                         </div>
                                         <h4>{ep.title}</h4>
@@ -491,7 +542,10 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
 
                 {activeTab === 'singles' && (
                     <div className="singles-section">
-                        <h3>Singles</h3>
+                        <div className="section-heading-block">
+                            <span className="section-label">Discography</span>
+                            <h3>Singles</h3>
+                        </div>
                         {singles.length > 0 ? (
                             <div className="albums-grid">
                                 {singles.map(single => (
@@ -500,7 +554,7 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
                                             {getAlbumCover(single) ? (
                                                 <img src={getAlbumCover(single)} alt={single.title} />
                                             ) : (
-                                                <div className="album-placeholder"></div>
+                                                <div className="album-placeholder" />
                                             )}
                                         </div>
                                         <h4>{single.title}</h4>
@@ -521,7 +575,10 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
 
                 {activeTab === 'appears-on' && (
                     <div className="appears-on-section">
-                        <h3>Features and Appears On</h3>
+                        <div className="section-heading-block">
+                            <span className="section-label">Credits</span>
+                            <h3>Features and Appears On</h3>
+                        </div>
                         {appearsOn.length > 0 ? (
                             <div className="albums-grid">
                                 {appearsOn.map(release => (
@@ -530,7 +587,7 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
                                             {getAlbumCover(release) ? (
                                                 <img src={getAlbumCover(release)} alt={release.title} />
                                             ) : (
-                                                <div className="album-placeholder"></div>
+                                                <div className="album-placeholder" />
                                             )}
                                         </div>
                                         <h4>{release.title}</h4>
@@ -551,7 +608,10 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
 
                 {activeTab === 'tours' && (
                     <div className="tours-section">
-                        <h3>Upcoming Tours and Events</h3>
+                        <div className="section-heading-block">
+                            <span className="section-label">Calendar</span>
+                            <h3>Upcoming Tours and Events</h3>
+                        </div>
                         {tours.length > 0 ? (
                             <div className="tours-list">
                                 {tours.map(tour => (
@@ -580,12 +640,15 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
 
                 {activeTab === 'facts' && (
                     <div className="facts-section">
-                        <h3>Fun Facts</h3>
+                        <div className="section-heading-block">
+                            <span className="section-label">Context</span>
+                            <h3>Fun Facts</h3>
+                        </div>
                         {facts.length > 0 ? (
                             <div className="facts-list">
                                 {facts.map(fact => (
                                     <div key={fact.id} className="fact-item card">
-                                        <span className="fact-emoji"></span>
+                                        <span className="fact-emoji" />
                                         <p>{fact.fact}</p>
                                     </div>
                                 ))}
@@ -598,9 +661,12 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
 
                 {activeTab === 'game' && (
                     <div className="game-section">
-                        <h3>Guess the {displayArtist.name} Song</h3>
+                        <div className="section-heading-block">
+                            <span className="section-label">Challenge mode</span>
+                            <h3>Guess the {displayArtist.name} Song</h3>
+                        </div>
                         <p className="game-description">
-                            Test your knowledge of {displayArtist.name}'s music. Listen to a 30-second preview and guess the song.
+                            Test your knowledge of {displayArtist.name}&apos;s music. Listen to a 30-second preview and guess the song.
                         </p>
                         <GameComponent artistId={artistId} mode="artist" />
                     </div>

@@ -152,6 +152,12 @@ const getLandingTrack = async (): Promise<LandingTrack | null> => {
     return pendingLandingTrackPromise
 }
 
+const getBioSnapshot = (bio?: string) => {
+    if (!bio) return 'Scene profile syncing.'
+    const firstLine = bio.split('.')[0]?.trim() || bio.trim()
+    return `${firstLine}${firstLine.endsWith('.') ? '' : '.'}`
+}
+
 export default function LandingPage() {
     const navigate = useNavigate()
     const [selectedTrack, setSelectedTrack] = useState<LandingTrack | null>(null)
@@ -255,11 +261,9 @@ export default function LandingPage() {
         }
     }, [selectedTrack?.previewUrl])
 
-    const heroCover = useMemo(() => {
-        return selectedTrack?.coverUrl || DEFAULT_COVER
-    }, [selectedTrack?.coverUrl])
-
+    const heroCover = useMemo(() => selectedTrack?.coverUrl || DEFAULT_COVER, [selectedTrack?.coverUrl])
     const canPlay = !!selectedTrack?.previewUrl
+    const featuredTrivia = triviaItems[0]
 
     const handleTogglePlay = async () => {
         const audio = audioRef.current
@@ -291,20 +295,18 @@ export default function LandingPage() {
     }
 
     const openYouTube = async () => {
-        if (!selectedTrack) return
+        if (!selectedTrack?.id) return
 
-        if (selectedTrack.id) {
-            try {
-                const res = await fetch(`/api/youtube/song/${selectedTrack.id}`)
-                if (res.ok) {
-                    const payload = await res.json()
-                    if (payload?.url?.startsWith('https://www.youtube.com/watch?v=')) {
-                        window.open(payload.url, '_blank', 'noopener,noreferrer')
-                    }
+        try {
+            const res = await fetch(`/api/youtube/song/${selectedTrack.id}`)
+            if (res.ok) {
+                const payload = await res.json()
+                if (payload?.url?.startsWith('https://www.youtube.com/watch?v=')) {
+                    window.open(payload.url, '_blank', 'noopener,noreferrer')
                 }
-            } catch (err) {
-                console.error('Failed to resolve direct YouTube URL for landing track:', err)
             }
+        } catch (err) {
+            console.error('Failed to resolve direct YouTube URL for landing track:', err)
         }
     }
 
@@ -323,12 +325,15 @@ export default function LandingPage() {
                 loop
             />
 
-            <div className="grid-overlay" />
-            <div className="orb orb-left" />
-            <div className="orb orb-right" />
+            <div className="landing-noise" />
+            <div className="landing-beam landing-beam-left" />
+            <div className="landing-beam landing-beam-right" />
 
             <header className="landing-nav">
-                <div className="logo-mark">HipHopHub</div>
+                <div className="logo-block">
+                    <div className="logo-mark">HipHopHub</div>
+                    <span className="logo-submark">Indian hip-hop atlas</span>
+                </div>
                 <div className="nav-actions">
                     <button className="btn btn-secondary ghost" onClick={() => navigate('/login')}>
                         Log In
@@ -340,15 +345,18 @@ export default function LandingPage() {
             </header>
 
             <section className="landing-hero">
-                <div className="hero-text">
-                    <div className="pill">Desi Hip-Hop OS   Real-time drops   Games</div>
-                    <h1 className="landing-logo glow">
-                        Pulse, news, and games for hip-hop enthusiasts.
-                    </h1>
-                    <p className="landing-tagline">
-                        Explore HipHopHub   a responsive music hub for tracks, tours,
-                        games, artist universes, upcoming albums, and live news.
-                    </p>
+                <div className="hero-text fade-in">
+                    <div className="pill">Editorial feed · scene radar · playable cuts</div>
+                    <div className="hero-copy-stack">
+                        <p className="hero-kicker">A living hip-hop universe built around discovery.</p>
+                        <h1 className="landing-logo glow">
+                            Pulse, news, and games for hip-hop enthusiasts.
+                        </h1>
+                        <p className="landing-tagline">
+                            Enter a sharper Desi hip-hop front page: live music previews, scene context, underground artist discovery,
+                            release tracking, and artist worlds that feel curated instead of generated.
+                        </p>
+                    </div>
 
                     <div className="hero-actions">
                         <button
@@ -361,35 +369,41 @@ export default function LandingPage() {
 
                     <div className="hero-stats">
                         <div className="stat">
-                            <span className="stat-number">8</span>
-                            <span className="stat-label">Artist universes</span>
+                            <span className="stat-number">Universe</span>
+                            <span className="stat-label">Artist pages built as living catalogs</span>
                         </div>
                         <div className="stat">
                             <span className="stat-number">30s</span>
-                            <span className="stat-label">Guess-the-track game</span>
+                            <span className="stat-label">Instant playable preview moments</span>
                         </div>
                         <div className="stat">
-                            <span className="stat-number">Live</span>
-                            <span className="stat-label">AI hip-hop news wire</span>
+                            <span className="stat-number">Daily</span>
+                            <span className="stat-label">Lore cards and underground rotation</span>
                         </div>
                     </div>
                 </div>
 
-                <div className="hero-visual">
+                <div className="hero-visual fade-in">
                     <div className="now-playing-card">
                         <div className="np-header">
                             <span className="pill small">Now playing</span>
                             <span className="pulse-dot" />
                         </div>
                         <div className="np-body">
-                            <div className="np-cover">
-                                <img src={heroCover} alt={selectedTrack?.title || 'HipHopHub mix'} />
-                                <div className="floating-eq" />
+                            <div className="np-cover-shell">
+                                <div className="np-cover">
+                                    <img src={heroCover} alt={selectedTrack?.title || 'HipHopHub mix'} />
+                                    <div className="floating-eq" />
+                                </div>
+                                <div className="np-caption-row">
+                                    <span>Auto-curated preview</span>
+                                    <span>{isPlaying ? 'Live' : 'Paused'}</span>
+                                </div>
                             </div>
                             <div className="np-meta">
                                 <div className="np-controls">
                                     <button className="np-play" disabled={!canPlay} onClick={handleTogglePlay}>
-                                    {canPlay ? (isPlaying ? 'Pause' : 'Play') : 'No preview'}
+                                        {canPlay ? (isPlaying ? 'Pause' : 'Play') : 'No preview'}
                                     </button>
                                     <button className="np-play" disabled={!canPlay} onClick={toggleMute}>
                                         {isMuted ? 'Unmute' : 'Mute'}
@@ -398,6 +412,11 @@ export default function LandingPage() {
                                 <p className="np-track">{selectedTrack?.title || 'HipHopHub mix'}</p>
                                 <p className="np-artist">{selectedTrack?.artistName || 'Featured artists'}</p>
                                 <p className="np-album">{selectedTrack?.albumTitle || 'Fresh drops + classics'}</p>
+                                <div className="np-divider" />
+                                <div className="np-footnote-row">
+                                    <span>Random opening cut</span>
+                                    <span>{selectedTrack?.previewUrl ? 'Preview ready' : 'Syncing'}</span>
+                                </div>
                                 {selectedTrack?.id && selectedTrack?.youtubeUrl && (
                                     <button type="button" className="np-yt" onClick={openYouTube}>
                                         Play on YT
@@ -414,7 +433,7 @@ export default function LandingPage() {
                     </div>
 
                     <div className="landing-data-grid">
-                        <div className="landing-panel">
+                        <div className="landing-panel landing-panel-artists">
                             <div className="landing-panel-head">
                                 <h3>Underground Scanner</h3>
                                 <span>Daily rotation of next-up artists</span>
@@ -430,9 +449,7 @@ export default function LandingPage() {
                                         <span className="landing-rank">{artist.name.charAt(0)}</span>
                                         <span className="landing-copy">
                                             <strong>{artist.name}</strong>
-                                            {artist.bio && (
-                                                <small>{`${artist.bio.split('.')[0].slice(0, 72)}${artist.bio.split('.')[0].length > 72 ? '...' : ''}`}</small>
-                                            )}
+                                            <small>{getBioSnapshot(artist.bio)}</small>
                                         </span>
                                     </button>
                                 ))}
@@ -442,29 +459,26 @@ export default function LandingPage() {
                             </div>
                         </div>
 
-                        <div className="landing-panel">
+                        <div className="landing-panel landing-panel-trivia">
                             <div className="landing-panel-head">
                                 <h3>Lyric + Lore Trivia</h3>
-                                <span>One daily scene card</span>
+                                <span>One rotating scene card</span>
                             </div>
-                            <div className="trivia-list">
-                                {triviaItems.map((item) => (
-                                    <div key={`${item.title}-${item.lead}`} className="trivia-item">
-                                        <strong>{item.title}</strong>
-                                        <span>{item.lead}</span>
-                                        <p>{item.body}</p>
-                                    </div>
-                                ))}
-                                {triviaItems.length === 0 && (
-                                    <div className="landing-empty">Trivia cards are syncing.</div>
-                                )}
-                            </div>
+                            {featuredTrivia ? (
+                                <div className="trivia-feature-card">
+                                    <strong>{featuredTrivia.title}</strong>
+                                    <span>{featuredTrivia.lead}</span>
+                                    <p>{featuredTrivia.body}</p>
+                                </div>
+                            ) : (
+                                <div className="landing-empty">Trivia cards are syncing.</div>
+                            )}
                         </div>
                     </div>
                 </div>
             </section>
 
-            <section className="marquee">
+            <section className="marquee" aria-label="HipHopHub capabilities">
                 <div className="marquee-track">
                     {[...marqueeItems, ...marqueeItems, ...marqueeItems, ...marqueeItems].map((item, idx) => (
                         <span key={idx} className="chip">{item}</span>
