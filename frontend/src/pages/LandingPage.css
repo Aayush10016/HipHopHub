@@ -80,10 +80,12 @@
     z-index: 1;
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(400px, 0.96fr);
-    gap: 1.5rem;
+    gap: 1.25rem;
     align-items: stretch;
-    padding: clamp(1.8rem, 4vw, 3.2rem) 7vw 4.5rem;
+    padding: clamp(1.2rem, 2.5vw, 2rem) 7vw clamp(1.5rem, 3vw, 3rem);
+    max-height: calc(100vh - 70px);
     min-height: calc(100vh - 70px);
+    overflow: hidden;
 }
 
 .hero-text,
@@ -95,14 +97,14 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 1rem;
-    padding: 1rem 0;
+    gap: 0.7rem;
+    padding: 0.5rem 0;
 }
 
 .hero-copy-stack {
     display: flex;
     flex-direction: column;
-    gap: 0.85rem;
+    gap: 0.6rem;
 }
 
 .hero-kicker {
@@ -116,8 +118,8 @@
 .landing-logo {
     max-width: 10.5ch;
     font-family: 'Fraunces', serif;
-    font-size: clamp(3.8rem, 7vw, 6.75rem);
-    line-height: 0.92;
+    font-size: clamp(3.5rem, 6.5vw, 6.35rem);
+    line-height: 0.9;
     font-weight: 700;
     letter-spacing: -0.06em;
     color: var(--text-primary);
@@ -142,13 +144,13 @@
 .hero-stats {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.85rem;
-    margin-top: 0.35rem;
+    gap: 0.65rem;
+    margin-top: 0.15rem;
 }
 
 .stat {
-    padding: 1rem 1rem 1.1rem;
-    border-radius: 22px;
+    padding: 0.75rem 0.9rem 0.8rem;
+    border-radius: 20px;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.08);
 }
@@ -172,8 +174,9 @@
 .hero-visual {
     display: flex;
     flex-direction: column;
-    gap: 0.9rem;
+    gap: 0.7rem;
     justify-content: center;
+    overflow: hidden;
 }
 
 .now-playing-card,
@@ -185,14 +188,14 @@
 }
 
 .now-playing-card {
-    padding: 1rem;
+    padding: 0.85rem;
 }
 
 .np-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 0.9rem;
+    margin-bottom: 0.6rem;
 }
 
 .pulse-dot {
@@ -318,14 +321,17 @@
 .landing-data-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.9rem;
+    gap: 0.75rem;
+    align-items: stretch;
 }
 
 .landing-panel {
     display: flex;
     flex-direction: column;
-    gap: 0.7rem;
-    padding: 1rem;
+    gap: 0.55rem;
+    padding: 0.9rem;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .landing-panel-head {
@@ -401,14 +407,15 @@
 }
 
 .trivia-feature-card {
-    min-height: 100%;
-    padding: 1rem;
-    border-radius: 20px;
+    flex: 1;
+    padding: 0.85rem;
+    border-radius: 18px;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.08);
     display: flex;
     flex-direction: column;
-    gap: 0.45rem;
+    gap: 0.4rem;
+    overflow: hidden;
 }
 
 .trivia-feature-card strong {
@@ -508,6 +515,8 @@
     .landing-hero {
         grid-template-columns: 1fr;
         min-height: auto;
+        max-height: none;
+        overflow: visible;
         padding-bottom: 1.5rem;
     }
 

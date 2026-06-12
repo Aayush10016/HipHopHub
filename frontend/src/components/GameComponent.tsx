@@ -513,7 +513,7 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
             {currentSong?.songId && currentSong?.youtubeUrl && (
                 <div className="game-yt-wrap">
                     <button type="button" onClick={openDirectYouTube} className="game-yt-btn">
-                        Play on YT
+                        ▶ Play on YouTube
                     </button>
                 </div>
             )}

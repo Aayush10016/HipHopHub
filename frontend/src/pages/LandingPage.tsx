@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { hashString, pickDistinctItems, pickLeastRecent, readRecentValues, writeRecentValue } from '../utils/rotation'
 import './LandingPage.css'
@@ -522,7 +522,7 @@ export default function LandingPage() {
                                 </div>
                                 {selectedTrack?.id && selectedTrack?.youtubeUrl && (
                                     <button type="button" className="np-yt" onClick={openYouTube}>
-                                        Play on YT
+                                        ▶ Play on YouTube
                                     </button>
                                 )}
                                 {autoplayBlocked && (

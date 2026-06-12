@@ -536,7 +536,7 @@ export default function HomePage() {
                                                             onClick={() => openDirectSongYoutube(songOfDay)}
                                                             className="yt-link-btn"
                                                         >
-                                                            Play on YT
+                                                            ▶ Play on YouTube
                                                         </button>
                                                     )}
                                                     <audio
@@ -666,7 +666,7 @@ export default function HomePage() {
                                                         onClick={() => openDirectSongYoutube(song)}
                                                         className="yt-link-btn"
                                                     >
-                                                        Play on YT
+                                                        ▶ Play on YouTube
                                                     </button>
                                                 )}
                                             </div>
@@ -709,7 +709,7 @@ export default function HomePage() {
                                                     onClick={() => openDirectAlbumYoutube(album)}
                                                     className="yt-link-btn"
                                                 >
-                                                    Play on YT
+                                                    ▶ Play on YouTube
                                                 </button>
                                             )}
                                         </div>
@@ -751,7 +751,7 @@ export default function HomePage() {
                                                     onClick={() => openDirectAlbumYoutube(album)}
                                                     className="yt-link-btn"
                                                 >
-                                                    Play on YT
+                                                    ▶ Play on YouTube
                                                 </button>
                                             )}
                                         </div>

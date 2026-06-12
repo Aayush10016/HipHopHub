@@ -287,12 +287,10 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
             )}
 
             {/* ═══ Layer 2.5: Waveform Visualizer ═══ */}
-            {flagship && (
-                <ArtistWaveform
-                    color={flagship.palette.primary}
-                    opacity={0.06}
-                />
-            )}
+            <ArtistWaveform
+                color={flagship ? flagship.palette.primary : artistUniverse.palette[0]}
+                opacity={flagship ? 0.06 : 0.04}
+            />
 
             {/* ═══ Layer 3: Album Collage ═══ */}
             {artistUniverse.collageImages.length > 0 && (
@@ -554,7 +552,7 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
                                                     onClick={() => openDirectSongYoutube(song)}
                                                     className="yt-link-btn"
                                                 >
-                                                    Play on YT
+                                                    ▶ Play on YouTube
                                                 </button>
                                             )}
                                         </div>
@@ -644,7 +642,7 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
                                         <p>{new Date(single.releaseDate).getFullYear()}</p>
                                         {single.youtubeUrl && (
                                             <button type="button" onClick={() => openDirectSingleYoutube(single)} className="yt-link-btn">
-                                                Play on YT
+                                                ▶ Play on YouTube
                                             </button>
                                         )}
                                     </div>
@@ -677,7 +675,7 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
                                         <p>{new Date(release.releaseDate).getFullYear()}</p>
                                         {release.youtubeUrl && (
                                             <button type="button" onClick={() => openDirectSingleYoutube(release)} className="yt-link-btn">
-                                                Play on YT
+                                                ▶ Play on YouTube
                                             </button>
                                         )}
                                     </div>

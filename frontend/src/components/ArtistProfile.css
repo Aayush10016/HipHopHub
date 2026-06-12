@@ -178,17 +178,68 @@
 
 .artist-particle {
     position: absolute;
-    width: 8px;
-    height: 8px;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.18);
-    animation: drift 6s ease-in-out infinite;
+    background: var(--artist-accent-d, rgba(255, 255, 255, 0.2));
+    opacity: 0.18;
+    will-change: transform;
 }
 
-.particle-0 { top: 14%; left: 18%; animation-delay: 0s; }
-.particle-1 { top: 22%; left: 74%; animation-delay: 1s; }
-.particle-2 { top: 64%; left: 12%; animation-delay: 2s; }
-.particle-3 { top: 72%; left: 84%; animation-delay: 3s; }
+/* Varied sizes and positions across the hero */
+.particle-0 { width: 5px; height: 5px; top: 8%; left: 12%; animation: particleDriftA 8s ease-in-out infinite; }
+.particle-1 { width: 7px; height: 7px; top: 16%; left: 68%; animation: particleDriftB 10s ease-in-out infinite; animation-delay: -2s; }
+.particle-2 { width: 4px; height: 4px; top: 32%; left: 24%; animation: particleDriftA 12s ease-in-out infinite; animation-delay: -4s; }
+.particle-3 { width: 6px; height: 6px; top: 45%; left: 82%; animation: particleDriftB 9s ease-in-out infinite; animation-delay: -1s; }
+.particle-0:nth-child(5)  { width: 3px; height: 3px; top: 55%; left: 44%; animation: particleDriftA 11s ease-in-out infinite; animation-delay: -5s; }
+.particle-1:nth-child(6)  { width: 8px; height: 8px; top: 18%; left: 52%; animation: particleDriftB 14s ease-in-out infinite; animation-delay: -3s; opacity: 0.12; }
+.particle-2:nth-child(7)  { width: 4px; height: 4px; top: 70%; left: 15%; animation: particleDriftA 10s ease-in-out infinite; animation-delay: -7s; }
+.particle-3:nth-child(8)  { width: 6px; height: 6px; top: 62%; left: 72%; animation: particleDriftB 8s ease-in-out infinite; animation-delay: -2s; }
+.particle-0:nth-child(9)  { width: 5px; height: 5px; top: 78%; left: 38%; animation: particleDriftA 13s ease-in-out infinite; animation-delay: -6s; }
+.particle-1:nth-child(10) { width: 3px; height: 3px; top: 25%; left: 90%; animation: particleDriftB 9s ease-in-out infinite; animation-delay: -4s; }
+.particle-2:nth-child(11) { width: 7px; height: 7px; top: 42%; left: 5%;  animation: particleDriftA 11s ease-in-out infinite; animation-delay: -8s; opacity: 0.1; }
+.particle-3:nth-child(12) { width: 4px; height: 4px; top: 85%; left: 60%; animation: particleDriftB 10s ease-in-out infinite; animation-delay: -3s; }
+.particle-0:nth-child(13) { width: 5px; height: 5px; top: 12%; left: 40%; animation: particleDriftA 9s ease-in-out infinite; animation-delay: -1s; }
+.particle-1:nth-child(14) { width: 6px; height: 6px; top: 52%; left: 55%; animation: particleDriftB 12s ease-in-out infinite; animation-delay: -5s; opacity: 0.14; }
+.particle-2:nth-child(15) { width: 3px; height: 3px; top: 68%; left: 88%; animation: particleDriftA 8s ease-in-out infinite; animation-delay: -7s; }
+.particle-3:nth-child(16) { width: 5px; height: 5px; top: 38%; left: 30%; animation: particleDriftB 11s ease-in-out infinite; animation-delay: -2s; }
+
+@keyframes particleDriftA {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.18; }
+    25%      { transform: translate3d(8px, -12px, 0) scale(1.2); opacity: 0.28; }
+    50%      { transform: translate3d(-4px, -20px, 0) scale(0.9); opacity: 0.12; }
+    75%      { transform: translate3d(6px, -8px, 0) scale(1.1); opacity: 0.22; }
+}
+
+@keyframes particleDriftB {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.15; }
+    30%      { transform: translate3d(-10px, 8px, 0) scale(1.15); opacity: 0.25; }
+    60%      { transform: translate3d(6px, 14px, 0) scale(0.85); opacity: 0.1; }
+    85%      { transform: translate3d(-3px, 4px, 0) scale(1.05); opacity: 0.2; }
+}
+
+/* ── Ambient glow spots (all artists) ──────────────────────────── */
+
+.artist-profile::after {
+    content: '';
+    position: absolute;
+    top: 20%;
+    left: 50%;
+    width: 40vw;
+    height: 40vw;
+    max-width: 500px;
+    max-height: 500px;
+    transform: translateX(-50%);
+    background: radial-gradient(circle, var(--artist-accent-a), transparent 70%);
+    filter: blur(80px);
+    opacity: 0.4;
+    pointer-events: none;
+    z-index: 0;
+    animation: ambientGlow 10s ease-in-out infinite;
+}
+
+@keyframes ambientGlow {
+    0%, 100% { opacity: 0.3; transform: translateX(-50%) scale(1); }
+    50%      { opacity: 0.5; transform: translateX(-50%) scale(1.1); }
+}
 
 /* ── Back button ───────────────────────────────────────────────── */
 
