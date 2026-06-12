@@ -287,6 +287,7 @@
 .song-album,
 .listeners,
 .release-date,
+.artist-card p,
 .album-card p,
 .song-card-top p {
     color: var(--text-secondary);
@@ -579,8 +580,9 @@
 }
 
 .artist-card-bio {
-    color: var(--text-muted);
+    color: var(--text-secondary);
     font-size: 0.84rem;
+    line-height: 1.5;
 }
 
 .home-page .yt-link-btn {
@@ -630,6 +632,7 @@
 .game-placeholder p {
     margin: 0;
     color: var(--text-secondary);
+    line-height: 1.5;
 }
 
 .game-mode-kicker {

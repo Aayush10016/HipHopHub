@@ -38,7 +38,16 @@ export default function ArtistBlitzGame() {
     useEffect(() => {
         fetch('/api/songs/top/dhh?days=365&limit=60')
             .then(res => res.ok ? res.json() : [])
-            .then(data => setSongs(shuffle((data || []).filter((song: SongOption) => !!song.artistName)).slice(0, 20)))
+            .then(data => {
+                const uniqueByArtist = Array.from(
+                    new Map(
+                        ((data || []) as SongOption[])
+                            .filter(song => !!song.artistName)
+                            .map(song => [song.artistName?.toLowerCase(), song])
+                    ).values()
+                )
+                setSongs(shuffle(uniqueByArtist).slice(0, 20))
+            })
             .catch(() => setSongs([]))
     }, [])
 

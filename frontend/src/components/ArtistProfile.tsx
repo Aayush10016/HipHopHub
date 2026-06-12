@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import GameComponent from '../components/GameComponent'
+import ArtistSmokeLayer from '../components/ArtistSmokeLayer'
+import ArtistParticleCanvas from '../components/ArtistParticleCanvas'
+import ArtistFilmGrain from '../components/ArtistFilmGrain'
+import ArtistWaveform from '../components/ArtistWaveform'
+import { buildArtistUniverse } from '../utils/artistUniverse'
 import './ArtistProfile.css'
 
 interface Artist {
@@ -58,14 +63,6 @@ const getBioLead = (bio?: string) => {
     if (!bio) return 'A catalog view built around verified songs, releases, and scene context.'
     const firstLine = bio.split('.')[0]?.trim() || bio.trim()
     return `${firstLine}${firstLine.endsWith('.') ? '' : '.'}`
-}
-
-const hashThemeIndex = (value: string) => {
-    let hash = 0
-    for (let i = 0; i < value.length; i += 1) {
-        hash = (hash * 31 + value.charCodeAt(i)) % 5
-    }
-    return hash
 }
 
 export default function ArtistProfile({ artistId, initialArtist, onBack }: ArtistProfileProps) {
@@ -171,11 +168,6 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
         ? `/api/images/artist/${displayArtist.id}`
         : undefined
 
-    const profileThemeClass = useMemo(() => {
-        if (!displayArtist?.name) return 'theme-0'
-        return `theme-${hashThemeIndex(displayArtist.name)}`
-    }, [displayArtist?.name])
-
     const overviewStats = [
         { label: 'Albums', value: albumsByType.length },
         { label: 'Songs', value: songs.length },
@@ -183,6 +175,11 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
         { label: 'Singles', value: singles.length },
         { label: 'Features', value: appearsOn.length }
     ]
+
+    const artistUniverse = useMemo(
+        () => buildArtistUniverse(displayArtist?.name || 'HipHopHub', displayArtist?.genre, displayArtist?.bio, albums),
+        [albums, displayArtist?.bio, displayArtist?.genre, displayArtist?.name]
+    )
 
     const toggleSongPreview = async (songId: number) => {
         const currentAudio = document.getElementById(`artist-song-preview-${songId}`) as HTMLAudioElement | null
@@ -266,11 +263,66 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
         return <div className="error-profile">{error || 'Artist not found'}</div>
     }
 
-    return (
-        <div className={`artist-profile fade-in ${profileThemeClass}`}>
-            <div className="artist-atmosphere artist-atmosphere-one" />
-            <div className="artist-atmosphere artist-atmosphere-two" />
+    const themeId = artistUniverse.isFlagship ? artistUniverse.flagship.id : 'default'
+    const flagship = artistUniverse.isFlagship ? artistUniverse.flagship : null
 
+    return (
+        <div
+            className={`artist-profile fade-in ${artistUniverse.isFlagship ? 'flagship' : ''}`}
+            style={artistUniverse.style}
+            data-artist-theme={themeId}
+        >
+            {/* ═══ Layer 1: Animated Gradient Background ═══ */}
+            <div className="artist-hero-gradient" aria-hidden="true" />
+
+            {/* ═══ Layer 2: Smoke ═══ */}
+            {flagship ? (
+                <ArtistSmokeLayer smoke={flagship.smoke} />
+            ) : (
+                <>
+                    <div className="artist-atmosphere artist-atmosphere-one" />
+                    <div className="artist-atmosphere artist-atmosphere-two" />
+                    <div className="artist-atmosphere artist-atmosphere-three" />
+                </>
+            )}
+
+            {/* ═══ Layer 2.5: Waveform Visualizer ═══ */}
+            {flagship && (
+                <ArtistWaveform
+                    color={flagship.palette.primary}
+                    opacity={0.06}
+                />
+            )}
+
+            {/* ═══ Layer 3: Album Collage ═══ */}
+            {artistUniverse.collageImages.length > 0 && (
+                <div className="artist-collage" aria-hidden="true">
+                    {artistUniverse.collageImages.map((image, index) => (
+                        <img key={`${image}-${index}`} src={image} alt="" />
+                    ))}
+                </div>
+            )}
+
+            {/* ═══ Layer 4: Watermark / Logo ═══ */}
+            <div className="artist-brand-watermark" aria-hidden="true">
+                {artistUniverse.watermark}
+            </div>
+
+            {/* ═══ Layer 5: Particles ═══ */}
+            {flagship ? (
+                <ArtistParticleCanvas config={flagship.particles} />
+            ) : (
+                <div className="artist-particle-field" aria-hidden="true">
+                    {Array.from({ length: 16 }).map((_, index) => (
+                        <span key={index} className={`artist-particle particle-${index % 4}`} />
+                    ))}
+                </div>
+            )}
+
+            {/* ═══ Layer 5.5: Film Grain ═══ */}
+            {flagship?.filmGrain && <ArtistFilmGrain />}
+
+            {/* ═══ Layer 6: Content ═══ */}
             <button className="btn btn-secondary back-btn" onClick={onBack}>
                 Back to Artists
             </button>
@@ -292,6 +344,11 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
                     <h1 className="artist-name">{displayArtist.name}</h1>
                     {displayArtist.genre && <p className="artist-genre">{displayArtist.genre}</p>}
                     <p className="artist-lead">{getBioLead(displayArtist.bio)}</p>
+                    <div className="artist-mood-row">
+                        <span className="artist-mood-chip">{artistUniverse.moodPrimary}</span>
+                        <span className="artist-mood-chip">{artistUniverse.moodSecondary}</span>
+                        <span className="artist-mood-chip">{artistUniverse.atmosphere}</span>
+                    </div>
                     <div className="artist-summary-row">
                         <div className="artist-summary-chip">
                             <strong>{songs.length}</strong>
@@ -306,6 +363,10 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
                             <span>feature credits</span>
                         </div>
                     </div>
+                </div>
+                <div className="artist-mark-badge" aria-hidden="true">
+                    <span className="artist-mark-label">Wordmark</span>
+                    <strong>{artistUniverse.initials}</strong>
                 </div>
             </div>
 
@@ -378,6 +439,28 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
             <div className="profile-content">
                 {activeTab === 'overview' && (
                     <div className="overview-section">
+                        <div className="overview-story-grid">
+                            <div className="overview-story-card card">
+                                <span className="section-label">Signature atmosphere</span>
+                                <h3>{artistUniverse.moodPrimary} x {artistUniverse.moodSecondary}</h3>
+                                <p>{artistUniverse.signature}</p>
+                            </div>
+
+                            <div className="overview-story-card card">
+                                <span className="section-label">Career timeline</span>
+                                <h3>Release arc</h3>
+                                {artistUniverse.releaseYears.length > 0 ? (
+                                    <div className="timeline-strip">
+                                        {artistUniverse.releaseYears.map(year => (
+                                            <span key={year} className="timeline-chip">{year}</span>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p>Release years are still syncing for this artist.</p>
+                                )}
+                            </div>
+                        </div>
+
                         {displayArtist.bio && (
                             <div className="bio-card card">
                                 <span className="section-label">Biography</span>

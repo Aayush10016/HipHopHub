@@ -1,34 +1,59 @@
+/* ═══════════════════════════════════════════════════════════════════
+   ArtistProfile.css — Cinematic artist universe system
+   6-layer hero architecture + per-artist flagship overrides
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Root container ────────────────────────────────────────────── */
+
 .artist-profile {
     position: relative;
     padding: var(--space-xl) 0;
     --artist-accent-a: rgba(200, 171, 121, 0.28);
     --artist-accent-b: rgba(142, 163, 181, 0.2);
     --artist-accent-c: rgba(138, 164, 140, 0.16);
+    --artist-accent-d: #f2ede4;
+    --artist-gradient: linear-gradient(135deg, #d7b179 0%, #89a4bc 56%, #8ca580 100%);
+    transition:
+        --artist-accent-a 600ms ease,
+        --artist-accent-b 600ms ease,
+        --artist-accent-c 600ms ease,
+        --artist-accent-d 600ms ease;
+    isolation: isolate;
+    overflow: hidden;
 }
 
-.artist-profile.theme-1 {
-    --artist-accent-a: rgba(142, 163, 181, 0.28);
-    --artist-accent-b: rgba(200, 171, 121, 0.18);
-    --artist-accent-c: rgba(201, 108, 93, 0.14);
+/* ── Layer 1: Animated Gradient Background ─────────────────────── */
+
+.artist-hero-gradient {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: var(--artist-gradient);
+    opacity: 0.12;
+    animation: gradientShift 16s ease-in-out infinite;
+    will-change: opacity;
 }
 
-.artist-profile.theme-2 {
-    --artist-accent-a: rgba(138, 164, 140, 0.26);
-    --artist-accent-b: rgba(200, 171, 121, 0.2);
-    --artist-accent-c: rgba(142, 163, 181, 0.16);
+@keyframes gradientShift {
+    0%, 100% { opacity: 0.10; transform: scale(1); }
+    33%      { opacity: 0.16; transform: scale(1.02); }
+    66%      { opacity: 0.08; transform: scale(0.98); }
 }
 
-.artist-profile.theme-3 {
-    --artist-accent-a: rgba(201, 108, 93, 0.24);
-    --artist-accent-b: rgba(142, 163, 181, 0.2);
-    --artist-accent-c: rgba(200, 171, 121, 0.18);
+.flagship .artist-hero-gradient {
+    opacity: 0.18;
+    animation: gradientShiftFlagship 12s ease-in-out infinite;
 }
 
-.artist-profile.theme-4 {
-    --artist-accent-a: rgba(200, 171, 121, 0.26);
-    --artist-accent-b: rgba(138, 164, 140, 0.18);
-    --artist-accent-c: rgba(142, 163, 181, 0.18);
+@keyframes gradientShiftFlagship {
+    0%, 100% { opacity: 0.14; transform: scale(1) rotate(0deg); }
+    25%      { opacity: 0.22; transform: scale(1.03) rotate(0.5deg); }
+    50%      { opacity: 0.10; transform: scale(0.97) rotate(-0.3deg); }
+    75%      { opacity: 0.20; transform: scale(1.01) rotate(0.2deg); }
 }
+
+/* ── Layer 2: Atmosphere blobs (non-flagship) ──────────────────── */
 
 .artist-atmosphere {
     position: absolute;
@@ -36,6 +61,9 @@
     filter: blur(80px);
     pointer-events: none;
     opacity: 0.7;
+    animation: atmosphereFloat 14s ease-in-out infinite;
+    will-change: transform;
+    z-index: 1;
 }
 
 .artist-atmosphere-one {
@@ -44,6 +72,7 @@
     width: 18rem;
     height: 18rem;
     background: var(--artist-accent-a);
+    animation-delay: 0s;
 }
 
 .artist-atmosphere-two {
@@ -52,13 +81,127 @@
     width: 20rem;
     height: 20rem;
     background: var(--artist-accent-b);
+    animation-delay: -4s;
 }
 
+.artist-atmosphere-three {
+    bottom: 5rem;
+    left: 35%;
+    width: 16rem;
+    height: 16rem;
+    background: var(--artist-accent-c);
+    animation-delay: -8s;
+}
+
+@keyframes atmosphereFloat {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+    33%      { transform: translate3d(10px, -15px, 0) scale(1.06); }
+    66%      { transform: translate3d(-8px, 8px, 0) scale(0.94); }
+}
+
+/* ── Layer 3: Album Collage ────────────────────────────────────── */
+
+.artist-collage {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    padding: 1rem;
+    opacity: 0.07;
+    mix-blend-mode: screen;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.artist-collage img {
+    width: 100%;
+    height: 100%;
+    min-height: 90px;
+    object-fit: cover;
+    border-radius: 16px;
+    filter: grayscale(0.1);
+    animation: collageFloat 20s ease-in-out infinite;
+}
+
+.artist-collage img:nth-child(1) { animation-delay: 0s; }
+.artist-collage img:nth-child(2) { animation-delay: -3s; }
+.artist-collage img:nth-child(3) { animation-delay: -6s; }
+.artist-collage img:nth-child(4) { animation-delay: -9s; }
+.artist-collage img:nth-child(5) { animation-delay: -12s; }
+.artist-collage img:nth-child(6) { animation-delay: -15s; }
+
+@keyframes collageFloat {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50%      { transform: translateY(-6px) scale(1.02); }
+}
+
+.flagship .artist-collage {
+    opacity: 0.10;
+}
+
+/* ── Layer 4: Watermark / Logo ─────────────────────────────────── */
+
+.artist-brand-watermark {
+    position: absolute;
+    inset: auto 1.4rem 1rem auto;
+    font-family: 'Fraunces', serif;
+    font-size: clamp(5rem, 16vw, 14rem);
+    line-height: 0.82;
+    letter-spacing: -0.08em;
+    color: rgba(255, 255, 255, 0.04);
+    text-transform: uppercase;
+    pointer-events: none;
+    z-index: 3;
+    user-select: none;
+}
+
+.flagship .artist-brand-watermark {
+    font-size: clamp(6rem, 20vw, 18rem);
+    opacity: 0.6;
+    animation: watermarkPulse 10s ease-in-out infinite;
+}
+
+@keyframes watermarkPulse {
+    0%, 100% { opacity: 0.6; transform: translateX(0); }
+    50%      { opacity: 0.4; transform: translateX(-4px); }
+}
+
+/* ── Layer 5: CSS Particle field (non-flagship) ────────────────── */
+
+.artist-particle-field {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 4;
+}
+
+.artist-particle {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.18);
+    animation: drift 6s ease-in-out infinite;
+}
+
+.particle-0 { top: 14%; left: 18%; animation-delay: 0s; }
+.particle-1 { top: 22%; left: 74%; animation-delay: 1s; }
+.particle-2 { top: 64%; left: 12%; animation-delay: 2s; }
+.particle-3 { top: 72%; left: 84%; animation-delay: 3s; }
+
+/* ── Back button ───────────────────────────────────────────────── */
+
 .back-btn {
+    position: relative;
+    z-index: 10;
     margin-bottom: var(--space-lg);
 }
 
+/* ── Artist Header Card ────────────────────────────────────────── */
+
 .artist-header {
+    position: relative;
     display: flex;
     gap: var(--space-lg);
     margin-bottom: 1rem;
@@ -67,6 +210,17 @@
         radial-gradient(circle at top right, var(--artist-accent-a), transparent 32%),
         radial-gradient(circle at left center, var(--artist-accent-b), transparent 28%),
         rgba(18, 21, 26, 0.94);
+    overflow: hidden;
+    z-index: 7;
+}
+
+.flagship .artist-header {
+    background:
+        radial-gradient(circle at top right, var(--artist-accent-a), transparent 38%),
+        radial-gradient(circle at bottom left, var(--artist-accent-b), transparent 32%),
+        radial-gradient(circle at center, var(--artist-accent-c), transparent 45%),
+        rgba(10, 10, 16, 0.96);
+    border-color: var(--artist-accent-a);
 }
 
 .artist-header-image {
@@ -78,6 +232,14 @@
     flex-shrink: 0;
     background: rgba(255, 255, 255, 0.03);
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    z-index: 1;
+}
+
+.flagship .artist-header-image {
+    border-color: var(--artist-accent-a);
+    box-shadow:
+        0 0 40px var(--artist-accent-a),
+        inset 0 0 0 1px var(--artist-accent-a);
 }
 
 .artist-header-image img {
@@ -104,6 +266,7 @@
     flex-direction: column;
     justify-content: center;
     gap: 0.35rem;
+    z-index: 1;
 }
 
 .artist-kicker,
@@ -114,11 +277,17 @@
     text-transform: uppercase;
 }
 
+.flagship .artist-kicker {
+    color: var(--artist-accent-d);
+    opacity: 0.7;
+}
+
 .artist-name {
     font-family: 'Fraunces', serif;
     font-size: clamp(2.8rem, 5vw, 4.5rem);
     line-height: 0.94;
     letter-spacing: -0.06em;
+    color: var(--artist-accent-d);
 }
 
 .artist-genre {
@@ -129,6 +298,30 @@
 .artist-lead {
     max-width: 54ch;
     color: var(--text-secondary);
+}
+
+.artist-mood-row {
+    display: flex;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+    margin: 0.4rem 0 0.2rem;
+}
+
+.artist-mood-chip {
+    padding: 0.36rem 0.7rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-secondary);
+    font-size: 0.76rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.flagship .artist-mood-chip {
+    border-color: var(--artist-accent-a);
+    background: var(--artist-accent-c);
+    color: var(--artist-accent-d);
 }
 
 .artist-summary-row {
@@ -146,6 +339,12 @@
     border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.flagship .artist-summary-chip,
+.flagship .catalog-strip-card {
+    background: var(--artist-accent-c);
+    border-color: var(--artist-accent-a);
+}
+
 .artist-summary-chip strong,
 .catalog-strip-card strong {
     display: block;
@@ -161,12 +360,56 @@
     letter-spacing: 0.08em;
 }
 
+.flagship .artist-summary-chip span,
+.flagship .catalog-strip-card span {
+    color: var(--artist-accent-d);
+    opacity: 0.6;
+}
+
+.artist-mark-badge {
+    align-self: flex-start;
+    min-width: 88px;
+    padding: 0.9rem 1rem;
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    text-align: center;
+    z-index: 1;
+}
+
+.flagship .artist-mark-badge {
+    background: var(--artist-accent-c);
+    border-color: var(--artist-accent-a);
+}
+
+.artist-mark-label {
+    display: block;
+    color: var(--text-muted);
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 0.25rem;
+}
+
+.artist-mark-badge strong {
+    font-family: 'Fraunces', serif;
+    font-size: 2rem;
+    line-height: 1;
+    color: var(--artist-accent-d);
+}
+
+/* ── Catalog strip ─────────────────────────────────────────────── */
+
 .catalog-strip {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 0.75rem;
     margin-bottom: var(--space-lg);
+    position: relative;
+    z-index: 7;
 }
+
+/* ── Profile tabs ──────────────────────────────────────────────── */
 
 .profile-tabs {
     display: flex;
@@ -174,6 +417,8 @@
     margin-bottom: var(--space-lg);
     overflow-x: auto;
     padding-bottom: var(--space-xs);
+    position: relative;
+    z-index: 7;
 }
 
 .profile-tab {
@@ -198,9 +443,26 @@
     border-color: transparent;
 }
 
+.flagship .profile-tab.active {
+    background: var(--artist-accent-d);
+    color: #0a0a0f;
+}
+
+.flagship .profile-tab:hover:not(.active) {
+    background: var(--artist-accent-c);
+    color: var(--artist-accent-d);
+    border-color: var(--artist-accent-a);
+}
+
+/* ── Profile content ───────────────────────────────────────────── */
+
 .profile-content {
     min-height: 400px;
+    position: relative;
+    z-index: 7;
 }
+
+/* ── Section headings ──────────────────────────────────────────── */
 
 .section-heading-block {
     display: flex;
@@ -212,6 +474,48 @@
 .bio-card {
     padding: var(--space-lg);
     margin-bottom: var(--space-lg);
+}
+
+.overview-story-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-md);
+    margin-bottom: var(--space-lg);
+}
+
+.overview-story-card {
+    padding: var(--space-lg);
+}
+
+.overview-story-card h3 {
+    margin: 0.35rem 0 0.5rem;
+}
+
+.overview-story-card p {
+    color: var(--text-secondary);
+}
+
+.timeline-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.4rem;
+}
+
+.timeline-chip {
+    padding: 0.4rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.flagship .timeline-chip {
+    background: var(--artist-accent-c);
+    border-color: var(--artist-accent-a);
+    color: var(--artist-accent-d);
 }
 
 .bio-card h3,
@@ -233,6 +537,8 @@
     line-height: 1.75;
     color: var(--text-primary);
 }
+
+/* ── Overview stats grid ───────────────────────────────────────── */
 
 .overview-grid {
     display: grid;
@@ -258,6 +564,8 @@
     font-size: 2.6rem;
     letter-spacing: -0.06em;
 }
+
+/* ── Songs list ────────────────────────────────────────────────── */
 
 .songs-list,
 .tours-list,
@@ -352,6 +660,10 @@
     transition: width 120ms linear;
 }
 
+.flagship .artist-song-progress-fill {
+    background: linear-gradient(90deg, var(--artist-accent-d), var(--artist-accent-a));
+}
+
 .artist-song-time {
     display: flex;
     justify-content: space-between;
@@ -378,6 +690,21 @@
 .yt-link-btn:hover {
     background: rgba(255, 255, 255, 0.08);
 }
+
+.flagship .song-play-btn,
+.flagship .yt-link-btn {
+    border-color: var(--artist-accent-a);
+    background: var(--artist-accent-c);
+    color: var(--artist-accent-d);
+}
+
+.flagship .song-play-btn:hover,
+.flagship .yt-link-btn:hover {
+    background: var(--artist-accent-a);
+    color: #0a0a0f;
+}
+
+/* ── Albums grid ───────────────────────────────────────────────── */
 
 .albums-grid {
     display: grid;
@@ -421,6 +748,8 @@
     color: var(--text-secondary);
 }
 
+/* ── Tours ──────────────────────────────────────────────────────── */
+
 .tour-item {
     display: flex;
     align-items: center;
@@ -438,6 +767,10 @@
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04));
     border-radius: 22px;
     flex-shrink: 0;
+}
+
+.flagship .tour-date {
+    background: linear-gradient(135deg, var(--artist-accent-a), var(--artist-accent-c));
 }
 
 .tour-day {
@@ -461,6 +794,8 @@
     margin-bottom: 0.15rem;
 }
 
+/* ── Facts ──────────────────────────────────────────────────────── */
+
 .fact-item {
     display: flex;
     gap: var(--space-md);
@@ -482,11 +817,15 @@
     color: var(--text-primary);
 }
 
+/* ── Game ───────────────────────────────────────────────────────── */
+
 .game-description {
     font-size: 1rem;
     color: var(--text-secondary);
     margin-bottom: var(--space-lg);
 }
+
+/* ── Loading / Error ───────────────────────────────────────────── */
 
 .loading-profile,
 .error-profile {
@@ -498,9 +837,167 @@
     color: var(--text-secondary);
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════
+   PER-ARTIST FLAGSHIP OVERRIDES
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Seedhe Maut — Delhi underground, red + black ──────────────── */
+
+[data-artist-theme="seedhe-maut"] .artist-hero-gradient {
+    background: linear-gradient(145deg, #e63946 0%, #8b1a1a 35%, #1a1a2e 70%, #0d0d15 100%);
+    opacity: 0.22;
+}
+
+[data-artist-theme="seedhe-maut"] .artist-header {
+    border-color: rgba(230, 57, 70, 0.25);
+}
+
+[data-artist-theme="seedhe-maut"] .artist-brand-watermark {
+    color: rgba(230, 57, 70, 0.06);
+    text-shadow: 0 0 80px rgba(230, 57, 70, 0.15);
+}
+
+[data-artist-theme="seedhe-maut"] .profile-tab.active {
+    background: #e63946;
+    color: #fff;
+}
+
+[data-artist-theme="seedhe-maut"] .artist-song-progress-fill {
+    background: linear-gradient(90deg, #e63946, #ff6b6b);
+}
+
+/* ── KR$NA — Cyberpunk blue, digital warfare ───────────────────── */
+
+[data-artist-theme="krsna"] .artist-hero-gradient {
+    background: linear-gradient(135deg, #00f0ff 0%, #0066cc 30%, #0a0a2e 65%, #050510 100%);
+    opacity: 0.2;
+}
+
+[data-artist-theme="krsna"] .artist-header {
+    border-color: rgba(0, 240, 255, 0.25);
+}
+
+[data-artist-theme="krsna"] .artist-brand-watermark {
+    color: rgba(0, 240, 255, 0.05);
+    text-shadow: 0 0 100px rgba(0, 240, 255, 0.2);
+    font-family: 'Space Grotesk', monospace;
+    letter-spacing: -0.04em;
+}
+
+[data-artist-theme="krsna"] .profile-tab.active {
+    background: #00f0ff;
+    color: #0a0a0f;
+}
+
+[data-artist-theme="krsna"] .artist-song-progress-fill {
+    background: linear-gradient(90deg, #00f0ff, #0088ff);
+}
+
+[data-artist-theme="krsna"] .artist-header-image {
+    border-radius: 16px;
+}
+
+[data-artist-theme="krsna"] .artist-mood-chip {
+    font-family: 'Space Grotesk', monospace;
+    letter-spacing: 0.12em;
+}
+
+/* ── Talha Anjum — Black + gold, cinematic noir ────────────────── */
+
+[data-artist-theme="talha-anjum"] .artist-hero-gradient {
+    background: linear-gradient(155deg, #d4a54a 0%, #8a6b2a 28%, #1a1508 60%, #0a0a08 100%);
+    opacity: 0.16;
+}
+
+[data-artist-theme="talha-anjum"] .artist-header {
+    border-color: rgba(212, 165, 74, 0.2);
+}
+
+[data-artist-theme="talha-anjum"] .artist-brand-watermark {
+    color: rgba(212, 165, 74, 0.05);
+    text-shadow: 0 0 60px rgba(212, 165, 74, 0.12);
+}
+
+[data-artist-theme="talha-anjum"] .profile-tab.active {
+    background: #d4a54a;
+    color: #0a0a08;
+}
+
+[data-artist-theme="talha-anjum"] .artist-song-progress-fill {
+    background: linear-gradient(90deg, #d4a54a, #f0d078);
+}
+
+[data-artist-theme="talha-anjum"] .artist-name {
+    font-style: italic;
+}
+
+/* ── Divine — Mumbai skyline, amber lighting ────────────────────── */
+
+[data-artist-theme="divine"] .artist-hero-gradient {
+    background: linear-gradient(140deg, #e8a838 0%, #c47820 28%, #2a1810 62%, #0f0a06 100%);
+    opacity: 0.2;
+}
+
+[data-artist-theme="divine"] .artist-header {
+    border-color: rgba(232, 168, 56, 0.2);
+}
+
+[data-artist-theme="divine"] .artist-brand-watermark {
+    color: rgba(232, 168, 56, 0.06);
+    text-shadow: 0 0 70px rgba(232, 168, 56, 0.15);
+}
+
+[data-artist-theme="divine"] .profile-tab.active {
+    background: #e8a838;
+    color: #0f0a06;
+}
+
+[data-artist-theme="divine"] .artist-song-progress-fill {
+    background: linear-gradient(90deg, #e8a838, #ffc85c);
+}
+
+/* ── Chaar Diwaari — Surreal, purple dreamscape ────────────────── */
+
+[data-artist-theme="chaar-diwaari"] .artist-hero-gradient {
+    background: linear-gradient(160deg, #9b59b6 0%, #6c3483 30%, #1a0a2e 65%, #08040f 100%);
+    opacity: 0.22;
+}
+
+[data-artist-theme="chaar-diwaari"] .artist-header {
+    border-color: rgba(155, 89, 182, 0.22);
+}
+
+[data-artist-theme="chaar-diwaari"] .artist-brand-watermark {
+    color: rgba(155, 89, 182, 0.06);
+    text-shadow: 0 0 90px rgba(155, 89, 182, 0.18);
+}
+
+[data-artist-theme="chaar-diwaari"] .profile-tab.active {
+    background: #9b59b6;
+    color: #fff;
+}
+
+[data-artist-theme="chaar-diwaari"] .artist-song-progress-fill {
+    background: linear-gradient(90deg, #9b59b6, #c39bd3);
+}
+
+[data-artist-theme="chaar-diwaari"] .artist-collage img {
+    filter: grayscale(0.3) hue-rotate(30deg);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════════════ */
+
 @media (max-width: 1024px) {
     .catalog-strip {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .overview-story-grid {
+        grid-template-columns: 1fr;
     }
 }
 
@@ -512,6 +1009,21 @@
     .artist-header-image {
         width: 180px;
         height: 180px;
+    }
+
+    .artist-brand-watermark {
+        font-size: 4rem;
+        right: 1rem;
+        bottom: 0.5rem;
+    }
+
+    .flagship .artist-brand-watermark {
+        font-size: 5rem;
+    }
+
+    .artist-mark-badge {
+        align-self: stretch;
+        text-align: left;
     }
 
     .profile-tabs {

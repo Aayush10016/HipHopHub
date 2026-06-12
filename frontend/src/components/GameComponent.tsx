@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { readRecentValues, writeRecentValue } from '../utils/rotation'
 import './GameComponent.css'
 
 interface GameComponentProps {
@@ -68,6 +69,7 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
     const mountedRef = useRef(false)
 
     const cacheKey = mode === 'global' ? 'global' : `artist-${artistId ?? 'unknown'}`
+    const recentArtistKey = `hiphophub:game-recent-artists:${cacheKey}`
     const isRapidFire = variant === 'rapid'
     const rapidGameOver = isRapidFire && rapidLives <= 0
     const previewLimit = isRapidFire ? 10 : 30
@@ -97,17 +99,35 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
             ? '/api/game/random-song'
             : `/api/game/random-song/artist/${artistId}`
 
-        const request = fetch(url)
-            .then(async res => {
-                if (!res.ok) return null
-                const data = await res.json()
-                if (!data?.previewUrl) return null
-                return data as GameSong
-            })
-            .catch(err => {
-                console.error('Failed to load game track:', err)
-                return null
-            })
+        const request = (async () => {
+            const recentArtists = readRecentValues(recentArtistKey)
+            const maxAttempts = mode === 'global' ? 4 : 1
+
+            for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+                try {
+                    const res = await fetch(url)
+                    if (!res.ok) return null
+                    const data = await res.json()
+                    if (!data?.previewUrl) return null
+
+                    const gameSong = data as GameSong
+                    const artistName = gameSong.artistName
+                    const isRecentRepeat = mode === 'global' && artistName && recentArtists.includes(artistName)
+
+                    if (!isRecentRepeat || attempt === maxAttempts - 1) {
+                        if (artistName) {
+                            writeRecentValue(recentArtistKey, artistName, 10)
+                        }
+                        return gameSong
+                    }
+                } catch (err) {
+                    console.error('Failed to load game track:', err)
+                    return null
+                }
+            }
+
+            return null
+        })()
             .finally(() => {
                 pendingGameSongRequests.delete(key)
             })

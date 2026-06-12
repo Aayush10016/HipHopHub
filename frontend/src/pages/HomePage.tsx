@@ -8,6 +8,7 @@ import ArcadeLeaderboard from '../components/ArcadeLeaderboard'
 import ArtistBlitzGame from '../components/ArtistBlitzGame'
 import SceneDecoderGame from '../components/SceneDecoderGame'
 import CoverShuffleGame from '../components/CoverShuffleGame'
+import { hashString, pickLeastRecent, readRecentValues, writeRecentValue } from '../utils/rotation'
 import './HomePage.css'
 
 interface Song {
@@ -81,6 +82,11 @@ const formatDate = (date?: string) => {
     return new Date(date as string).toLocaleDateString()
 }
 
+const getSongArtistName = (song: Song | null | undefined) => {
+    if (!song) return 'Unknown Artist'
+    return song.artistName || song.album?.artist?.name || 'Unknown Artist'
+}
+
 const getArtistExcerpt = (bio?: string) => {
     if (!bio) return 'Catalog profile and scene context inside.'
     const firstLine = bio.split('.')[0]?.trim() || bio.trim()
@@ -149,6 +155,7 @@ export default function HomePage() {
 
         const loadData = async () => {
             try {
+                const rotationSeed = hashString(new Date().toDateString())
                 const results = await Promise.allSettled([
                     fetchSongOfDay(),
                     fetch('/api/artists?scope=dhh'),
@@ -161,10 +168,8 @@ export default function HomePage() {
                 if (!isMounted) return
 
                 const [songResult, artistsResult, latestResult, upcomingResult, topSongsResult, top5Result] = results
-
-                if (songResult.status === 'fulfilled') {
-                    setSongOfDay(songResult.value)
-                }
+                let nextSongOfDay: Song | null = songResult.status === 'fulfilled' ? songResult.value : null
+                let loadedTopSongs: Song[] = []
 
                 if (artistsResult.status === 'fulfilled' && artistsResult.value.ok) {
                     const artistData = await artistsResult.value.json()
@@ -190,6 +195,7 @@ export default function HomePage() {
                 if (topSongsResult.status === 'fulfilled' && topSongsResult.value.ok) {
                     const songs = (await topSongsResult.value.json()) as Song[]
                     const withPreviews = (songs || []).filter(song => !!song.previewUrl)
+                    loadedTopSongs = withPreviews
                     if (isMounted) setTopSongs(withPreviews)
                 } else if (topSongsResult.status === 'rejected') {
                     setTopSongs([])
@@ -200,6 +206,27 @@ export default function HomePage() {
                     if (isMounted) setTop5OfDay(songs5 || [])
                 } else if (top5Result.status === 'rejected') {
                     setTop5OfDay([])
+                }
+
+                const candidateSongs = [
+                    ...(nextSongOfDay ? [nextSongOfDay] : []),
+                    ...loadedTopSongs.filter(song => song.id !== nextSongOfDay?.id)
+                ]
+
+                const rotatedSong = pickLeastRecent(
+                    candidateSongs,
+                    song => getSongArtistName(song),
+                    readRecentValues('hiphophub:home-songofday-recent-artists'),
+                    rotationSeed + 41
+                )
+
+                if (rotatedSong) {
+                    nextSongOfDay = rotatedSong
+                    writeRecentValue('hiphophub:home-songofday-recent-artists', getSongArtistName(rotatedSong), 20)
+                }
+
+                if (isMounted) {
+                    setSongOfDay(nextSongOfDay)
                 }
             } catch (err) {
                 console.error('Failed to load home page data:', err)
@@ -282,8 +309,7 @@ export default function HomePage() {
     }
 
     const resolveSongArtist = (song: Song | null) => {
-        if (!song) return 'Unknown Artist'
-        return song.artistName || song.album?.artist?.name || 'Unknown Artist'
+        return getSongArtistName(song)
     }
 
     const formatPreviewClock = (seconds: number) => {

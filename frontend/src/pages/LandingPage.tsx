@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+ï»¿import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { hashString, pickDistinctItems, pickLeastRecent, readRecentValues, writeRecentValue } from '../utils/rotation'
 import './LandingPage.css'
 
 const marqueeItems = [
@@ -65,6 +66,23 @@ interface LandingOverviewResponse {
     trivia?: LandingTriviaItem[]
 }
 
+interface LandingSongPoolItem {
+    id?: number
+    title?: string
+    previewUrl?: string
+    artistName?: string
+    coverUrl?: string
+    youtubeUrl?: string
+    album?: {
+        title?: string
+        coverUrl?: string
+        coverImageUrl?: string
+        artist?: {
+            name?: string
+        }
+    }
+}
+
 let cachedLandingTrack: LandingTrack | null = null
 let pendingLandingTrackPromise: Promise<LandingTrack | null> | null = null
 
@@ -102,6 +120,20 @@ const normalizeFallbackSong = (fallback: LandingFallbackResponse): LandingTrack 
         albumTitle: 'Fresh drops + classics',
         coverUrl: DEFAULT_COVER,
         youtubeUrl: undefined
+    }
+}
+
+const normalizeSongPoolTrack = (song: LandingSongPoolItem): LandingTrack | null => {
+    if (!song?.previewUrl || !song?.title) return null
+
+    return {
+        id: song.id,
+        title: song.title,
+        previewUrl: song.previewUrl,
+        artistName: song.artistName || song.album?.artist?.name || 'Featured artists',
+        albumTitle: song.album?.title || 'Fresh drops + classics',
+        coverUrl: song.coverUrl || song.album?.coverImageUrl || song.album?.coverUrl || DEFAULT_COVER,
+        youtubeUrl: song.youtubeUrl
     }
 }
 
@@ -158,6 +190,12 @@ const getBioSnapshot = (bio?: string) => {
     return `${firstLine}${firstLine.endsWith('.') ? '' : '.'}`
 }
 
+const buildLoreCard = (artist: LandingArtist): LandingTriviaItem => ({
+    title: 'Scene Lore',
+    lead: artist.name,
+    body: getBioSnapshot(artist.bio)
+})
+
 export default function LandingPage() {
     const navigate = useNavigate()
     const [selectedTrack, setSelectedTrack] = useState<LandingTrack | null>(null)
@@ -172,21 +210,80 @@ export default function LandingPage() {
         let cancelled = false
 
         const loadLandingData = async () => {
+            const rotationSeed = hashString(new Date().toDateString())
+            let fallbackArtists: LandingArtist[] = []
+            let fallbackTrivia: LandingTriviaItem[] = []
+
             try {
-                const overviewRes = await fetch('/api/landing/overview')
-                if (overviewRes.ok) {
-                    const payload = (await overviewRes.json()) as LandingOverviewResponse
-                    const overviewTrack = payload.track ? normalizeRandomSong(payload.track) : null
-                    if (!cancelled && overviewTrack) {
-                        setSelectedTrack(overviewTrack)
+                const [overviewResult, artistResult, songPoolResult] = await Promise.allSettled([
+                    fetch('/api/landing/overview'),
+                    fetch('/api/artists?scope=dhh'),
+                    fetch('/api/songs/top/dhh?days=365&limit=60')
+                ])
+
+                let overviewTrack: LandingTrack | null = null
+                let triviaFromOverview: LandingTriviaItem[] = []
+
+                if (overviewResult.status === 'fulfilled' && overviewResult.value.ok) {
+                    const payload = (await overviewResult.value.json()) as LandingOverviewResponse
+                    overviewTrack = payload.track ? normalizeRandomSong(payload.track) : null
+                    triviaFromOverview = payload.trivia || []
+                    fallbackArtists = (payload.undergroundArtists || []).slice(0, 3)
+                }
+
+                if (artistResult.status === 'fulfilled' && artistResult.value.ok) {
+                    const artists = (await artistResult.value.json()) as LandingArtist[]
+                    const rotatedArtists = pickDistinctItems(artists || [], artist => artist.name, 3, rotationSeed + 11)
+                    if (rotatedArtists.length > 0) {
+                        fallbackArtists = rotatedArtists
                     }
-                    if (!cancelled) {
-                        setUndergroundArtists((payload.undergroundArtists || []).slice(0, 3))
-                        setTriviaItems((payload.trivia || []).slice(0, 1))
+
+                    const loreArtist = pickLeastRecent(
+                        artists || [],
+                        artist => artist.name,
+                        readRecentValues('hiphophub:lore-recent-artists'),
+                        rotationSeed + 17
+                    )
+
+                    if (loreArtist) {
+                        fallbackTrivia = [buildLoreCard(loreArtist)]
+                        writeRecentValue('hiphophub:lore-recent-artists', loreArtist.name, 10)
                     }
-                    if (overviewTrack) {
-                        return
+                }
+
+                let diversifiedTrack: LandingTrack | null = null
+                if (songPoolResult.status === 'fulfilled' && songPoolResult.value.ok) {
+                    const poolPayload = (await songPoolResult.value.json()) as LandingSongPoolItem[]
+                    const songPool = (poolPayload || [])
+                        .map(normalizeSongPoolTrack)
+                        .filter((track): track is LandingTrack => !!track)
+
+                    const picked = pickLeastRecent(
+                        songPool,
+                        track => track.artistName,
+                        readRecentValues('hiphophub:landing-track-recent-artists'),
+                        rotationSeed + 29
+                    )
+
+                    if (picked) {
+                        diversifiedTrack = picked
+                        writeRecentValue('hiphophub:landing-track-recent-artists', picked.artistName, 8)
                     }
+                }
+
+                const finalTrack = diversifiedTrack || overviewTrack
+                const finalTrivia = fallbackTrivia.length > 0 ? fallbackTrivia : triviaFromOverview.slice(0, 1)
+
+                if (!cancelled) {
+                    if (finalTrack) {
+                        setSelectedTrack(finalTrack)
+                    }
+                    setUndergroundArtists(fallbackArtists)
+                    setTriviaItems(finalTrivia)
+                }
+
+                if (finalTrack) {
+                    return
                 }
             } catch (err) {
                 console.error('Failed to fetch landing overview:', err)
@@ -195,6 +292,12 @@ export default function LandingPage() {
             const fallbackTrack = await getLandingTrack()
             if (!cancelled) {
                 setSelectedTrack(fallbackTrack)
+                if (fallbackArtists.length > 0) {
+                    setUndergroundArtists(fallbackArtists)
+                }
+                if (fallbackTrivia.length > 0) {
+                    setTriviaItems(fallbackTrivia)
+                }
             }
         }
 
@@ -346,7 +449,7 @@ export default function LandingPage() {
 
             <section className="landing-hero">
                 <div className="hero-text fade-in">
-                    <div className="pill">Editorial feed · scene radar · playable cuts</div>
+                    <div className="pill">Editorial feed Â· scene radar Â· playable cuts</div>
                     <div className="hero-copy-stack">
                         <p className="hero-kicker">A living hip-hop universe built around discovery.</p>
                         <h1 className="landing-logo glow">
