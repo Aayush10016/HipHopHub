@@ -73,6 +73,33 @@ interface NewsStory {
     source?: string
 }
 
+const SM_NAMES = ['seedhe maut', 'seedhe maut inc', 'seedhe maut inc.']
+const SEEDHE_MAUT_LOGO_URL = '/assets/seedhe-maut-logo.jpg'
+
+let seedheMautLogoPromise: Promise<void> | null = null
+
+const preloadImage = (src: string) => {
+    if (!seedheMautLogoPromise) {
+        seedheMautLogoPromise = new Promise<void>((resolve) => {
+            const img = new Image()
+            img.onload = () => resolve()
+            img.onerror = () => resolve()
+            img.src = src
+        })
+    }
+
+    return seedheMautLogoPromise
+}
+
+const resolveSeedheMautArtist = (artists: Artist[], fallback?: Artist | null) => {
+    if (fallback) return fallback
+
+    return artists.find(candidate => {
+        const normalized = candidate.name.toLowerCase().trim()
+        return SM_NAMES.some(name => normalized === name || normalized.includes(name))
+    }) || null
+}
+
 const isValidDate = (date?: string) => {
     if (!date) return false
     return !Number.isNaN(new Date(date).getTime())
@@ -133,7 +160,8 @@ export default function HomePage() {
     const [topSongCurrentTime, setTopSongCurrentTime] = useState<Record<number, number>>({})
     const [artistImageErrorMap, setArtistImageErrorMap] = useState<Record<number, boolean>>({})
     const [selectedGame, setSelectedGame] = useState<'guess' | 'rapid' | 'lyric' | 'blitz' | 'decoder' | 'cover'>('guess')
-    const [universeTransition, setUniverseTransition] = useState<{ active: boolean; artistName: string } | null>(null)
+    const [universeTransition, setUniverseTransition] = useState<{ active: boolean; artistName: string; artist: Artist } | null>(null)
+    const [isPreparingUniverse, setIsPreparingUniverse] = useState(false)
 
     useEffect(() => {
         let isMounted = true
@@ -377,14 +405,23 @@ export default function HomePage() {
         }
     }
 
-    const SM_NAMES = ['seedhe maut', 'seedhe maut inc', 'seedhe maut inc.']
-
-    const handleArtistClick = (artist: Artist) => {
+    const handleArtistClick = async (artist: Artist) => {
         const normalizedName = artist.name.toLowerCase().trim()
         const isSeedheMaut = SM_NAMES.some(name => normalizedName === name || normalizedName.includes(name))
 
         if (isSeedheMaut) {
-            setUniverseTransition({ active: true, artistName: artist.name })
+            if (isPreparingUniverse) return
+
+            setIsPreparingUniverse(true)
+            const resolvedArtist = resolveSeedheMautArtist(artists, artist)
+
+            await preloadImage(SEEDHE_MAUT_LOGO_URL)
+
+            if (resolvedArtist) {
+                setUniverseTransition({ active: true, artistName: resolvedArtist.name, artist: resolvedArtist })
+            }
+
+            setIsPreparingUniverse(false)
             return
         }
 
@@ -944,12 +981,14 @@ export default function HomePage() {
             {universeTransition?.active && (
                 <UniverseTransition
                     artistName={universeTransition.artistName}
+                    logoUrl={SEEDHE_MAUT_LOGO_URL}
                     accentColor="#e63946"
                     label="ENTERING THE SEEDHE MAUT UNIVERSE"
-                    duration={1400}
+                    duration={2200}
                     onComplete={() => {
+                        const artist = universeTransition.artist
                         setUniverseTransition(null)
-                        navigate('/universe/seedhe-maut')
+                        navigate('/universe/seedhe-maut', { state: { artist } })
                     }}
                 />
             )}

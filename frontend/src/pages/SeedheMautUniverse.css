@@ -1,262 +1,517 @@
-/* ═══════════════════════════════════════════════════════════════════
-   SeedheMautUniverse.css — Immersive artist universe page
-   Theme: Red / Black / Dark smoke / Delhi underground
-   
-   Layers (back to front):
-   1. Base gradient background
-   2. Red smoke (CSS radial-gradient + mix-blend-mode)
-   3. Dragon silhouette (SVG background-image with breathing opacity)
-   4. Parallax content container
-   5. Content cards
-   
-   All animations: transform, opacity, filter only (GPU-composited)
-   ═══════════════════════════════════════════════════════════════════ */
-
-/* ── Page Container ──────────────────────────────────────────────── */
-
 .sm-universe {
     position: relative;
     min-height: 100vh;
-    background: #050208;
+    background:
+        radial-gradient(circle at 50% 16%, rgba(139, 26, 26, 0.24), transparent 34%),
+        linear-gradient(180deg, #050208 0%, #08020a 34%, #050208 100%);
     color: #ffeaea;
     overflow-x: hidden;
     overflow-y: auto;
+    isolation: isolate;
 }
 
-/* ── Layer 1: Animated Gradient Background ───────────────────────── */
+.sm-gradient-bg,
+.sm-world-haze,
+.sm-smoke-field,
+.sm-dragon,
+.sm-dragon-fire,
+.sm-embers,
+.sm-particles,
+.sm-vignette,
+.sm-world-mask {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+}
 
 .sm-gradient-bg {
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
     z-index: 0;
     background:
-        radial-gradient(ellipse at 20% 0%, rgba(230, 57, 70, 0.10) 0%, transparent 50%),
-        radial-gradient(ellipse at 80% 20%, rgba(139, 26, 26, 0.08) 0%, transparent 45%),
-        radial-gradient(ellipse at 50% 100%, rgba(26, 26, 46, 0.15) 0%, transparent 50%),
-        linear-gradient(180deg, #050208 0%, #0a0412 40%, #08030e 100%);
-    animation: smGradientShift 16s ease-in-out infinite alternate;
+        radial-gradient(110% 80% at 12% 10%, rgba(230, 57, 70, 0.16) 0%, transparent 56%),
+        radial-gradient(80% 60% at 88% 18%, rgba(139, 26, 26, 0.14) 0%, transparent 48%),
+        radial-gradient(120% 80% at 50% 82%, rgba(52, 10, 16, 0.34) 0%, transparent 58%);
+    animation: smGradientShift 20s ease-in-out infinite alternate;
 }
 
-@keyframes smGradientShift {
-    0% {
-        opacity: 1;
-        filter: hue-rotate(0deg);
-    }
-    100% {
-        opacity: 0.85;
-        filter: hue-rotate(5deg);
-    }
-}
-
-/* ── Layer 2: Red Smoke ──────────────────────────────────────────── */
-
-.sm-smoke {
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
+.sm-world-haze {
     z-index: 1;
-    overflow: hidden;
+    background:
+        linear-gradient(90deg, rgba(0, 0, 0, 0.52) 0%, rgba(0, 0, 0, 0.08) 12%, rgba(0, 0, 0, 0.08) 88%, rgba(0, 0, 0, 0.56) 100%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.28) 0%, transparent 22%, transparent 78%, rgba(0, 0, 0, 0.38) 100%);
+}
+
+.sm-smoke-field {
+    z-index: 2;
+    will-change: transform;
 }
 
 .sm-smoke-layer {
     position: absolute;
-    border-radius: 50%;
+    border-radius: 999px;
+    will-change: transform, opacity;
+    filter: blur(80px);
+}
+
+.sm-smoke-layer--black {
+    background: radial-gradient(circle, rgba(4, 3, 6, 0.65) 0%, rgba(4, 3, 6, 0) 68%);
+    mix-blend-mode: multiply;
+    opacity: 0.07;
+}
+
+.sm-smoke-layer--black-a {
+    width: 72vw;
+    height: 52vh;
+    left: -14vw;
+    top: 10vh;
+    animation: smSmokeBlackA 24s ease-in-out infinite;
+}
+
+.sm-smoke-layer--black-b {
+    width: 66vw;
+    height: 48vh;
+    right: -10vw;
+    bottom: 2vh;
+    animation: smSmokeBlackB 28s ease-in-out -8s infinite;
+}
+
+.sm-smoke-layer--red {
+    background: radial-gradient(circle, rgba(230, 57, 70, 0.9) 0%, rgba(230, 57, 70, 0) 70%);
     mix-blend-mode: screen;
+    opacity: 0.1;
+}
+
+.sm-smoke-layer--red-a {
+    width: 68vw;
+    height: 48vh;
+    left: -12vw;
+    bottom: -6vh;
+    animation: smSmokeRedA 20s ease-in-out infinite;
+}
+
+.sm-smoke-layer--red-b {
+    width: 54vw;
+    height: 36vh;
+    right: -4vw;
+    top: 18vh;
+    opacity: 0.09;
+    animation: smSmokeRedB 22s ease-in-out -6s infinite;
+}
+
+.sm-smoke-layer--red-c {
+    width: 42vw;
+    height: 30vh;
+    left: 28vw;
+    top: 34vh;
+    opacity: 0.08;
+    animation: smSmokeRedC 18s ease-in-out -10s infinite;
+}
+
+.sm-dragon {
+    z-index: 3;
+    inset: auto 0 0 auto;
+    width: min(38vw, 520px);
+    height: min(38vw, 520px);
+    right: -4vw;
+    bottom: -3vh;
+    opacity: 0.03;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath fill='%23e63946' d='M414.9 376.8c-8.8-17-22.6-31.7-40.5-42.4-16.4-9.9-34.7-15.4-53.7-17.1 12.7-15.2 21-32.3 23.6-50.9 3.3-23.4-1.2-47.4-11.7-68.2 9.3-18.8 13.9-39.9 12.8-61.9-1.2-24-9.4-47.8-24.6-66.3-13-15.8-31.5-27.3-52.2-31.3-15.2-2.9-30.5-1.8-44.5 3.2-17.4-11-38.3-16.7-60.5-15.3-31 1.9-59.9 17.4-78.2 42-22.7 30.4-28.8 70.2-18.5 106.2-23.3 18.2-39.5 44-44.7 73.6-5.1 29.1.6 60.2 19.1 84.4 19.4 25.4 49.5 40.6 81.2 42.2 9.8.5 19.7-.4 29.3-2.4 21.8 17.1 49.5 27.1 79 26.6 24.4-.4 47.8-7.8 67.5-20.6 26.7 5.5 55.2 2.2 80.1-11.4 17.1-9.4 31.5-22.9 41.3-39.5 12-20.1 15.8-44.5 6.7-67.6Z'/%3E%3Cpath fill='%23050208' fill-opacity='.5' d='M110 172c24 11 44 14 73 8-12 20-10 39 7 56 12 11 27 17 45 17-14 17-19 36-13 59 7 28 29 48 64 57-18 10-37 14-57 11-29-4-53-19-71-43-14 6-28 9-43 8-27-2-49-15-62-37-12-19-15-42-11-63 6-31 28-58 68-73Z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position: bottom right;
+    transform: translateZ(0);
+    animation: smDragonIdle 14s ease-in-out infinite;
+}
+
+.sm-dragon--revealed {
+    opacity: 0.075;
+}
+
+.sm-dragon-fire {
+    z-index: 3;
+    inset: auto 3vw 8vh auto;
+    width: 180px;
+    height: 110px;
+    background: radial-gradient(circle, rgba(230, 57, 70, 0.16) 0%, rgba(230, 57, 70, 0) 72%);
+    filter: blur(28px);
+    opacity: 0.18;
+    animation: smFireBreath 16s ease-in-out infinite;
+}
+
+.sm-embers {
+    z-index: 4;
+    inset: auto 4vw 6vh auto;
+    width: 180px;
+    height: 220px;
+    overflow: visible;
+}
+
+.sm-ember,
+.sm-particle {
+    position: absolute;
+    border-radius: 999px;
     will-change: transform, opacity;
 }
 
-.sm-smoke-layer--1 {
-    bottom: -30%;
-    left: -15%;
-    width: 80vw;
-    height: 60vh;
-    background: radial-gradient(ellipse, rgba(230, 57, 70, 0.12) 0%, transparent 70%);
-    filter: blur(60px);
-    animation: smSmoke1 14s ease-in-out infinite;
+.sm-ember {
+    background: rgba(255, 126, 83, 0.45);
+    box-shadow: 0 0 6px rgba(230, 57, 70, 0.12);
 }
 
-.sm-smoke-layer--2 {
-    bottom: -20%;
-    right: -10%;
-    width: 70vw;
-    height: 55vh;
-    background: radial-gradient(ellipse, rgba(139, 26, 26, 0.10) 0%, transparent 65%);
-    filter: blur(70px);
-    animation: smSmoke2 18s ease-in-out -6s infinite;
-}
-
-.sm-smoke-layer--3 {
-    top: 10%;
-    left: 20%;
-    width: 50vw;
-    height: 40vh;
-    background: radial-gradient(ellipse, rgba(230, 57, 70, 0.06) 0%, transparent 60%);
-    filter: blur(80px);
-    animation: smSmoke3 20s ease-in-out -10s infinite;
-}
-
-@keyframes smSmoke1 {
-    0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.7; }
-    33% { transform: translate3d(4%, -5%, 0) scale(1.08); opacity: 0.9; }
-    66% { transform: translate3d(-3%, 3%, 0) scale(0.95); opacity: 0.6; }
-}
-
-@keyframes smSmoke2 {
-    0%, 100% { transform: translate3d(0, 0, 0) scale(1.05); opacity: 0.65; }
-    40% { transform: translate3d(-5%, -4%, 0) scale(1.12); opacity: 0.85; }
-    70% { transform: translate3d(3%, 2%, 0) scale(0.98); opacity: 0.55; }
-}
-
-@keyframes smSmoke3 {
-    0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.5; }
-    50% { transform: translate3d(6%, 3%, 0) scale(1.15); opacity: 0.7; }
-}
-
-/* ── Layer 3: Dragon Silhouette ──────────────────────────────────── */
-
-.sm-dragon {
-    position: fixed;
-    bottom: -2%;
-    right: -3%;
-    width: 420px;
-    height: 420px;
-    pointer-events: none;
-    z-index: 2;
-    opacity: 0.04;
-    animation: smDragonBreathe 8s ease-in-out infinite;
-    will-change: opacity;
-    /* Abstract dragon silhouette — a single SVG path rendered as background.
-       Cinematic and suggestion-based, not literal or cartoonish. */
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512' fill='%23e63946'%3E%3Cpath d='M420 380c-15-30-45-55-80-70-10-5-22-8-34-10 12-20 18-42 18-65 0-35-15-67-40-90 5-15 8-32 8-50 0-20-5-38-12-52-8-16-20-28-35-35-10-5-22-8-34-8-15 0-28 5-40 12-12-8-26-12-42-12-18 0-35 6-48 16-14-6-30-10-47-10-25 0-48 10-65 28-16 16-28 38-32 62-2 12-2 24 0 36l4 20c-10 12-18 26-22 42-5 18-5 36 0 52l8 24-15 18c-8 10-12 22-12 35 0 15 5 30 15 42 12 14 28 22 46 24l24 2c10 4 22 6 34 6 20 0 38-6 54-16l12-10c15 8 32 14 50 16l22 2c12 0 24-2 35-8 14-6 25-16 34-28l8-14c20-2 38-8 54-18 18-12 30-28 36-48 4-12 4-25 0-38z'/%3E%3C/path%3E%3C/svg%3E");
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-}
-
-/* Dragon "fire breath" — a faint glow that pulses near the mouth area */
-.sm-dragon-fire {
-    position: fixed;
-    bottom: 12%;
-    right: 5%;
-    width: 180px;
-    height: 100px;
-    pointer-events: none;
-    z-index: 2;
-    background: radial-gradient(ellipse at 70% 50%, rgba(230, 57, 70, 0.08) 0%, transparent 70%);
-    filter: blur(30px);
-    opacity: 0;
-    animation: smFireBreathe 8s ease-in-out 1s infinite;
-    will-change: opacity;
-}
-
-@keyframes smDragonBreathe {
-    0%, 100% { opacity: 0.03; }
-    40% { opacity: 0.07; }
-    60% { opacity: 0.08; }
-}
-
-@keyframes smFireBreathe {
-    0%, 100% { opacity: 0; }
-    35% { opacity: 0.6; }
-    50% { opacity: 0.8; }
-    65% { opacity: 0.5; }
-}
-
-/* ── Layer 4: Parallax Container ─────────────────────────────────── */
-
-.sm-parallax-container {
-    position: relative;
-    z-index: 5;
-    will-change: transform;
-    transition: transform 120ms ease-out;
-}
-
-/* ── Layer 5: Floating Particles (CSS-only, lightweight) ─────────── */
+.sm-ember:nth-child(1) { width: 2px; height: 2px; left: 18%; bottom: 8%; animation: smEmberRise 6.4s linear infinite; }
+.sm-ember:nth-child(2) { width: 1px; height: 1px; left: 52%; bottom: 3%; animation: smEmberRise 5.7s linear -1s infinite; }
+.sm-ember:nth-child(3) { width: 2px; height: 2px; left: 72%; bottom: 15%; animation: smEmberRise 6.8s linear -2.2s infinite; }
+.sm-ember:nth-child(4) { width: 1px; height: 1px; left: 35%; bottom: 12%; animation: smEmberRise 5.2s linear -2.7s infinite; }
+.sm-ember:nth-child(5) { width: 2px; height: 2px; left: 8%; bottom: 18%; animation: smEmberRise 7.2s linear -3.1s infinite; }
+.sm-ember:nth-child(6) { width: 1px; height: 1px; left: 64%; bottom: 0; animation: smEmberRise 5.9s linear -1.6s infinite; }
 
 .sm-particles {
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 3;
-    overflow: hidden;
+    z-index: 4;
 }
 
 .sm-particle {
-    position: absolute;
-    border-radius: 50%;
-    background: rgba(230, 57, 70, 0.45);
-    will-change: transform, opacity;
-    animation: smParticleFloat linear infinite;
+    background: rgba(255, 235, 235, 0.12);
 }
 
-.sm-particle:nth-child(1) { left: 10%; top: 20%; width: 3px; height: 3px; animation-duration: 18s; animation-delay: 0s; }
-.sm-particle:nth-child(2) { left: 25%; top: 60%; width: 2px; height: 2px; animation-duration: 22s; animation-delay: -4s; }
-.sm-particle:nth-child(3) { left: 45%; top: 35%; width: 4px; height: 4px; animation-duration: 15s; animation-delay: -8s; }
-.sm-particle:nth-child(4) { left: 65%; top: 75%; width: 2px; height: 2px; animation-duration: 20s; animation-delay: -2s; }
-.sm-particle:nth-child(5) { left: 80%; top: 15%; width: 3px; height: 3px; animation-duration: 24s; animation-delay: -12s; }
-.sm-particle:nth-child(6) { left: 15%; top: 80%; width: 2px; height: 2px; animation-duration: 19s; animation-delay: -6s; }
-.sm-particle:nth-child(7) { left: 55%; top: 50%; width: 3px; height: 3px; animation-duration: 17s; animation-delay: -10s; }
-.sm-particle:nth-child(8) { left: 90%; top: 40%; width: 2px; height: 2px; animation-duration: 21s; animation-delay: -3s; }
-.sm-particle:nth-child(9) { left: 35%; top: 10%; width: 3px; height: 3px; animation-duration: 16s; animation-delay: -7s; }
-.sm-particle:nth-child(10) { left: 72%; top: 88%; width: 2px; height: 2px; animation-duration: 23s; animation-delay: -14s; }
-.sm-particle:nth-child(11) { left: 50%; top: 92%; width: 4px; height: 4px; animation-duration: 14s; animation-delay: -1s; }
-.sm-particle:nth-child(12) { left: 5%; top: 45%; width: 2px; height: 2px; animation-duration: 25s; animation-delay: -9s; }
+.sm-particle:nth-child(1) { width: 2px; height: 2px; top: 12%; left: 14%; animation: smParticleDrift 24s linear infinite; }
+.sm-particle:nth-child(2) { width: 1px; height: 1px; top: 20%; left: 82%; animation: smParticleDrift 28s linear -4s infinite; }
+.sm-particle:nth-child(3) { width: 2px; height: 2px; top: 42%; left: 22%; animation: smParticleDrift 26s linear -9s infinite; }
+.sm-particle:nth-child(4) { width: 1px; height: 1px; top: 58%; left: 68%; animation: smParticleDrift 22s linear -5s infinite; }
+.sm-particle:nth-child(5) { width: 2px; height: 2px; top: 72%; left: 10%; animation: smParticleDrift 30s linear -10s infinite; }
+.sm-particle:nth-child(6) { width: 1px; height: 1px; top: 30%; left: 46%; animation: smParticleDrift 18s linear -7s infinite; }
+.sm-particle:nth-child(7) { width: 2px; height: 2px; top: 82%; left: 84%; animation: smParticleDrift 27s linear -3s infinite; }
+.sm-particle:nth-child(8) { width: 1px; height: 1px; top: 14%; left: 62%; animation: smParticleDrift 21s linear -12s infinite; }
 
-.sm-particle:nth-child(odd) {
-    box-shadow: 0 0 6px rgba(230, 57, 70, 0.3);
+.sm-vignette {
+    z-index: 5;
+    background:
+        radial-gradient(120% 84% at center, transparent 26%, rgba(5, 2, 8, 0.36) 66%, rgba(5, 2, 8, 0.78) 100%);
 }
 
-@keyframes smParticleFloat {
-    0% {
-        transform: translate3d(0, 0, 0) scale(1);
-        opacity: 0.2;
-    }
-    25% {
-        transform: translate3d(15px, -30px, 0) scale(1.2);
-        opacity: 0.5;
-    }
-    50% {
-        transform: translate3d(-10px, -60px, 0) scale(0.8);
-        opacity: 0.3;
-    }
-    75% {
-        transform: translate3d(20px, -90px, 0) scale(1.1);
-        opacity: 0.6;
-    }
-    100% {
-        transform: translate3d(5px, -120px, 0) scale(1);
-        opacity: 0.2;
-    }
+.sm-world-mask {
+    z-index: 6;
+    background:
+        linear-gradient(180deg, rgba(5, 2, 8, 0.28) 0%, transparent 18%, transparent 82%, rgba(5, 2, 8, 0.4) 100%);
 }
 
-/* ── Content wrapper ─────────────────────────────────────────────── */
-
-.sm-content {
+.sm-parallax-container {
     position: relative;
     z-index: 10;
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 0 3vw 4rem;
+    will-change: transform;
 }
 
-/* ── Entry animation ─────────────────────────────────────────────── */
+.sm-content {
+    width: min(100%, 1580px);
+    margin: 0 auto;
+    padding: 1.4rem clamp(1rem, 2vw, 2rem) 5rem;
+}
 
 .sm-entry-anim {
     opacity: 0;
-    transform: translateY(20px);
-    animation: smEntryFade 600ms ease-out forwards;
+    transform: translateY(18px);
+    animation: smEntryFade 720ms ease forwards;
 }
 
-.sm-entry-anim--d1 { animation-delay: 100ms; }
-.sm-entry-anim--d2 { animation-delay: 250ms; }
-.sm-entry-anim--d3 { animation-delay: 400ms; }
-.sm-entry-anim--d4 { animation-delay: 550ms; }
+.sm-entry-anim--d1 { animation-delay: 140ms; }
+.sm-entry-anim--d2 { animation-delay: 260ms; }
+.sm-entry-anim--d3 { animation-delay: 380ms; }
+
+.sm-back-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    padding: 0.68rem 1.18rem;
+    border-radius: 999px;
+    border: 1px solid rgba(230, 57, 70, 0.14);
+    background: rgba(18, 7, 11, 0.58);
+    color: rgba(255, 234, 234, 0.84);
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.sm-back-btn:hover {
+    transform: translateY(-1px);
+    border-color: rgba(230, 57, 70, 0.28);
+    background: rgba(28, 10, 16, 0.78);
+}
+
+.sm-universe-header {
+    position: relative;
+    max-width: 860px;
+    margin: 1.2rem 0 2rem;
+    padding: 1.2rem 0 1.8rem;
+}
+
+.sm-universe-header::after {
+    content: '';
+    position: absolute;
+    inset: auto auto 0 0;
+    width: min(340px, 56vw);
+    height: 1px;
+    background: linear-gradient(90deg, rgba(230, 57, 70, 0.7), rgba(230, 57, 70, 0));
+}
+
+.sm-universe-kicker {
+    display: inline-block;
+    margin-bottom: 0.65rem;
+    color: rgba(230, 57, 70, 0.7);
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+}
+
+.sm-universe-title {
+    margin: 0;
+    font-family: 'Fraunces', serif;
+    font-size: clamp(3rem, 8vw, 6.5rem);
+    line-height: 0.92;
+    letter-spacing: -0.06em;
+    color: #fff7f7;
+    text-wrap: balance;
+}
+
+.sm-universe-sub {
+    max-width: 700px;
+    margin: 0.9rem 0 0;
+    color: rgba(255, 234, 234, 0.72);
+    font-size: clamp(0.96rem, 1.5vw, 1.08rem);
+    line-height: 1.8;
+}
+
+.sm-profile-shell {
+    position: relative;
+    min-height: 420px;
+}
+
+.sm-profile-shell::before {
+    content: '';
+    position: absolute;
+    inset: -8vh -8vw;
+    background:
+        radial-gradient(48% 40% at 16% 22%, rgba(230, 57, 70, 0.08) 0%, rgba(230, 57, 70, 0) 72%),
+        radial-gradient(42% 34% at 82% 20%, rgba(139, 26, 26, 0.08) 0%, rgba(139, 26, 26, 0) 68%),
+        radial-gradient(56% 44% at 50% 84%, rgba(20, 6, 10, 0.46) 0%, rgba(20, 6, 10, 0) 72%);
+    mask-image: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.96) 12%, rgba(0, 0, 0, 0.96) 88%, transparent 100%);
+    -webkit-mask-image: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.96) 12%, rgba(0, 0, 0, 0.96) 88%, transparent 100%);
+    z-index: -1;
+}
+
+.sm-loading-shell,
+.sm-error-shell {
+    min-height: 420px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sm-loading-shell::before {
+    content: '';
+    width: min(74vw, 1120px);
+    height: min(62vh, 720px);
+    border-radius: 40px;
+    background:
+        linear-gradient(120deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01)),
+        radial-gradient(circle at 24% 26%, rgba(230, 57, 70, 0.12), transparent 24%),
+        radial-gradient(circle at 74% 32%, rgba(139, 26, 26, 0.1), transparent 28%);
+    border: 1px solid rgba(230, 57, 70, 0.08);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.sm-error-shell {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+    color: rgba(255, 234, 234, 0.72);
+}
+
+.sm-universe .artist-profile {
+    background: transparent;
+    padding-top: 0;
+    overflow: visible;
+    --artist-accent-a: rgba(230, 57, 70, 0.12);
+    --artist-accent-b: rgba(139, 26, 26, 0.1);
+    --artist-accent-c: rgba(56, 14, 20, 0.18);
+    --artist-accent-d: #fff1f1;
+}
+
+.sm-universe .artist-hero-gradient,
+.sm-universe .artist-atmosphere,
+.sm-universe .artist-profile::after,
+.sm-universe .artist-waveform,
+.sm-universe .artist-particle-canvas,
+.sm-universe .artist-film-grain,
+.sm-universe .artist-particle-field,
+.sm-universe .artist-collage,
+.sm-universe .artist-brand-watermark {
+    display: none;
+}
+
+.sm-universe .back-btn {
+    display: none;
+}
+
+.sm-universe .artist-header {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding-inline: 0;
+    padding-top: 0;
+    margin-bottom: 1.35rem;
+}
+
+.sm-universe .loading-profile {
+    position: relative;
+    min-height: 420px;
+    color: transparent;
+    background: transparent;
+    border: 0;
+}
+
+.sm-universe .loading-profile::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 36px;
+    background:
+        linear-gradient(120deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01)),
+        radial-gradient(circle at 24% 26%, rgba(230, 57, 70, 0.12), transparent 24%),
+        radial-gradient(circle at 74% 32%, rgba(139, 26, 26, 0.1), transparent 28%);
+    border: 1px solid rgba(230, 57, 70, 0.08);
+}
+
+.sm-universe .error-profile {
+    min-height: 320px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 28px;
+    color: rgba(255, 234, 234, 0.72);
+    background: rgba(18, 7, 11, 0.48);
+    border: 1px solid rgba(230, 57, 70, 0.08);
+}
+
+.sm-universe .artist-header-image,
+.sm-universe .card,
+.sm-universe .bio-card,
+.sm-universe .overview-card,
+.sm-universe .catalog-strip-card,
+.sm-universe .song-item,
+.sm-universe .album-item,
+.sm-universe .tour-item,
+.sm-universe .fact-card,
+.sm-universe .overview-story-card {
+    background:
+        linear-gradient(180deg, rgba(20, 7, 12, 0.68), rgba(10, 4, 8, 0.5));
+    border: 1px solid rgba(230, 57, 70, 0.08);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.03),
+        0 18px 40px rgba(0, 0, 0, 0.18);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+}
+
+.sm-universe .artist-header-image {
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.04),
+        0 24px 60px rgba(0, 0, 0, 0.22);
+}
+
+.sm-universe .card::before {
+    display: none;
+}
+
+.sm-universe .profile-tab {
+    background: rgba(255, 255, 255, 0.02);
+    border-color: rgba(230, 57, 70, 0.08);
+}
+
+.sm-universe .profile-tab.active {
+    background: rgba(230, 57, 70, 0.14);
+    border-color: rgba(230, 57, 70, 0.22);
+    color: #fff2f2;
+}
+
+.sm-universe .profile-tab:hover:not(.active),
+.sm-universe .song-play-btn:hover,
+.sm-universe .yt-link-btn:hover,
+.sm-universe .album-item:hover .album-cover {
+    transform: translateY(-1px);
+}
+
+.sm-universe .song-play-btn,
+.sm-universe .yt-link-btn,
+.sm-universe .btn-primary {
+    background: rgba(230, 57, 70, 0.08);
+    border-color: rgba(230, 57, 70, 0.18);
+}
+
+.sm-universe .artist-song-progress-fill {
+    background: linear-gradient(90deg, #e63946, #ff7a7a);
+}
+
+@keyframes smGradientShift {
+    from { opacity: 0.94; }
+    to { opacity: 0.82; }
+}
+
+@keyframes smSmokeBlackA {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+    50% { transform: translate3d(2%, -2%, 0) scale(1.08); }
+}
+
+@keyframes smSmokeBlackB {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1.02); }
+    50% { transform: translate3d(-3%, 2%, 0) scale(1.1); }
+}
+
+@keyframes smSmokeRedA {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.1; }
+    50% { transform: translate3d(3%, -4%, 0) scale(1.06); opacity: 0.12; }
+}
+
+@keyframes smSmokeRedB {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.09; }
+    50% { transform: translate3d(-4%, -2%, 0) scale(1.04); opacity: 0.11; }
+}
+
+@keyframes smSmokeRedC {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(0.98); opacity: 0.08; }
+    50% { transform: translate3d(4%, 2%, 0) scale(1.05); opacity: 0.1; }
+}
+
+@keyframes smDragonIdle {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+    50% { transform: translate3d(4px, -3px, 0) scale(1.02); }
+}
+
+@keyframes smFireBreath {
+    0%, 100% { opacity: 0.12; transform: scale(1); }
+    50% { opacity: 0.2; transform: scale(1.08); }
+}
+
+@keyframes smEmberRise {
+    0% { transform: translate3d(0, 0, 0); opacity: 0; }
+    8% { opacity: 0.38; }
+    100% { transform: translate3d(10px, -170px, 0); opacity: 0; }
+}
+
+@keyframes smParticleDrift {
+    0% { transform: translate3d(0, 0, 0); opacity: 0.04; }
+    50% { transform: translate3d(8px, -36px, 0); opacity: 0.14; }
+    100% { transform: translate3d(-6px, -72px, 0); opacity: 0.02; }
+}
 
 @keyframes smEntryFade {
     from {
         opacity: 0;
-        transform: translateY(20px);
+        transform: translateY(18px);
     }
     to {
         opacity: 1;
@@ -264,161 +519,59 @@
     }
 }
 
-/* ── Back button ─────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+    .sm-content {
+        padding: 1rem 1rem 4rem;
+    }
 
-.sm-back-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin: 1.5rem 0 1.5rem;
-    padding: 0.6rem 1.1rem;
-    border-radius: 999px;
-    border: 1px solid rgba(230, 57, 70, 0.15);
-    background: rgba(230, 57, 70, 0.06);
-    color: rgba(255, 234, 234, 0.8);
-    font-size: 0.82rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    cursor: pointer;
-    transition: all 200ms ease;
-}
+    .sm-universe-title {
+        font-size: clamp(2.6rem, 13vw, 4.6rem);
+    }
 
-.sm-back-btn:hover {
-    background: rgba(230, 57, 70, 0.12);
-    border-color: rgba(230, 57, 70, 0.3);
-    transform: translateX(-2px);
-}
+    .sm-universe-sub {
+        line-height: 1.65;
+    }
 
-/* ── Universe Header ─────────────────────────────────────────────── */
-
-.sm-universe-header {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    margin-bottom: 2rem;
-    padding-bottom: 1.5rem;
-    border-bottom: 1px solid rgba(230, 57, 70, 0.1);
-}
-
-.sm-universe-kicker {
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.3em;
-    text-transform: uppercase;
-    color: rgba(230, 57, 70, 0.6);
-}
-
-.sm-universe-title {
-    font-family: 'Fraunces', serif;
-    font-size: clamp(2.2rem, 5vw, 3.5rem);
-    font-weight: 700;
-    letter-spacing: -0.04em;
-    line-height: 0.95;
-    color: #fff;
-}
-
-.sm-universe-sub {
-    font-size: 0.92rem;
-    color: rgba(255, 234, 234, 0.55);
-    max-width: 40rem;
-}
-
-/* ── Card overrides for SM theme ─────────────────────────────────── */
-
-.sm-universe .card,
-.sm-universe .artist-header {
-    background: rgba(20, 10, 15, 0.85);
-    border: 1px solid rgba(230, 57, 70, 0.08);
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
-    transition: all 280ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.sm-universe .card:hover,
-.sm-universe .artist-header:hover {
-    border-color: rgba(230, 57, 70, 0.2);
-    box-shadow: 0 8px 32px rgba(230, 57, 70, 0.08), 0 4px 24px rgba(0, 0, 0, 0.35);
-    transform: translateY(-3px);
-}
-
-.sm-universe .card::before {
-    background: linear-gradient(180deg, rgba(230, 57, 70, 0.04), transparent 40%);
-}
-
-/* ── Tab overrides ───────────────────────────────────────────────── */
-
-.sm-universe .profile-tab {
-    border-bottom-color: transparent;
-}
-
-.sm-universe .profile-tab.active {
-    border-bottom-color: #e63946;
-    color: #ffeaea;
-}
-
-.sm-universe .profile-tab:hover:not(.active) {
-    color: rgba(255, 234, 234, 0.7);
-}
-
-/* ── Button overrides ────────────────────────────────────────────── */
-
-.sm-universe .btn-primary {
-    background: #e63946;
-    color: #fff;
-}
-
-.sm-universe .btn-primary:hover {
-    background: #f04e5c;
-}
-
-/* ── Vignette overlay ────────────────────────────────────────────── */
-
-.sm-vignette {
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 4;
-    background: radial-gradient(ellipse at center, transparent 40%, rgba(5, 2, 8, 0.5) 100%);
-}
-
-/* ── Responsive ──────────────────────────────────────────────────── */
-
-@media (max-width: 768px) {
     .sm-dragon {
-        width: 250px;
-        height: 250px;
-        bottom: -5%;
-        right: -8%;
+        width: 300px;
+        height: 300px;
+        right: -12vw;
+        bottom: 0;
     }
 
     .sm-dragon-fire {
-        width: 100px;
-        height: 60px;
-        bottom: 8%;
-        right: 2%;
+        inset: auto 0 7vh auto;
+        width: 120px;
+        height: 70px;
     }
 
-    .sm-content {
-        padding: 0 1.25rem 3rem;
+    .sm-embers {
+        inset: auto 0 4vh auto;
+        width: 120px;
+        height: 170px;
+    }
+
+    .sm-profile-shell::before {
+        inset: -3vh -1vw;
     }
 }
 
-/* ── Reduced Motion ──────────────────────────────────────────────── */
-
 @media (prefers-reduced-motion: reduce) {
     .sm-gradient-bg,
-    .sm-smoke-layer--1,
-    .sm-smoke-layer--2,
-    .sm-smoke-layer--3,
+    .sm-smoke-layer,
     .sm-dragon,
     .sm-dragon-fire,
+    .sm-ember,
     .sm-particle,
     .sm-entry-anim {
         animation: none;
     }
 
-    .sm-gradient-bg { opacity: 0.9; }
-    .sm-dragon { opacity: 0.05; }
-    .sm-dragon-fire { opacity: 0; }
-    .sm-entry-anim { opacity: 1; transform: none; }
-    .sm-parallax-container { transition: none; }
+    .sm-parallax-container {
+        transform: none !important;
+    }
+
+    .sm-smoke-field {
+        transform: none !important;
+    }
 }

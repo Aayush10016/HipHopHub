@@ -186,8 +186,15 @@ const getLandingTrack = async (): Promise<LandingTrack | null> => {
 
 const getBioSnapshot = (bio?: string) => {
     if (!bio) return 'Scene profile syncing.'
-    const firstLine = bio.split('.')[0]?.trim() || bio.trim()
-    return `${firstLine}${firstLine.endsWith('.') ? '' : '.'}`
+    const sentences = bio
+        .split('.')
+        .map(sentence => sentence.trim())
+        .filter(Boolean)
+        .slice(0, 2)
+
+    const summary = sentences.join('. ')
+    const tightened = summary.length > 155 ? `${summary.slice(0, 152).trimEnd()}.` : summary
+    return tightened.endsWith('.') ? tightened : `${tightened}.`
 }
 
 const buildLoreCard = (artist: LandingArtist): LandingTriviaItem => ({

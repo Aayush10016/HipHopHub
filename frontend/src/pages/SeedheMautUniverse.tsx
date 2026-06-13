@@ -1,23 +1,5 @@
-/**
- * SeedheMautUniverse — Immersive artist universe page for Seedhe Maut.
- *
- * Layers:
- * 1. Animated gradient background
- * 2. Red/black smoke (CSS radial-gradient, mix-blend-mode: screen)
- * 3. Dragon silhouette with breathing opacity animation
- * 4. CSS-only floating particles (12 particles, zero canvas overhead)
- * 5. Parallax container responding to mouse movement
- * 6. ArtistProfile content with SM-themed card overrides
- *
- * Performance: All animations use transform/opacity/filter only.
- * Parallax uses onMouseMove + translate3d with no layout recalculation.
- * Dragon is a CSS background-image SVG — zero runtime cost.
- *
- * Accessibility: prefers-reduced-motion disables all motion globally.
- */
-
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import ArtistProfile from '../components/ArtistProfile'
 import './SeedheMautUniverse.css'
 
@@ -30,161 +12,211 @@ interface Artist {
     genre?: string
 }
 
-const SM_MATCH_NAMES = ['seedhe maut', 'seedhe maut inc', 'seedhe maut inc.']
+interface UniverseLocationState {
+    artist?: Artist
+}
 
-const PARTICLE_COUNT = 12
+const SM_MATCH_NAMES = ['seedhe maut', 'seedhe maut inc', 'seedhe maut inc.']
+const PARTICLES = Array.from({ length: 8 }, (_, index) => index)
+const EMBERS = Array.from({ length: 6 }, (_, index) => index)
+
+const UniverseProfile = memo(ArtistProfile)
 
 export default function SeedheMautUniverse() {
     const navigate = useNavigate()
-    const [artist, setArtist] = useState<Artist | null>(null)
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState<string | null>(null)
-    const parallaxRef = useRef<HTMLDivElement>(null)
-    const smokeRef = useRef<HTMLDivElement>(null)
+    const location = useLocation()
+    const initialArtist = (location.state as UniverseLocationState | null)?.artist || null
+
+    const [artist, setArtist] = useState<Artist | null>(initialArtist)
+    const [status, setStatus] = useState<'booting' | 'ready' | 'error'>(initialArtist ? 'ready' : 'booting')
+
     const prefersReducedMotion = useRef(
         typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
     )
+    const parallaxRef = useRef<HTMLDivElement>(null)
+    const smokeRef = useRef<HTMLDivElement>(null)
+    const dragonRef = useRef<HTMLDivElement>(null)
+    const rafRef = useRef<number | null>(null)
+    const pulseTimeoutRef = useRef<number | null>(null)
+    const targetPointerRef = useRef({ x: 0, y: 0 })
+    const currentPointerRef = useRef({ x: 0, y: 0 })
 
-    // Fetch Seedhe Maut artist data by name search
+    const pulseDragon = useCallback(() => {
+        if (prefersReducedMotion.current || !dragonRef.current) return
+
+        dragonRef.current.classList.add('sm-dragon--revealed')
+
+        if (pulseTimeoutRef.current) {
+            window.clearTimeout(pulseTimeoutRef.current)
+        }
+
+        pulseTimeoutRef.current = window.setTimeout(() => {
+            dragonRef.current?.classList.remove('sm-dragon--revealed')
+        }, 2800)
+    }, [])
+
     useEffect(() => {
         let cancelled = false
+
+        if (initialArtist) {
+            setArtist(initialArtist)
+            setStatus('ready')
+            return
+        }
 
         const findSeedheMaut = async () => {
             try {
                 const res = await fetch('/api/artists?scope=dhh')
-                if (!res.ok) {
-                    throw new Error('Failed to fetch artists')
-                }
+                if (!res.ok) throw new Error('Failed to fetch artists')
 
                 const artists = (await res.json()) as Artist[]
-                const smArtist = artists.find(a =>
-                    SM_MATCH_NAMES.some(name =>
-                        a.name.toLowerCase().trim() === name ||
-                        a.name.toLowerCase().trim().includes(name)
-                    )
-                )
+                const smArtist = artists.find(candidate => {
+                    const normalized = candidate.name.toLowerCase().trim()
+                    return SM_MATCH_NAMES.some(name => normalized === name || normalized.includes(name))
+                }) || null
 
-                if (!cancelled) {
-                    if (smArtist) {
-                        setArtist(smArtist)
-                    } else {
-                        setError('Seedhe Maut not found in artist catalog')
-                    }
-                    setLoading(false)
+                if (cancelled) return
+
+                if (smArtist) {
+                    setArtist(smArtist)
+                    setStatus('ready')
+                    return
                 }
+
+                setStatus('error')
             } catch (err) {
-                console.error('Failed to find Seedhe Maut:', err)
-                if (!cancelled) {
-                    setError('Failed to load artist data')
-                    setLoading(false)
-                }
+                console.error('Failed to load Seedhe Maut universe:', err)
+                if (!cancelled) setStatus('error')
             }
         }
 
         void findSeedheMaut()
-        return () => { cancelled = true }
-    }, [])
 
-    // Parallax mouse tracking
-    const handleMouseMove = useCallback((e: React.MouseEvent) => {
+        return () => {
+            cancelled = true
+        }
+    }, [initialArtist])
+
+    useEffect(() => {
         if (prefersReducedMotion.current) return
 
-        const { clientX, clientY } = e
-        const cx = window.innerWidth / 2
-        const cy = window.innerHeight / 2
-        const dx = (clientX - cx) / cx
-        const dy = (clientY - cy) / cy
+        const animate = () => {
+            currentPointerRef.current.x += (targetPointerRef.current.x - currentPointerRef.current.x) * 0.06
+            currentPointerRef.current.y += (targetPointerRef.current.y - currentPointerRef.current.y) * 0.06
 
-        // Content parallax (subtle)
-        if (parallaxRef.current) {
-            parallaxRef.current.style.transform =
-                `translate3d(${dx * -1.5}px, ${dy * -1.5}px, 0)`
+            const x = currentPointerRef.current.x
+            const y = currentPointerRef.current.y
+
+            if (parallaxRef.current) {
+                parallaxRef.current.style.transform = `translate3d(${x * -14}px, ${y * -10}px, 0)`
+            }
+
+            if (smokeRef.current) {
+                smokeRef.current.style.transform = `translate3d(${x * 26}px, ${y * 16}px, 0)`
+            }
+
+            rafRef.current = window.requestAnimationFrame(animate)
         }
 
-        // Smoke parallax (deeper)
-        if (smokeRef.current) {
-            smokeRef.current.style.transform =
-                `translate3d(${dx * 6}px, ${dy * 4}px, 0)`
+        rafRef.current = window.requestAnimationFrame(animate)
+
+        return () => {
+            if (rafRef.current) window.cancelAnimationFrame(rafRef.current)
         }
     }, [])
 
-    if (loading) {
-        return (
-            <div className="sm-universe" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ textAlign: 'center' }}>
-                    <p style={{ color: 'rgba(230, 57, 70, 0.6)', fontSize: '0.82rem', letterSpacing: '0.2em', textTransform: 'uppercase' }}>
-                        Loading universe...
-                    </p>
-                </div>
-            </div>
-        )
-    }
+    useEffect(() => {
+        const handleScroll = () => pulseDragon()
+        const handleAudioPlay = (event: Event) => {
+            if (event.target instanceof HTMLAudioElement) {
+                pulseDragon()
+            }
+        }
 
-    if (error || !artist) {
-        return (
-            <div className="sm-universe" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ textAlign: 'center' }}>
-                    <p style={{ color: 'rgba(255, 234, 234, 0.5)', marginBottom: '1rem' }}>{error || 'Artist not found'}</p>
-                    <button className="sm-back-btn" onClick={() => navigate('/home')}>
-                        ← Back to Hub
-                    </button>
-                </div>
-            </div>
-        )
-    }
+        window.addEventListener('scroll', handleScroll, { passive: true })
+        document.addEventListener('play', handleAudioPlay, true)
+
+        return () => {
+            window.removeEventListener('scroll', handleScroll)
+            document.removeEventListener('play', handleAudioPlay, true)
+            if (pulseTimeoutRef.current) window.clearTimeout(pulseTimeoutRef.current)
+        }
+    }, [pulseDragon])
+
+    const handleMouseMove = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+        if (prefersReducedMotion.current) return
+
+        const centerX = window.innerWidth / 2
+        const centerY = window.innerHeight / 2
+        targetPointerRef.current.x = (event.clientX - centerX) / centerX
+        targetPointerRef.current.y = (event.clientY - centerY) / centerY
+    }, [])
+
+    const subtitle = useMemo(() => (
+        artist?.bio?.split('.').slice(0, 2).join('.').trim() || 'Delhi underground catalog, live cuts, and scene pressure.'
+    ), [artist?.bio])
 
     return (
-        <div className="sm-universe" onMouseMove={handleMouseMove}>
-            {/* Layer 1: Animated gradient */}
+        <div className="sm-universe" onMouseMove={handleMouseMove} onMouseEnter={pulseDragon}>
             <div className="sm-gradient-bg" aria-hidden="true" />
-
-            {/* Layer 2: Red smoke */}
-            <div className="sm-smoke" ref={smokeRef} aria-hidden="true">
-                <div className="sm-smoke-layer sm-smoke-layer--1" />
-                <div className="sm-smoke-layer sm-smoke-layer--2" />
-                <div className="sm-smoke-layer sm-smoke-layer--3" />
+            <div className="sm-world-haze" aria-hidden="true" />
+            <div className="sm-smoke-field" ref={smokeRef} aria-hidden="true">
+                <div className="sm-smoke-layer sm-smoke-layer--black sm-smoke-layer--black-a" />
+                <div className="sm-smoke-layer sm-smoke-layer--black sm-smoke-layer--black-b" />
+                <div className="sm-smoke-layer sm-smoke-layer--red sm-smoke-layer--red-a" />
+                <div className="sm-smoke-layer sm-smoke-layer--red sm-smoke-layer--red-b" />
+                <div className="sm-smoke-layer sm-smoke-layer--red sm-smoke-layer--red-c" />
             </div>
 
-            {/* Layer 3: Dragon silhouette + fire breath */}
-            <div className="sm-dragon" aria-hidden="true" />
+            <div ref={dragonRef} className="sm-dragon" aria-hidden="true" />
             <div className="sm-dragon-fire" aria-hidden="true" />
 
-            {/* Layer 3.5: CSS-only particles */}
-            <div className="sm-particles" aria-hidden="true">
-                {Array.from({ length: PARTICLE_COUNT }).map((_, i) => (
-                    <span key={i} className="sm-particle" />
+            <div className="sm-embers" aria-hidden="true">
+                {EMBERS.map((ember) => (
+                    <span key={ember} className="sm-ember" />
                 ))}
             </div>
 
-            {/* Layer 4: Vignette */}
-            <div className="sm-vignette" aria-hidden="true" />
+            <div className="sm-particles" aria-hidden="true">
+                {PARTICLES.map((particle) => (
+                    <span key={particle} className="sm-particle" />
+                ))}
+            </div>
 
-            {/* Layer 5: Content */}
+            <div className="sm-vignette" aria-hidden="true" />
+            <div className="sm-world-mask" aria-hidden="true" />
+
             <div className="sm-parallax-container" ref={parallaxRef}>
                 <div className="sm-content">
-                    {/* Back button */}
-                    <div className="sm-entry-anim sm-entry-anim--d1">
-                        <button className="sm-back-btn" onClick={() => navigate('/home')}>
-                            ← Exit Universe
-                        </button>
-                    </div>
+                    <button className="sm-back-btn sm-entry-anim sm-entry-anim--d1" onClick={() => navigate('/home')}>
+                        Exit Universe
+                    </button>
 
-                    {/* Universe header */}
                     <div className="sm-universe-header sm-entry-anim sm-entry-anim--d2">
-                        <span className="sm-universe-kicker">Artist Universe</span>
-                        <h1 className="sm-universe-title">{artist.name}</h1>
-                        <p className="sm-universe-sub">
-                            Delhi underground. Red smoke. Graffiti pressure. Full catalog, live previews, and scene context.
-                        </p>
+                        <span className="sm-universe-kicker">Delhi underground archive</span>
+                        <h1 className="sm-universe-title">{artist?.name || 'Seedhe Maut'}</h1>
+                        <p className="sm-universe-sub">{subtitle.endsWith('.') ? subtitle : `${subtitle}.`}</p>
                     </div>
 
-                    {/* Artist Profile (existing component, wrapped in SM theme) */}
-                    <div className="sm-entry-anim sm-entry-anim--d3">
-                        <ArtistProfile
-                            artistId={artist.id}
-                            initialArtist={artist}
-                            onBack={() => navigate('/home')}
-                        />
+                    <div className="sm-profile-shell sm-entry-anim sm-entry-anim--d3">
+                        {status === 'ready' && artist && (
+                            <UniverseProfile
+                                artistId={artist.id}
+                                initialArtist={artist}
+                                onBack={() => navigate('/home')}
+                            />
+                        )}
+
+                        {status === 'booting' && <div className="sm-loading-shell" aria-hidden="true" />}
+
+                        {status === 'error' && (
+                            <div className="sm-error-shell">
+                                <p>Seedhe Maut universe is temporarily unavailable.</p>
+                                <button className="sm-back-btn" onClick={() => navigate('/home')}>
+                                    Back to Hub
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

@@ -1,87 +1,124 @@
-/**
- * UniverseTransition — Cinematic full-screen overlay shown when
- * entering an artist universe.
- *
- * Phases:
- * 1. Fade to dark (0 → 400ms)
- * 2. Artist name + "ENTERING THE __ UNIVERSE" (400 → hold)
- * 3. Fade out + call onComplete (after `duration` ms)
- *
- * All animations use GPU-composited transform + opacity only.
- * Respects prefers-reduced-motion via CSS.
- */
-
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import './UniverseTransition.css'
 
 interface UniverseTransitionProps {
     artistName: string
     accentColor: string
+    logoUrl?: string
     label?: string
     duration?: number
     onComplete: () => void
 }
 
-type Phase = 'entering' | 'holding' | 'exiting' | 'done'
+type Phase = 'preparing' | 'entering' | 'logo' | 'holding' | 'exiting' | 'done'
 
 export default function UniverseTransition({
     artistName,
     accentColor,
+    logoUrl,
     label,
-    duration = 1400,
+    duration = 2200,
     onComplete,
 }: UniverseTransitionProps) {
-    const [phase, setPhase] = useState<Phase>('entering')
+    const [phase, setPhase] = useState<Phase>('preparing')
+    const [assetsReady, setAssetsReady] = useState(!logoUrl)
 
     useEffect(() => {
-        const holdDelay = 400
-        const holdDuration = duration - holdDelay - 350
-        const exitDuration = 350
+        if (!logoUrl) {
+            setAssetsReady(true)
+            return
+        }
 
-        // Phase 1 → Phase 2
-        const t1 = setTimeout(() => setPhase('holding'), holdDelay)
-
-        // Phase 2 → Phase 3
-        const t2 = setTimeout(() => setPhase('exiting'), holdDelay + Math.max(holdDuration, 600))
-
-        // Phase 3 → done
-        const t3 = setTimeout(() => {
-            setPhase('done')
-            onComplete()
-        }, holdDelay + Math.max(holdDuration, 600) + exitDuration)
+        let cancelled = false
+        const img = new Image()
+        img.onload = () => {
+            if (!cancelled) setAssetsReady(true)
+        }
+        img.onerror = () => {
+            if (!cancelled) setAssetsReady(true)
+        }
+        img.src = logoUrl
 
         return () => {
-            clearTimeout(t1)
-            clearTimeout(t2)
-            clearTimeout(t3)
+            cancelled = true
         }
-    }, [duration, onComplete])
+    }, [logoUrl])
 
-    if (phase === 'done') return null
+    useEffect(() => {
+        if (!assetsReady) return
+
+        const fadeInDelay = 520
+        const logoDelay = logoUrl ? 760 : 0
+        const holdDelay = fadeInDelay + logoDelay
+        const holdDuration = Math.max(duration - holdDelay - 460, 700)
+        const exitDuration = 460
+
+        setPhase('entering')
+
+        const enterTimer = setTimeout(() => {
+            setPhase(logoUrl ? 'logo' : 'holding')
+        }, fadeInDelay)
+
+        const logoTimer = logoUrl
+            ? setTimeout(() => setPhase('holding'), fadeInDelay + logoDelay)
+            : null
+
+        const exitTimer = setTimeout(() => {
+            setPhase('exiting')
+        }, holdDelay + holdDuration)
+
+        const completeTimer = setTimeout(() => {
+            setPhase('done')
+            onComplete()
+        }, holdDelay + holdDuration + exitDuration)
+
+        return () => {
+            clearTimeout(enterTimer)
+            if (logoTimer) clearTimeout(logoTimer)
+            clearTimeout(exitTimer)
+            clearTimeout(completeTimer)
+        }
+    }, [assetsReady, duration, logoUrl, onComplete])
 
     const subtitle = label || `ENTERING THE ${artistName.toUpperCase()} UNIVERSE`
 
+    const transitionClassName = useMemo(() => {
+        if (phase === 'holding' || phase === 'logo') {
+            return 'universe-transition universe-transition--active'
+        }
+
+        return `universe-transition universe-transition--${phase}`
+    }, [phase])
+
+    if (phase === 'done') return null
+
     return (
         <div
-            className={`universe-transition universe-transition--${phase === 'holding' ? 'entering' : phase}`}
+            className={transitionClassName}
             role="status"
             aria-live="polite"
             aria-label={subtitle}
         >
-            {/* Accent glow behind name */}
-            <div
-                className="ut-glow"
-                style={{ background: accentColor }}
-            />
+            <div className="ut-glow" style={{ background: accentColor }} />
 
-            {/* Artist name */}
-            <h2 className="ut-artist-name">{artistName}</h2>
+            {logoUrl && phase === 'logo' && (
+                <div className="ut-logo-container">
+                    <img
+                        src={logoUrl}
+                        alt={`${artistName} logo`}
+                        className="ut-logo"
+                    />
+                    <div className="ut-logo-atmosphere" />
+                </div>
+            )}
 
-            {/* Decorative line */}
-            <div className="ut-line" style={{ background: accentColor }} />
-
-            {/* Subtitle */}
-            <p className="ut-subtitle">{subtitle}</p>
+            {phase === 'holding' && (
+                <>
+                    <h2 className="ut-artist-name">{artistName}</h2>
+                    <div className="ut-line" style={{ background: accentColor }} />
+                    <p className="ut-subtitle">{subtitle}</p>
+                </>
+            )}
         </div>
     )
 }
