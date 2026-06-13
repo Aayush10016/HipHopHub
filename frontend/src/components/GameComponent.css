@@ -396,6 +396,157 @@
     background: linear-gradient(135deg, #c87a42, #d6a263);
 }
 
+.arcade-guess-hero {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr);
+    gap: 1.25rem;
+    align-items: center;
+}
+
+.arcade-guess-hero.is-urgent .progress-fill {
+    background: linear-gradient(90deg, #ff8f70, #ff5252);
+}
+
+.arcade-guess-cover-shell {
+    position: relative;
+}
+
+.arcade-guess-cover {
+    width: min(260px, 100%);
+    aspect-ratio: 1;
+    border-radius: 24px;
+    object-fit: cover;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.arcade-guess-cover--placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Fraunces', serif;
+    font-size: 4rem;
+    color: var(--text-muted);
+}
+
+.arcade-guess-hero-copy {
+    min-width: 0;
+}
+
+.arcade-guess-heading {
+    margin: 0.35rem 0 0.55rem;
+    font-family: 'Fraunces', serif;
+    font-size: clamp(2rem, 4vw, 3rem);
+    color: var(--text-primary);
+}
+
+.arcade-guess-mode-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+}
+
+.arcade-difficulty-toggle {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.arcade-difficulty-btn {
+    min-height: 40px;
+    padding: 0.55rem 0.85rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-primary);
+    font-size: 0.84rem;
+    font-weight: 800;
+    text-transform: capitalize;
+}
+
+.arcade-difficulty-btn.active {
+    background: var(--accent-sand);
+    color: var(--accent-ink);
+    border-color: transparent;
+}
+
+.progress-bar.is-urgent {
+    box-shadow: 0 0 0 1px rgba(255, 143, 112, 0.22);
+}
+
+.progress-bar.is-urgent .progress-fill {
+    box-shadow: 0 0 10px rgba(255, 143, 112, 0.45);
+}
+
+.playback-controls {
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.playback-controls .game-yt-btn {
+    min-height: 48px;
+}
+
+.timeline-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.timeline-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-height: 220px;
+    padding: 1rem;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-primary);
+    text-align: left;
+}
+
+.timeline-card.active,
+.timeline-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(232, 220, 199, 0.24);
+}
+
+.timeline-card-cover {
+    width: 100%;
+    aspect-ratio: 1.2;
+    object-fit: cover;
+    border-radius: 16px;
+}
+
+.timeline-selected-strip {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.timeline-selected-card {
+    min-height: 96px;
+    padding: 0.85rem;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.timeline-selected-card span,
+.timeline-selected-card small {
+    display: block;
+    color: var(--text-muted);
+}
+
+.timeline-selected-card strong {
+    display: block;
+    margin: 0.2rem 0;
+    color: var(--text-primary);
+}
+
 @media (max-width: 768px) {
     .game-component {
         margin: 1rem auto;
@@ -422,5 +573,11 @@
 
     .marker-label {
         display: none;
+    }
+
+    .arcade-guess-hero,
+    .timeline-grid,
+    .timeline-selected-strip {
+        grid-template-columns: 1fr;
     }
 }

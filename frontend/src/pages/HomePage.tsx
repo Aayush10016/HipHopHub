@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import ArtistProfile from '../components/ArtistProfile'
-import GameComponent from '../components/GameComponent'
 import AINewsFeed from '../components/AINewsFeed'
 import CompleteLyricGame from '../components/CompleteLyricGame'
-import ArcadeLeaderboard from '../components/ArcadeLeaderboard'
 import ArtistBlitzGame from '../components/ArtistBlitzGame'
 import SceneDecoderGame from '../components/SceneDecoderGame'
-import CoverShuffleGame from '../components/CoverShuffleGame'
+import DhhTimelineGame from '../components/DhhTimelineGame'
+import PlayGuessTrackGame from '../components/PlayGuessTrackGame'
 import UniverseTransition from '../components/UniverseTransition'
+import { useGameCatalog } from '../hooks/useGameCatalog'
 import { buildArtistUniverse } from '../utils/artistUniverse'
 import { hashString, pickLeastRecent, readRecentValues, writeRecentValue } from '../utils/rotation'
 import './HomePage.css'
@@ -173,7 +173,9 @@ export default function HomePage() {
     const [topSongPlayingId, setTopSongPlayingId] = useState<number | null>(null)
     const [topSongCurrentTime, setTopSongCurrentTime] = useState<Record<number, number>>({})
     const [artistImageErrorMap, setArtistImageErrorMap] = useState<Record<number, boolean>>({})
-    const [selectedGame, setSelectedGame] = useState<'guess' | 'rapid' | 'lyric' | 'blitz' | 'decoder' | 'cover'>('guess')
+    const { artistCount: gameArtistCount, songCount: gameSongCount, releaseCount: gameReleaseCount } = useGameCatalog()
+    const [selectedGame, setSelectedGame] = useState<'guess' | 'rapid' | 'lyric' | 'blitz' | 'decoder' | 'timeline'>('guess')
+    const [gameView, setGameView] = useState<'hub' | 'active'>('hub')
     const [universeTransition, setUniverseTransition] = useState<UniverseTransitionState | null>(null)
     const [isPreparingUniverse, setIsPreparingUniverse] = useState(false)
 
@@ -873,90 +875,80 @@ export default function HomePage() {
                                 <div>
                                     <span className="section-kicker">Arcade</span>
                                     <h2 className="section-title">Play</h2>
-                                    <p className="game-description">Six replayable DHH game modes built around tracks, artists, covers, and scene knowledge.</p>
+                                    <p className="game-description">Immersive game pages built from {gameArtistCount || 75} verified artists, {gameSongCount || 0} playable tracks, and {gameReleaseCount || 0} official releases.</p>
                                 </div>
                             </div>
 
-                            <div className="game-hub-grid">
-                                <button
-                                    type="button"
-                                    className={`game-mode-card card ${selectedGame === 'guess' ? 'active' : ''}`}
-                                    onClick={() => setSelectedGame('guess')}
-                                >
-                                    <span className="game-mode-kicker">Live now</span>
-                                    <h3>Guess The Track</h3>
-                                    <p>Listen to the preview, name the song, and post leaderboard points.</p>
-                                </button>
-                                <button
-                                    type="button"
-                                    className={`game-mode-card card ${selectedGame === 'rapid' ? 'active' : ''}`}
-                                    onClick={() => setSelectedGame('rapid')}
-                                >
-                                    <span className="game-mode-kicker">Live now</span>
-                                    <h3>Rapid Fire</h3>
-                                    <p>Locked 10-second runs, no pause control, lives, combos, and auto-next pressure.</p>
-                                </button>
-                                <button
-                                    type="button"
-                                    className={`game-mode-card card ${selectedGame === 'lyric' ? 'active' : ''}`}
-                                    onClick={() => setSelectedGame('lyric')}
-                                >
-                                    <span className="game-mode-kicker">Beta live</span>
-                                    <h3>Complete The Lyric</h3>
-                                    <p>Hook-card challenge mode with artist and song hints plus lower-score assist.</p>
-                                </button>
-                                <button
-                                    type="button"
-                                    className={`game-mode-card card ${selectedGame === 'blitz' ? 'active' : ''}`}
-                                    onClick={() => setSelectedGame('blitz')}
-                                >
-                                    <span className="game-mode-kicker">Live now</span>
-                                    <h3>Artist Blitz</h3>
-                                    <p>Timed multiple-choice rounds based on title recognition and cover-reading speed.</p>
-                                </button>
-                                <button
-                                    type="button"
-                                    className={`game-mode-card card ${selectedGame === 'decoder' ? 'active' : ''}`}
-                                    onClick={() => setSelectedGame('decoder')}
-                                >
-                                    <span className="game-mode-kicker">Live now</span>
-                                    <h3>Scene Decoder</h3>
-                                    <p>Artist-city knowledge sprint built for people who actually know the culture map.</p>
-                                </button>
-                                <button
-                                    type="button"
-                                    className={`game-mode-card card ${selectedGame === 'cover' ? 'active' : ''}`}
-                                    onClick={() => setSelectedGame('cover')}
-                                >
-                                    <span className="game-mode-kicker">Live now</span>
-                                    <h3>Cover Shuffle</h3>
-                                    <p>Cover recognition race where you pick the right title before the minute ends.</p>
-                                </button>
-                            </div>
-
-                            {selectedGame === 'lyric' ? (
-                                <>
-                                    <CompleteLyricGame />
-                                    <ArcadeLeaderboard mode="COMPLETE_THE_LYRIC" title="Lyric Mode Leaderboard" />
-                                </>
+                            {gameView === 'hub' ? (
+                                <div className="game-hub-grid">
+                                    <button
+                                        type="button"
+                                        className={`game-mode-card card ${selectedGame === 'guess' ? 'active' : ''}`}
+                                        onClick={() => { setSelectedGame('guess'); setGameView('active') }}
+                                    >
+                                        <span className="game-mode-kicker">Featured</span>
+                                        <h3>Guess The Track</h3>
+                                        <p>Difficulty ladders, streak multipliers, and a proper global board.</p>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`game-mode-card card ${selectedGame === 'rapid' ? 'active' : ''}`}
+                                        onClick={() => { setSelectedGame('rapid'); setGameView('active') }}
+                                    >
+                                        <span className="game-mode-kicker">Pressure mode</span>
+                                        <h3>Rapid Fire</h3>
+                                        <p>Locked 10-second bursts, dramatic clock pressure, and survival pacing.</p>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`game-mode-card card ${selectedGame === 'lyric' ? 'active' : ''}`}
+                                        onClick={() => { setSelectedGame('lyric'); setGameView('active') }}
+                                    >
+                                        <span className="game-mode-kicker">Lyric bank</span>
+                                        <h3>Complete The Lyric</h3>
+                                        <p>Metadata-rich multiple-choice lyric rounds with combo scoring.</p>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`game-mode-card card ${selectedGame === 'blitz' ? 'active' : ''}`}
+                                        onClick={() => { setSelectedGame('blitz'); setGameView('active') }}
+                                    >
+                                        <span className="game-mode-kicker">Speed round</span>
+                                        <h3>Artist Blitz</h3>
+                                        <p>Use all 75 artists in a one-minute recognition sprint.</p>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`game-mode-card card ${selectedGame === 'decoder' ? 'active' : ''}`}
+                                        onClick={() => { setSelectedGame('decoder'); setGameView('active') }}
+                                    >
+                                        <span className="game-mode-kicker">Culture quiz</span>
+                                        <h3>Scene Decoder</h3>
+                                        <p>City roots, release order, wave knowledge, and artist facts.</p>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`game-mode-card card ${selectedGame === 'timeline' ? 'active' : ''}`}
+                                        onClick={() => { setSelectedGame('timeline'); setGameView('active') }}
+                                    >
+                                        <span className="game-mode-kicker">New mode</span>
+                                        <h3>DHH Timeline</h3>
+                                        <p>Place albums, debuts, and catalog moments in the right order.</p>
+                                    </button>
+                                </div>
+                            ) : selectedGame === 'lyric' ? (
+                                <CompleteLyricGame onBack={() => setGameView('hub')} />
                             ) : selectedGame === 'blitz' ? (
-                                <ArtistBlitzGame />
+                                <ArtistBlitzGame onBack={() => setGameView('hub')} />
                             ) : selectedGame === 'decoder' ? (
-                                <SceneDecoderGame />
-                            ) : selectedGame === 'cover' ? (
-                                <CoverShuffleGame />
+                                <SceneDecoderGame onBack={() => setGameView('hub')} />
+                            ) : selectedGame === 'timeline' ? (
+                                <DhhTimelineGame onBack={() => setGameView('hub')} />
                             ) : (
-                                <>
-                                    <p className="game-description">
-                                        {selectedGame === 'guess'
-                                            ? 'Guess the artist from a 30-second preview and climb the leaderboard.'
-                                            : 'Rapid Fire now runs as a short-lock arcade mode with 10-second audio windows and no pause escape.'}
-                                    </p>
-                                    <GameComponent mode="global" variant={selectedGame === 'rapid' ? 'rapid' : 'guess'} />
-                                    {selectedGame === 'rapid' && (
-                                        <ArcadeLeaderboard mode="RAPID_FIRE" title="Rapid Fire Leaderboard" />
-                                    )}
-                                </>
+                                <PlayGuessTrackGame
+                                    variant={selectedGame === 'rapid' ? 'rapid' : 'guess'}
+                                    onBack={() => setGameView('hub')}
+                                />
                             )}
                         </div>
                     )}

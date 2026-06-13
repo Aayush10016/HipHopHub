@@ -3,6 +3,11 @@ package com.hiphophub.controller;
 import com.hiphophub.model.Song;
 import com.hiphophub.model.GameScore;
 import com.hiphophub.model.User;
+import com.hiphophub.model.Artist;
+import com.hiphophub.model.Album;
+import com.hiphophub.dto.ArtistFactDTO;
+import com.hiphophub.repository.ArtistRepository;
+import com.hiphophub.repository.AlbumRepository;
 import com.hiphophub.repository.GameScoreRepository;
 import com.hiphophub.repository.SongRepository;
 import com.hiphophub.repository.UserRepository;
@@ -45,6 +50,7 @@ public class GameController {
     private static final String DEFAULT_COVER_URL =
             "https://images.unsplash.com/photo-1511379938547-c1f69419868d?auto=format&fit=crop&w=800&q=80";
     private static final Duration GAME_POOL_TTL = Duration.ofMinutes(3);
+    private static final Duration GAME_CATALOG_TTL = Duration.ofMinutes(5);
 
     @Autowired
     private SongRepository songRepository;
@@ -56,6 +62,12 @@ public class GameController {
     private UserRepository userRepository;
 
     @Autowired
+    private ArtistRepository artistRepository;
+
+    @Autowired
+    private AlbumRepository albumRepository;
+
+    @Autowired
     private MusicImportService musicImportService;
 
     private volatile List<Song> cachedGlobalGameSongs = List.of();
@@ -63,6 +75,9 @@ public class GameController {
     private final Map<Long, List<Song>> cachedArtistGameSongs = new ConcurrentHashMap<>();
     private final Map<Long, Instant> cachedArtistGameSongsAt = new ConcurrentHashMap<>();
     private final Object globalGamePoolLock = new Object();
+    private volatile Map<String, Object> cachedGameCatalog = Map.of();
+    private volatile Instant cachedGameCatalogAt;
+    private final Object gameCatalogLock = new Object();
 
     /**
      * GET /api/game/random-song
@@ -90,6 +105,11 @@ public class GameController {
         }
         Song song = pool.get(ThreadLocalRandom.current().nextInt(pool.size()));
         return ResponseEntity.ok(buildGameSongResponse(song));
+    }
+
+    @GetMapping("/catalog")
+    public ResponseEntity<Map<String, Object>> getGameCatalog() {
+        return ResponseEntity.ok(buildGameCatalog());
     }
 
     /**
@@ -235,6 +255,164 @@ public class GameController {
         cachedArtistGameSongs.put(artistId, refreshed);
         cachedArtistGameSongsAt.put(artistId, now);
         return refreshed;
+    }
+
+    private Map<String, Object> buildGameCatalog() {
+        Instant now = Instant.now();
+        if (cachedGameCatalogAt != null
+                && Duration.between(cachedGameCatalogAt, now).compareTo(GAME_CATALOG_TTL) < 0
+                && !cachedGameCatalog.isEmpty()) {
+            return cachedGameCatalog;
+        }
+
+        synchronized (gameCatalogLock) {
+            now = Instant.now();
+            if (cachedGameCatalogAt != null
+                    && Duration.between(cachedGameCatalogAt, now).compareTo(GAME_CATALOG_TTL) < 0
+                    && !cachedGameCatalog.isEmpty()) {
+                return cachedGameCatalog;
+            }
+
+            List<Artist> artists = artistRepository.findAll().stream()
+                    .map(musicImportService::enrichArtistForDisplay)
+                    .filter(musicImportService::shouldFeatureArtistInDhhCatalog)
+                    .sorted((left, right) -> left.getName().compareToIgnoreCase(right.getName()))
+                    .toList();
+
+            Map<Long, Artist> artistsById = artists.stream()
+                    .collect(Collectors.toMap(Artist::getId, artist -> artist));
+
+            List<Album> releases = albumRepository.findAll().stream()
+                    .filter(album -> album != null
+                            && album.getArtist() != null
+                            && artistsById.containsKey(album.getArtist().getId()))
+                    .sorted((left, right) -> {
+                        if (left.getReleaseDate() == null && right.getReleaseDate() == null) return 0;
+                        if (left.getReleaseDate() == null) return 1;
+                        if (right.getReleaseDate() == null) return -1;
+                        return right.getReleaseDate().compareTo(left.getReleaseDate());
+                    })
+                    .toList();
+
+            List<Song> songs = songRepository.findAll().stream()
+                    .filter(this::isPlayableSong)
+                    .filter(this::isDhhSong)
+                    .filter(song -> song.getAlbum() != null
+                            && song.getAlbum().getArtist() != null
+                            && artistsById.containsKey(song.getAlbum().getArtist().getId()))
+                    .sorted((left, right) -> {
+                        Album leftAlbum = left.getAlbum();
+                        Album rightAlbum = right.getAlbum();
+                        if (leftAlbum == null || leftAlbum.getReleaseDate() == null) return 1;
+                        if (rightAlbum == null || rightAlbum.getReleaseDate() == null) return -1;
+                        return rightAlbum.getReleaseDate().compareTo(leftAlbum.getReleaseDate());
+                    })
+                    .toList();
+
+            Map<Long, List<Song>> songsByArtist = songs.stream()
+                    .collect(Collectors.groupingBy(song -> song.getAlbum().getArtist().getId()));
+
+            Map<Long, List<Album>> releasesByArtist = releases.stream()
+                    .collect(Collectors.groupingBy(album -> album.getArtist().getId()));
+
+            List<Map<String, Object>> artistPayload = artists.stream()
+                    .map(artist -> {
+                        List<ArtistFactDTO> facts = musicImportService.buildFacts(artist);
+                        List<Album> artistReleases = releasesByArtist.getOrDefault(artist.getId(), List.of());
+                        List<Song> artistSongs = songsByArtist.getOrDefault(artist.getId(), List.of());
+
+                        Map<String, Object> item = new HashMap<>();
+                        item.put("id", artist.getId());
+                        item.put("name", artist.getName());
+                        item.put("genre", artist.getGenre());
+                        item.put("bio", artist.getBio());
+                        item.put("imageUrl", artist.getImageUrl());
+                        item.put("city", deriveCityFromBio(artist));
+                        item.put("facts", facts.stream().map(ArtistFactDTO::getFact).toList());
+                        item.put("releaseYears", artistReleases.stream()
+                                .map(Album::getReleaseDate)
+                                .filter(java.util.Objects::nonNull)
+                                .map(date -> date.getYear())
+                                .distinct()
+                                .sorted()
+                                .toList());
+                        item.put("releaseCount", artistReleases.size());
+                        item.put("songCount", artistSongs.size());
+                        return item;
+                    })
+                    .toList();
+
+            List<Map<String, Object>> releasePayload = releases.stream()
+                    .map(album -> {
+                        Map<String, Object> item = new HashMap<>();
+                        item.put("id", album.getId());
+                        item.put("title", album.getTitle());
+                        item.put("artistId", album.getArtist().getId());
+                        item.put("artistName", album.getArtist().getName());
+                        item.put("releaseDate", album.getReleaseDate() != null ? album.getReleaseDate().toString() : null);
+                        item.put("type", album.getType() != null ? album.getType().name() : null);
+                        item.put("coverUrl", album.getCoverUrl());
+                        item.put("youtubeUrl", directWatchUrlOrNull(YouTubeLinkBuilder.forAlbum(album.getArtist().getName(), album.getTitle())));
+                        return item;
+                    })
+                    .toList();
+
+            List<Map<String, Object>> songPayload = songs.stream()
+                    .map(song -> {
+                        Album album = song.getAlbum();
+                        Artist artist = album.getArtist();
+                        Map<String, Object> item = new HashMap<>();
+                        item.put("id", song.getId());
+                        item.put("title", song.getTitle());
+                        item.put("artistId", artist.getId());
+                        item.put("artistName", artist.getName());
+                        item.put("previewUrl", song.getPreviewUrl());
+                        item.put("coverUrl", resolveAlbumCover(song));
+                        item.put("youtubeUrl", directWatchUrlOrNull(YouTubeLinkBuilder.forSong(artist.getName(), song.getTitle())));
+                        item.put("releaseDate", album.getReleaseDate() != null ? album.getReleaseDate().toString() : null);
+                        item.put("albumTitle", album.getTitle());
+                        item.put("albumType", album.getType() != null ? album.getType().name() : null);
+                        return item;
+                    })
+                    .toList();
+
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("artists", artistPayload);
+            payload.put("songs", songPayload);
+            payload.put("releases", releasePayload);
+            payload.put("artistCount", artistPayload.size());
+            payload.put("songCount", songPayload.size());
+            payload.put("releaseCount", releasePayload.size());
+
+            cachedGameCatalog = payload;
+            cachedGameCatalogAt = now;
+            return payload;
+        }
+    }
+
+    private String deriveCityFromBio(Artist artist) {
+        if (artist == null || artist.getBio() == null) {
+            return null;
+        }
+        String bio = artist.getBio().toLowerCase(Locale.ROOT);
+        List<String> knownCities = List.of(
+                "delhi", "mumbai", "pune", "ahmedabad", "bengaluru", "bangalore",
+                "kolkata", "chandigarh", "lucknow", "jaipur", "goa", "indore",
+                "hyderabad", "surat", "amritsar", "dehradun", "kochi", "chennai",
+                "bhopal", "shimla", "gurugram", "noida", "ncr");
+
+        for (String city : knownCities) {
+            if (bio.contains(city)) {
+                if ("bangalore".equals(city)) {
+                    return "Bengaluru";
+                }
+                if ("ncr".equals(city)) {
+                    return "Delhi NCR";
+                }
+                return city.substring(0, 1).toUpperCase(Locale.ROOT) + city.substring(1);
+            }
+        }
+        return null;
     }
 
     private String resolveAlbumCover(Song song) {

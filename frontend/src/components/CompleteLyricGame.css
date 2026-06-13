@@ -1,6 +1,7 @@
 .lyric-game {
-    margin-top: 1rem;
-    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
 }
 
 .lyric-game-head {
@@ -38,6 +39,58 @@
 
 .lyric-status-row {
     margin-bottom: 0.9rem;
+}
+
+.lyric-hero {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 1rem;
+    align-items: center;
+}
+
+.lyric-hero-media {
+    position: relative;
+    width: min(220px, 100%);
+}
+
+.lyric-cover-art {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 22px;
+    object-fit: cover;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.lyric-cover-art--placeholder,
+.lyric-artist-avatar--placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+}
+
+.lyric-artist-avatar {
+    position: absolute;
+    right: -10px;
+    bottom: -10px;
+    width: 74px;
+    height: 74px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid rgba(17, 21, 26, 0.96);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.lyric-hero-copy h3 {
+    margin: 0.35rem 0 0.2rem;
+    font-family: 'Fraunces', serif;
+    font-size: clamp(2rem, 4vw, 3rem);
+    color: var(--text-primary);
+}
+
+.lyric-hero-copy p {
+    margin: 0 0 0.75rem;
+    color: var(--text-secondary);
 }
 
 .lyric-summary-grid {
@@ -86,6 +139,12 @@
     border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.lyric-chip-row {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
 .lyric-chip,
 .lyric-hint-btn {
     width: fit-content;
@@ -123,6 +182,30 @@
     margin-top: 1rem;
 }
 
+.lyric-options-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.lyric-choice {
+    min-height: 92px;
+    padding: 1rem 1.1rem;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-primary);
+    font-size: 1.05rem;
+    font-weight: 800;
+    text-align: left;
+}
+
+.lyric-choice.active,
+.lyric-choice:hover {
+    border-color: rgba(232, 220, 199, 0.24);
+    transform: translateY(-2px);
+}
+
 .lyric-input {
     flex: 1;
     padding: 1rem 1.1rem;
@@ -154,7 +237,10 @@
 }
 
 @media (max-width: 768px) {
-    .lyric-form {
+    .lyric-form,
+    .lyric-hero,
+    .lyric-options-grid {
+        grid-template-columns: 1fr;
         flex-direction: column;
     }
 }

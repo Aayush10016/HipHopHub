@@ -1,15 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-
-interface SongOption {
-    id: number
-    title: string
-    artistName?: string
-    coverUrl?: string
-    album?: {
-        coverImageUrl?: string
-        coverUrl?: string
-    }
-}
+import PlayGameFrame from './PlayGameFrame'
+import { useGameCatalog } from '../hooks/useGameCatalog'
 
 const SESSION_TIME = 60
 const ROUND_DELAY_MS = 900
@@ -24,8 +15,9 @@ const shuffle = <T,>(items: T[]) => {
     return copy
 }
 
-export default function ArtistBlitzGame() {
-    const [songs, setSongs] = useState<SongOption[]>([])
+export default function ArtistBlitzGame({ onBack }: { onBack: () => void }) {
+    const { artists, songs, artistCount, loading } = useGameCatalog()
+    const [queue, setQueue] = useState<typeof songs>([])
     const [index, setIndex] = useState(0)
     const [score, setScore] = useState(0)
     const [totalTimeLeft, setTotalTimeLeft] = useState(SESSION_TIME)
@@ -34,34 +26,28 @@ export default function ArtistBlitzGame() {
     const [sessionStarted, setSessionStarted] = useState(false)
     const [correctCount, setCorrectCount] = useState(0)
     const [roundTimeLeft, setRoundTimeLeft] = useState(ROUND_TIME)
+    const [combo, setCombo] = useState(0)
+    const [perfectMisses, setPerfectMisses] = useState(0)
+    const [scoreBurst, setScoreBurst] = useState<number | null>(null)
 
     useEffect(() => {
-        fetch('/api/songs/top/dhh?days=365&limit=60')
-            .then(res => res.ok ? res.json() : [])
-            .then(data => {
-                const uniqueByArtist = Array.from(
-                    new Map(
-                        ((data || []) as SongOption[])
-                            .filter(song => !!song.artistName)
-                            .map(song => [song.artistName?.toLowerCase(), song])
-                    ).values()
-                )
-                setSongs(shuffle(uniqueByArtist).slice(0, 20))
-            })
-            .catch(() => setSongs([]))
-    }, [])
+        if (songs.length > 0) {
+            setQueue(shuffle(songs).slice(0, Math.min(40, songs.length)))
+        }
+    }, [songs])
 
-    const current = songs[index % Math.max(1, songs.length)]
+    const current = queue[index % Math.max(1, queue.length)]
     const sessionOver = totalTimeLeft <= 0
 
     const options = useMemo(() => {
         if (!current) return []
-        const artistPool = shuffle(
-            Array.from(new Set(songs.map(song => song.artistName).filter(Boolean) as string[]))
+        const pool = shuffle(
+            artists
+                .map(artist => artist.name)
                 .filter(name => name !== current.artistName)
         ).slice(0, 3)
-        return shuffle([current.artistName || 'Unknown Artist', ...artistPool])
-    }, [current, songs])
+        return shuffle([current.artistName, ...pool])
+    }, [artists, current])
 
     useEffect(() => {
         if (!sessionStarted || sessionOver) return
@@ -80,6 +66,8 @@ export default function ArtistBlitzGame() {
                     window.clearInterval(timer)
                     setStatus(`Time up. Correct artist: ${current.artistName}`)
                     setSelectedAnswer('__timeout__')
+                    setCombo(0)
+                    setPerfectMisses(prevMisses => prevMisses + 1)
                     return 0
                 }
                 return prev - 1
@@ -95,6 +83,7 @@ export default function ArtistBlitzGame() {
             setSelectedAnswer(null)
             setStatus(null)
             setRoundTimeLeft(ROUND_TIME)
+            setScoreBurst(null)
         }, ROUND_DELAY_MS)
         return () => window.clearTimeout(timeout)
     }, [selectedAnswer, sessionOver])
@@ -108,45 +97,61 @@ export default function ArtistBlitzGame() {
         setStatus(null)
         setCorrectCount(0)
         setRoundTimeLeft(ROUND_TIME)
+        setCombo(0)
+        setPerfectMisses(0)
+        setScoreBurst(null)
+        setQueue(shuffle(songs).slice(0, Math.min(40, songs.length)))
     }
 
     const choose = (answer: string) => {
         if (!current || selectedAnswer || !sessionStarted || sessionOver) return
         setSelectedAnswer(answer)
         if (answer === current.artistName) {
-            setScore(prev => prev + 100 + (totalTimeLeft * 2))
+            const roundPoints = Math.round(100 + (roundTimeLeft * 12) + (combo * 20))
+            setScore(prev => prev + roundPoints)
+            setScoreBurst(roundPoints)
             setCorrectCount(prev => prev + 1)
+            setCombo(prev => prev + 1)
             setStatus('Correct pick.')
         } else {
             setStatus(`Wrong pick. Correct artist: ${current.artistName}`)
+            setCombo(0)
+            setPerfectMisses(prev => prev + 1)
         }
     }
 
-    if (!current) {
-        return (
-            <div className="game-placeholder card">
-                <h3>Artist Blitz</h3>
-                <p>Artist Blitz is syncing its track pool.</p>
-            </div>
-        )
-    }
-
-    const cover = current.coverUrl || current.album?.coverImageUrl || current.album?.coverUrl
+    const perfectBonus = sessionOver && correctCount > 0 && perfectMisses === 0 ? 400 : 0
+    const cover = current?.coverUrl
 
     return (
-        <div className="game-placeholder card">
-            <h3>Artist Blitz</h3>
-            <p>One-minute sprint. Identify as many artists as possible before the master timer runs out.</p>
-            <div className="lyric-status-row">
-                <span className="lyric-chip">Score: {score}</span>
-                <span className="lyric-chip">Timer: {totalTimeLeft}s</span>
-                <span className="lyric-chip">Round: {roundTimeLeft}s</span>
-                <span className="lyric-chip">Correct: {correctCount}</span>
-            </div>
-
-            {!sessionStarted || sessionOver ? (
+        <PlayGameFrame
+            title="Artist Blitz"
+            subtitle="One-minute recognition sprint across the full artist pool. Faster rounds, rising combos, and perfect-run bonus pressure."
+            onBack={onBack}
+            stats={[
+                { label: 'Score', value: score + perfectBonus, tone: 'accent' },
+                { label: 'Master Timer', value: `${totalTimeLeft}s`, tone: totalTimeLeft <= 10 ? 'danger' : 'default' },
+                { label: 'Round', value: `${roundTimeLeft}s`, tone: roundTimeLeft <= 2 ? 'danger' : 'default' },
+                { label: 'Combo', value: `${combo}x` },
+            ]}
+            leaderboard={
+                <div className="game-placeholder card">
+                    <h3>Blitz Notes</h3>
+                    <p>{artistCount} verified artists are in rotation.</p>
+                    <p>Perfect round bonus: {perfectMisses === 0 ? 'Live' : 'Lost this run'}</p>
+                    <p>Correct picks: {correctCount}</p>
+                </div>
+            }
+        >
+            {!current || loading ? (
+                <div className="game-placeholder card">
+                    <h3>Artist Blitz</h3>
+                    <p>Artist Blitz is syncing its full 75-artist pool.</p>
+                </div>
+            ) : !sessionStarted || sessionOver ? (
                 <div className="blitz-launch">
-                    {sessionOver && <p className="game-description">Session over. Final score: {score}</p>}
+                    {sessionOver && <p className="game-description">Session over. Final score: {score + perfectBonus}</p>}
+                    {sessionOver && perfectBonus > 0 && <p className="game-description">Perfect round bonus unlocked: +{perfectBonus}</p>}
                     <button type="button" className="btn-next" onClick={startSession}>
                         {sessionOver ? 'Play Again' : 'Start Artist Blitz'}
                     </button>
@@ -157,6 +162,7 @@ export default function ArtistBlitzGame() {
                         {cover ? <img src={cover} alt={current.title} /> : <div className="album-cover-placeholder">Cover</div>}
                     </div>
                     <div className="blitz-title">{current.title}</div>
+                    {scoreBurst && <div className="points-earned">+{scoreBurst}</div>}
                     <div className="blitz-options">
                         {options.map(option => (
                             <button
@@ -172,6 +178,6 @@ export default function ArtistBlitzGame() {
                     {status && <p className="game-description">{status}</p>}
                 </>
             )}
-        </div>
+        </PlayGameFrame>
     )
 }
