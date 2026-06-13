@@ -8,6 +8,7 @@ import ArcadeLeaderboard from '../components/ArcadeLeaderboard'
 import ArtistBlitzGame from '../components/ArtistBlitzGame'
 import SceneDecoderGame from '../components/SceneDecoderGame'
 import CoverShuffleGame from '../components/CoverShuffleGame'
+import UniverseTransition from '../components/UniverseTransition'
 import { hashString, pickLeastRecent, readRecentValues, writeRecentValue } from '../utils/rotation'
 import './HomePage.css'
 
@@ -132,6 +133,7 @@ export default function HomePage() {
     const [topSongCurrentTime, setTopSongCurrentTime] = useState<Record<number, number>>({})
     const [artistImageErrorMap, setArtistImageErrorMap] = useState<Record<number, boolean>>({})
     const [selectedGame, setSelectedGame] = useState<'guess' | 'rapid' | 'lyric' | 'blitz' | 'decoder' | 'cover'>('guess')
+    const [universeTransition, setUniverseTransition] = useState<{ active: boolean; artistName: string } | null>(null)
 
     useEffect(() => {
         let isMounted = true
@@ -375,7 +377,17 @@ export default function HomePage() {
         }
     }
 
+    const SM_NAMES = ['seedhe maut', 'seedhe maut inc', 'seedhe maut inc.']
+
     const handleArtistClick = (artist: Artist) => {
+        const normalizedName = artist.name.toLowerCase().trim()
+        const isSeedheMaut = SM_NAMES.some(name => normalizedName === name || normalizedName.includes(name))
+
+        if (isSeedheMaut) {
+            setUniverseTransition({ active: true, artistName: artist.name })
+            return
+        }
+
         setSelectedArtistId(artist.id)
         setSelectedArtist(artist)
         setActiveTab('artistProfile')
@@ -927,6 +939,20 @@ export default function HomePage() {
                     )}
                 </div>
             </main>
+
+            {/* Universe transition overlay */}
+            {universeTransition?.active && (
+                <UniverseTransition
+                    artistName={universeTransition.artistName}
+                    accentColor="#e63946"
+                    label="ENTERING THE SEEDHE MAUT UNIVERSE"
+                    duration={1400}
+                    onComplete={() => {
+                        setUniverseTransition(null)
+                        navigate('/universe/seedhe-maut')
+                    }}
+                />
+            )}
         </div>
     )
 }

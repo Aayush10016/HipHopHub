@@ -1,0 +1,424 @@
+/* ═══════════════════════════════════════════════════════════════════
+   SeedheMautUniverse.css — Immersive artist universe page
+   Theme: Red / Black / Dark smoke / Delhi underground
+   
+   Layers (back to front):
+   1. Base gradient background
+   2. Red smoke (CSS radial-gradient + mix-blend-mode)
+   3. Dragon silhouette (SVG background-image with breathing opacity)
+   4. Parallax content container
+   5. Content cards
+   
+   All animations: transform, opacity, filter only (GPU-composited)
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Page Container ──────────────────────────────────────────────── */
+
+.sm-universe {
+    position: relative;
+    min-height: 100vh;
+    background: #050208;
+    color: #ffeaea;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+/* ── Layer 1: Animated Gradient Background ───────────────────────── */
+
+.sm-gradient-bg {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+        radial-gradient(ellipse at 20% 0%, rgba(230, 57, 70, 0.10) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 20%, rgba(139, 26, 26, 0.08) 0%, transparent 45%),
+        radial-gradient(ellipse at 50% 100%, rgba(26, 26, 46, 0.15) 0%, transparent 50%),
+        linear-gradient(180deg, #050208 0%, #0a0412 40%, #08030e 100%);
+    animation: smGradientShift 16s ease-in-out infinite alternate;
+}
+
+@keyframes smGradientShift {
+    0% {
+        opacity: 1;
+        filter: hue-rotate(0deg);
+    }
+    100% {
+        opacity: 0.85;
+        filter: hue-rotate(5deg);
+    }
+}
+
+/* ── Layer 2: Red Smoke ──────────────────────────────────────────── */
+
+.sm-smoke {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    overflow: hidden;
+}
+
+.sm-smoke-layer {
+    position: absolute;
+    border-radius: 50%;
+    mix-blend-mode: screen;
+    will-change: transform, opacity;
+}
+
+.sm-smoke-layer--1 {
+    bottom: -30%;
+    left: -15%;
+    width: 80vw;
+    height: 60vh;
+    background: radial-gradient(ellipse, rgba(230, 57, 70, 0.12) 0%, transparent 70%);
+    filter: blur(60px);
+    animation: smSmoke1 14s ease-in-out infinite;
+}
+
+.sm-smoke-layer--2 {
+    bottom: -20%;
+    right: -10%;
+    width: 70vw;
+    height: 55vh;
+    background: radial-gradient(ellipse, rgba(139, 26, 26, 0.10) 0%, transparent 65%);
+    filter: blur(70px);
+    animation: smSmoke2 18s ease-in-out -6s infinite;
+}
+
+.sm-smoke-layer--3 {
+    top: 10%;
+    left: 20%;
+    width: 50vw;
+    height: 40vh;
+    background: radial-gradient(ellipse, rgba(230, 57, 70, 0.06) 0%, transparent 60%);
+    filter: blur(80px);
+    animation: smSmoke3 20s ease-in-out -10s infinite;
+}
+
+@keyframes smSmoke1 {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.7; }
+    33% { transform: translate3d(4%, -5%, 0) scale(1.08); opacity: 0.9; }
+    66% { transform: translate3d(-3%, 3%, 0) scale(0.95); opacity: 0.6; }
+}
+
+@keyframes smSmoke2 {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1.05); opacity: 0.65; }
+    40% { transform: translate3d(-5%, -4%, 0) scale(1.12); opacity: 0.85; }
+    70% { transform: translate3d(3%, 2%, 0) scale(0.98); opacity: 0.55; }
+}
+
+@keyframes smSmoke3 {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.5; }
+    50% { transform: translate3d(6%, 3%, 0) scale(1.15); opacity: 0.7; }
+}
+
+/* ── Layer 3: Dragon Silhouette ──────────────────────────────────── */
+
+.sm-dragon {
+    position: fixed;
+    bottom: -2%;
+    right: -3%;
+    width: 420px;
+    height: 420px;
+    pointer-events: none;
+    z-index: 2;
+    opacity: 0.04;
+    animation: smDragonBreathe 8s ease-in-out infinite;
+    will-change: opacity;
+    /* Abstract dragon silhouette — a single SVG path rendered as background.
+       Cinematic and suggestion-based, not literal or cartoonish. */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512' fill='%23e63946'%3E%3Cpath d='M420 380c-15-30-45-55-80-70-10-5-22-8-34-10 12-20 18-42 18-65 0-35-15-67-40-90 5-15 8-32 8-50 0-20-5-38-12-52-8-16-20-28-35-35-10-5-22-8-34-8-15 0-28 5-40 12-12-8-26-12-42-12-18 0-35 6-48 16-14-6-30-10-47-10-25 0-48 10-65 28-16 16-28 38-32 62-2 12-2 24 0 36l4 20c-10 12-18 26-22 42-5 18-5 36 0 52l8 24-15 18c-8 10-12 22-12 35 0 15 5 30 15 42 12 14 28 22 46 24l24 2c10 4 22 6 34 6 20 0 38-6 54-16l12-10c15 8 32 14 50 16l22 2c12 0 24-2 35-8 14-6 25-16 34-28l8-14c20-2 38-8 54-18 18-12 30-28 36-48 4-12 4-25 0-38z'/%3E%3C/path%3E%3C/svg%3E");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+/* Dragon "fire breath" — a faint glow that pulses near the mouth area */
+.sm-dragon-fire {
+    position: fixed;
+    bottom: 12%;
+    right: 5%;
+    width: 180px;
+    height: 100px;
+    pointer-events: none;
+    z-index: 2;
+    background: radial-gradient(ellipse at 70% 50%, rgba(230, 57, 70, 0.08) 0%, transparent 70%);
+    filter: blur(30px);
+    opacity: 0;
+    animation: smFireBreathe 8s ease-in-out 1s infinite;
+    will-change: opacity;
+}
+
+@keyframes smDragonBreathe {
+    0%, 100% { opacity: 0.03; }
+    40% { opacity: 0.07; }
+    60% { opacity: 0.08; }
+}
+
+@keyframes smFireBreathe {
+    0%, 100% { opacity: 0; }
+    35% { opacity: 0.6; }
+    50% { opacity: 0.8; }
+    65% { opacity: 0.5; }
+}
+
+/* ── Layer 4: Parallax Container ─────────────────────────────────── */
+
+.sm-parallax-container {
+    position: relative;
+    z-index: 5;
+    will-change: transform;
+    transition: transform 120ms ease-out;
+}
+
+/* ── Layer 5: Floating Particles (CSS-only, lightweight) ─────────── */
+
+.sm-particles {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 3;
+    overflow: hidden;
+}
+
+.sm-particle {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(230, 57, 70, 0.45);
+    will-change: transform, opacity;
+    animation: smParticleFloat linear infinite;
+}
+
+.sm-particle:nth-child(1) { left: 10%; top: 20%; width: 3px; height: 3px; animation-duration: 18s; animation-delay: 0s; }
+.sm-particle:nth-child(2) { left: 25%; top: 60%; width: 2px; height: 2px; animation-duration: 22s; animation-delay: -4s; }
+.sm-particle:nth-child(3) { left: 45%; top: 35%; width: 4px; height: 4px; animation-duration: 15s; animation-delay: -8s; }
+.sm-particle:nth-child(4) { left: 65%; top: 75%; width: 2px; height: 2px; animation-duration: 20s; animation-delay: -2s; }
+.sm-particle:nth-child(5) { left: 80%; top: 15%; width: 3px; height: 3px; animation-duration: 24s; animation-delay: -12s; }
+.sm-particle:nth-child(6) { left: 15%; top: 80%; width: 2px; height: 2px; animation-duration: 19s; animation-delay: -6s; }
+.sm-particle:nth-child(7) { left: 55%; top: 50%; width: 3px; height: 3px; animation-duration: 17s; animation-delay: -10s; }
+.sm-particle:nth-child(8) { left: 90%; top: 40%; width: 2px; height: 2px; animation-duration: 21s; animation-delay: -3s; }
+.sm-particle:nth-child(9) { left: 35%; top: 10%; width: 3px; height: 3px; animation-duration: 16s; animation-delay: -7s; }
+.sm-particle:nth-child(10) { left: 72%; top: 88%; width: 2px; height: 2px; animation-duration: 23s; animation-delay: -14s; }
+.sm-particle:nth-child(11) { left: 50%; top: 92%; width: 4px; height: 4px; animation-duration: 14s; animation-delay: -1s; }
+.sm-particle:nth-child(12) { left: 5%; top: 45%; width: 2px; height: 2px; animation-duration: 25s; animation-delay: -9s; }
+
+.sm-particle:nth-child(odd) {
+    box-shadow: 0 0 6px rgba(230, 57, 70, 0.3);
+}
+
+@keyframes smParticleFloat {
+    0% {
+        transform: translate3d(0, 0, 0) scale(1);
+        opacity: 0.2;
+    }
+    25% {
+        transform: translate3d(15px, -30px, 0) scale(1.2);
+        opacity: 0.5;
+    }
+    50% {
+        transform: translate3d(-10px, -60px, 0) scale(0.8);
+        opacity: 0.3;
+    }
+    75% {
+        transform: translate3d(20px, -90px, 0) scale(1.1);
+        opacity: 0.6;
+    }
+    100% {
+        transform: translate3d(5px, -120px, 0) scale(1);
+        opacity: 0.2;
+    }
+}
+
+/* ── Content wrapper ─────────────────────────────────────────────── */
+
+.sm-content {
+    position: relative;
+    z-index: 10;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 3vw 4rem;
+}
+
+/* ── Entry animation ─────────────────────────────────────────────── */
+
+.sm-entry-anim {
+    opacity: 0;
+    transform: translateY(20px);
+    animation: smEntryFade 600ms ease-out forwards;
+}
+
+.sm-entry-anim--d1 { animation-delay: 100ms; }
+.sm-entry-anim--d2 { animation-delay: 250ms; }
+.sm-entry-anim--d3 { animation-delay: 400ms; }
+.sm-entry-anim--d4 { animation-delay: 550ms; }
+
+@keyframes smEntryFade {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ── Back button ─────────────────────────────────────────────────── */
+
+.sm-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 1.5rem 0 1.5rem;
+    padding: 0.6rem 1.1rem;
+    border-radius: 999px;
+    border: 1px solid rgba(230, 57, 70, 0.15);
+    background: rgba(230, 57, 70, 0.06);
+    color: rgba(255, 234, 234, 0.8);
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: all 200ms ease;
+}
+
+.sm-back-btn:hover {
+    background: rgba(230, 57, 70, 0.12);
+    border-color: rgba(230, 57, 70, 0.3);
+    transform: translateX(-2px);
+}
+
+/* ── Universe Header ─────────────────────────────────────────────── */
+
+.sm-universe-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid rgba(230, 57, 70, 0.1);
+}
+
+.sm-universe-kicker {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: rgba(230, 57, 70, 0.6);
+}
+
+.sm-universe-title {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(2.2rem, 5vw, 3.5rem);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 0.95;
+    color: #fff;
+}
+
+.sm-universe-sub {
+    font-size: 0.92rem;
+    color: rgba(255, 234, 234, 0.55);
+    max-width: 40rem;
+}
+
+/* ── Card overrides for SM theme ─────────────────────────────────── */
+
+.sm-universe .card,
+.sm-universe .artist-header {
+    background: rgba(20, 10, 15, 0.85);
+    border: 1px solid rgba(230, 57, 70, 0.08);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+    transition: all 280ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sm-universe .card:hover,
+.sm-universe .artist-header:hover {
+    border-color: rgba(230, 57, 70, 0.2);
+    box-shadow: 0 8px 32px rgba(230, 57, 70, 0.08), 0 4px 24px rgba(0, 0, 0, 0.35);
+    transform: translateY(-3px);
+}
+
+.sm-universe .card::before {
+    background: linear-gradient(180deg, rgba(230, 57, 70, 0.04), transparent 40%);
+}
+
+/* ── Tab overrides ───────────────────────────────────────────────── */
+
+.sm-universe .profile-tab {
+    border-bottom-color: transparent;
+}
+
+.sm-universe .profile-tab.active {
+    border-bottom-color: #e63946;
+    color: #ffeaea;
+}
+
+.sm-universe .profile-tab:hover:not(.active) {
+    color: rgba(255, 234, 234, 0.7);
+}
+
+/* ── Button overrides ────────────────────────────────────────────── */
+
+.sm-universe .btn-primary {
+    background: #e63946;
+    color: #fff;
+}
+
+.sm-universe .btn-primary:hover {
+    background: #f04e5c;
+}
+
+/* ── Vignette overlay ────────────────────────────────────────────── */
+
+.sm-vignette {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 4;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(5, 2, 8, 0.5) 100%);
+}
+
+/* ── Responsive ──────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+    .sm-dragon {
+        width: 250px;
+        height: 250px;
+        bottom: -5%;
+        right: -8%;
+    }
+
+    .sm-dragon-fire {
+        width: 100px;
+        height: 60px;
+        bottom: 8%;
+        right: 2%;
+    }
+
+    .sm-content {
+        padding: 0 1.25rem 3rem;
+    }
+}
+
+/* ── Reduced Motion ──────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+    .sm-gradient-bg,
+    .sm-smoke-layer--1,
+    .sm-smoke-layer--2,
+    .sm-smoke-layer--3,
+    .sm-dragon,
+    .sm-dragon-fire,
+    .sm-particle,
+    .sm-entry-anim {
+        animation: none;
+    }
+
+    .sm-gradient-bg { opacity: 0.9; }
+    .sm-dragon { opacity: 0.05; }
+    .sm-dragon-fire { opacity: 0; }
+    .sm-entry-anim { opacity: 1; transform: none; }
+    .sm-parallax-container { transition: none; }
+}

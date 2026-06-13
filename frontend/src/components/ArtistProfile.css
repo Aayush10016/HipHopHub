@@ -918,6 +918,46 @@
     background: linear-gradient(90deg, #e63946, #ff6b6b);
 }
 
+/* ── SM Universe: Enhanced card interactions ────────────────────── */
+
+.sm-universe .artist-profile .card {
+    transition: all 280ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sm-universe .artist-profile .card:hover {
+    transform: translateY(-4px) scale(1.005);
+    box-shadow:
+        0 0 20px rgba(230, 57, 70, 0.10),
+        0 12px 40px rgba(0, 0, 0, 0.30);
+    border-color: rgba(230, 57, 70, 0.18);
+}
+
+.sm-universe .artist-profile .song-play-btn:hover,
+.sm-universe .artist-profile .yt-link-btn:hover {
+    background: rgba(230, 57, 70, 0.2);
+    border-color: rgba(230, 57, 70, 0.35);
+    color: #ffeaea;
+    transform: translateY(-1px);
+}
+
+.sm-universe .artist-profile .album-cover {
+    transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sm-universe .artist-profile .album-item:hover .album-cover {
+    transform: scale(1.03);
+}
+
+.sm-universe .artist-profile .profile-tab {
+    transition: all 220ms ease;
+}
+
+.sm-universe .artist-profile .profile-tab:hover:not(.active) {
+    background: rgba(230, 57, 70, 0.08);
+    border-color: rgba(230, 57, 70, 0.15);
+    color: #ffeaea;
+}
+
 /* ── KR$NA — Cyberpunk blue, digital warfare ───────────────────── */
 
 [data-artist-theme="krsna"] .artist-hero-gradient {

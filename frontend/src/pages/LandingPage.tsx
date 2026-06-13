@@ -449,15 +449,12 @@ export default function LandingPage() {
 
             <section className="landing-hero">
                 <div className="hero-text fade-in">
-                    <div className="pill">Editorial feed · scene radar · playable cuts</div>
                     <div className="hero-copy-stack">
-                        <p className="hero-kicker">A living hip-hop universe built around discovery.</p>
-                        <h1 className="landing-logo glow">
-                            Pulse, news, and games for hip-hop enthusiasts.
+                        <h1 className="landing-logo">
+                            Discover Desi hip-hop, curated.
                         </h1>
                         <p className="landing-tagline">
-                            Enter a sharper Desi hip-hop front page: live music previews, scene context, underground artist discovery,
-                            release tracking, and artist worlds that feel curated instead of generated.
+                            Live previews, artist universes, underground radar, and scene context — built for enthusiasts, not algorithms.
                         </p>
                     </div>
 
@@ -473,15 +470,15 @@ export default function LandingPage() {
                     <div className="hero-stats">
                         <div className="stat">
                             <span className="stat-number">Universe</span>
-                            <span className="stat-label">Artist pages built as living catalogs</span>
+                            <span className="stat-label">Living artist catalogs</span>
                         </div>
                         <div className="stat">
                             <span className="stat-number">30s</span>
-                            <span className="stat-label">Instant playable preview moments</span>
+                            <span className="stat-label">Instant previews</span>
                         </div>
                         <div className="stat">
                             <span className="stat-number">Daily</span>
-                            <span className="stat-label">Lore cards and underground rotation</span>
+                            <span className="stat-label">Lore + underground</span>
                         </div>
                     </div>
                 </div>
@@ -499,37 +496,36 @@ export default function LandingPage() {
                                     <div className="floating-eq" />
                                 </div>
                                 <div className="np-caption-row">
-                                    <span>Auto-curated preview</span>
+                                    <span>Auto-curated</span>
                                     <span>{isPlaying ? 'Live' : 'Paused'}</span>
                                 </div>
                             </div>
                             <div className="np-meta">
                                 <div className="np-controls">
                                     <button className="np-play" disabled={!canPlay} onClick={handleTogglePlay}>
-                                        {canPlay ? (isPlaying ? 'Pause' : 'Play') : 'No preview'}
+                                        {canPlay ? (isPlaying ? '⏸ Pause' : '▶ Play') : 'No preview'}
                                     </button>
                                     <button className="np-play" disabled={!canPlay} onClick={toggleMute}>
-                                        {isMuted ? 'Unmute' : 'Mute'}
+                                        {isMuted ? '🔇' : '🔊'}
                                     </button>
                                 </div>
                                 <p className="np-track">{selectedTrack?.title || 'HipHopHub mix'}</p>
                                 <p className="np-artist">{selectedTrack?.artistName || 'Featured artists'}</p>
-                                <p className="np-album">{selectedTrack?.albumTitle || 'Fresh drops + classics'}</p>
                                 <div className="np-divider" />
                                 <div className="np-footnote-row">
-                                    <span>Random opening cut</span>
-                                    <span>{selectedTrack?.previewUrl ? 'Preview ready' : 'Syncing'}</span>
+                                    <span>Random cut</span>
+                                    <span>{selectedTrack?.previewUrl ? 'Ready' : 'Syncing'}</span>
                                 </div>
                                 {selectedTrack?.id && selectedTrack?.youtubeUrl && (
                                     <button type="button" className="np-yt" onClick={openYouTube}>
-                                        ▶ Play on YouTube
+                                        ▶ YouTube
                                     </button>
                                 )}
                                 {autoplayBlocked && (
-                                    <p className="autoplay-hint">Autoplay was blocked by browser. Tap Play once.</p>
+                                    <p className="autoplay-hint">Tap Play to start.</p>
                                 )}
                                 {!autoplayBlocked && isPlaying && isMuted && (
-                                    <p className="autoplay-hint">Autoplay started muted. Tap Unmute for sound.</p>
+                                    <p className="autoplay-hint">Playing muted. Tap 🔇 for sound.</p>
                                 )}
                             </div>
                         </div>
@@ -539,7 +535,7 @@ export default function LandingPage() {
                         <div className="landing-panel landing-panel-artists">
                             <div className="landing-panel-head">
                                 <h3>Underground Scanner</h3>
-                                <span>Daily rotation of next-up artists</span>
+                                <span>Daily rotation</span>
                             </div>
                             <div className="landing-list">
                                 {undergroundArtists.map((artist) => (
@@ -557,15 +553,15 @@ export default function LandingPage() {
                                     </button>
                                 ))}
                                 {undergroundArtists.length === 0 && (
-                                    <div className="landing-empty">Artist radar is syncing.</div>
+                                    <div className="landing-empty">Artist radar syncing.</div>
                                 )}
                             </div>
                         </div>
 
                         <div className="landing-panel landing-panel-trivia">
                             <div className="landing-panel-head">
-                                <h3>Lyric + Lore Trivia</h3>
-                                <span>One rotating scene card</span>
+                                <h3>Lyric + Lore</h3>
+                                <span>Scene card</span>
                             </div>
                             {featuredTrivia ? (
                                 <div className="trivia-feature-card">
@@ -574,7 +570,7 @@ export default function LandingPage() {
                                     <p>{featuredTrivia.body}</p>
                                 </div>
                             ) : (
-                                <div className="landing-empty">Trivia cards are syncing.</div>
+                                <div className="landing-empty">Trivia syncing.</div>
                             )}
                         </div>
                     </div>

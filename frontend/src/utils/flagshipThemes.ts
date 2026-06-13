@@ -29,6 +29,19 @@ export interface FlagshipSmoke {
     layers: number
 }
 
+export interface FlagshipHeroElement {
+    type: 'dragon' | 'crown' | 'mic' | 'none'
+    position: 'bottom-right' | 'bottom-left' | 'top-right'
+    opacityRange: [number, number]
+    scale: number
+}
+
+export interface FlagshipTransition {
+    label: string
+    accentColor: string
+    duration: number
+}
+
 export interface FlagshipTheme {
     id: string
     matchNames: string[]
@@ -50,6 +63,8 @@ export interface FlagshipTheme {
     moodSecondary: string
     atmosphereLabel: string
     cssVars: CSSProperties
+    heroElement: FlagshipHeroElement | null
+    transition: FlagshipTransition | null
 }
 
 /* ------------------------------------------------------------------ */
@@ -109,6 +124,17 @@ const FLAGSHIP_THEMES: FlagshipTheme[] = [
             '--artist-gradient':
                 'linear-gradient(145deg, #e63946 0%, #8b1a1a 35%, #1a1a2e 70%, #0d0d15 100%)',
         } as CSSProperties,
+        heroElement: {
+            type: 'dragon',
+            position: 'bottom-right',
+            opacityRange: [0.03, 0.08],
+            scale: 1,
+        },
+        transition: {
+            label: 'ENTERING THE SEEDHE MAUT UNIVERSE',
+            accentColor: '#e63946',
+            duration: 1400,
+        },
     },
 
     /* ── KR$NA ───────────────────────────────────────────────────── */
@@ -158,6 +184,8 @@ const FLAGSHIP_THEMES: FlagshipTheme[] = [
             '--artist-gradient':
                 'linear-gradient(135deg, #00f0ff 0%, #0066cc 30%, #0a0a2e 65%, #050510 100%)',
         } as CSSProperties,
+        heroElement: null,
+        transition: null,
     },
 
     /* ── Talha Anjum ─────────────────────────────────────────────── */
@@ -207,6 +235,8 @@ const FLAGSHIP_THEMES: FlagshipTheme[] = [
             '--artist-gradient':
                 'linear-gradient(155deg, #d4a54a 0%, #8a6b2a 28%, #1a1508 60%, #0a0a08 100%)',
         } as CSSProperties,
+        heroElement: null,
+        transition: null,
     },
 
     /* ── Divine ───────────────────────────────────────────────────── */
@@ -256,6 +286,8 @@ const FLAGSHIP_THEMES: FlagshipTheme[] = [
             '--artist-gradient':
                 'linear-gradient(140deg, #e8a838 0%, #c47820 28%, #2a1810 62%, #0f0a06 100%)',
         } as CSSProperties,
+        heroElement: null,
+        transition: null,
     },
 
     /* ── Chaar Diwaari ───────────────────────────────────────────── */
@@ -305,6 +337,8 @@ const FLAGSHIP_THEMES: FlagshipTheme[] = [
             '--artist-gradient':
                 'linear-gradient(160deg, #9b59b6 0%, #6c3483 30%, #1a0a2e 65%, #08040f 100%)',
         } as CSSProperties,
+        heroElement: null,
+        transition: null,
     },
 ]
 
