@@ -1,9 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import GameComponent from '../components/GameComponent'
-import ArtistSmokeLayer from '../components/ArtistSmokeLayer'
-import ArtistParticleCanvas from '../components/ArtistParticleCanvas'
-import ArtistFilmGrain from '../components/ArtistFilmGrain'
-import ArtistWaveform from '../components/ArtistWaveform'
 import { buildArtistUniverse } from '../utils/artistUniverse'
 import './ArtistProfile.css'
 
@@ -65,7 +61,7 @@ const getBioLead = (bio?: string) => {
     return `${firstLine}${firstLine.endsWith('.') ? '' : '.'}`
 }
 
-export default function ArtistProfile({ artistId, initialArtist, onBack }: ArtistProfileProps) {
+function ArtistProfile({ artistId, initialArtist, onBack }: ArtistProfileProps) {
     const [activeTab, setActiveTab] = useState('overview')
     const [artist, setArtist] = useState<Artist | null>(initialArtist || null)
     const [albums, setAlbums] = useState<Album[]>([])
@@ -181,7 +177,7 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
         [albums, displayArtist?.bio, displayArtist?.genre, displayArtist?.name]
     )
 
-    const toggleSongPreview = async (songId: number) => {
+    const toggleSongPreview = useCallback(async (songId: number) => {
         const currentAudio = document.getElementById(`artist-song-preview-${songId}`) as HTMLAudioElement | null
         if (!currentAudio) return
 
@@ -206,14 +202,14 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
         } catch (err) {
             console.error('Failed to play artist song preview:', err)
         }
-    }
+    }, [activeSongId])
 
     const formatPreviewClock = (seconds: number) => {
         const safe = Math.max(0, Math.min(30, Math.floor(seconds)))
         return `0:${String(safe).padStart(2, '0')}`
     }
 
-    const openDirectSongYoutube = async (song: Song) => {
+    const openDirectSongYoutube = useCallback(async (song: Song) => {
         try {
             const res = await fetch(`/api/youtube/song/${song.id}`)
             if (res.ok) {
@@ -225,9 +221,9 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
         } catch (err) {
             console.error(`Failed to resolve direct YouTube URL for song ${song.id}:`, err)
         }
-    }
+    }, [])
 
-    const openDirectAlbumYoutube = async (album: Album) => {
+    const openDirectAlbumYoutube = useCallback(async (album: Album) => {
         try {
             const res = await fetch(`/api/youtube/album/${album.id}`)
             if (res.ok) {
@@ -239,9 +235,9 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
         } catch (err) {
             console.error(`Failed to resolve direct YouTube URL for album ${album.id}:`, err)
         }
-    }
+    }, [])
 
-    const openDirectSingleYoutube = async (album: Album) => {
+    const openDirectSingleYoutube = useCallback(async (album: Album) => {
         try {
             const res = await fetch(`/api/youtube/album/${album.id}`)
             if (res.ok) {
@@ -253,7 +249,7 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
         } catch (err) {
             console.error(`Failed to resolve direct YouTube URL for single ${album.id}:`, err)
         }
-    }
+    }, [])
 
     if (loading) {
         return <div className="loading-profile">Loading artist profile...</div>
@@ -263,8 +259,7 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
         return <div className="error-profile">{error || 'Artist not found'}</div>
     }
 
-    const themeId = artistUniverse.isFlagship ? artistUniverse.flagship.id : 'default'
-    const flagship = artistUniverse.isFlagship ? artistUniverse.flagship : null
+    const themeId = artistUniverse.isFlagship && artistUniverse.flagship ? artistUniverse.flagship.id : 'default'
 
     return (
         <div
@@ -272,53 +267,6 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
             style={artistUniverse.style}
             data-artist-theme={themeId}
         >
-            {/* ═══ Layer 1: Animated Gradient Background ═══ */}
-            <div className="artist-hero-gradient" aria-hidden="true" />
-
-            {/* ═══ Layer 2: Smoke ═══ */}
-            {flagship ? (
-                <ArtistSmokeLayer smoke={flagship.smoke} />
-            ) : (
-                <>
-                    <div className="artist-atmosphere artist-atmosphere-one" />
-                    <div className="artist-atmosphere artist-atmosphere-two" />
-                    <div className="artist-atmosphere artist-atmosphere-three" />
-                </>
-            )}
-
-            {/* ═══ Layer 2.5: Waveform Visualizer ═══ */}
-            <ArtistWaveform
-                color={flagship ? flagship.palette.primary : artistUniverse.palette[0]}
-                opacity={flagship ? 0.06 : 0.04}
-            />
-
-            {/* ═══ Layer 3: Album Collage ═══ */}
-            {artistUniverse.collageImages.length > 0 && (
-                <div className="artist-collage" aria-hidden="true">
-                    {artistUniverse.collageImages.map((image, index) => (
-                        <img key={`${image}-${index}`} src={image} alt="" />
-                    ))}
-                </div>
-            )}
-
-            {/* ═══ Layer 4: Watermark / Logo ═══ */}
-            <div className="artist-brand-watermark" aria-hidden="true">
-                {artistUniverse.watermark}
-            </div>
-
-            {/* ═══ Layer 5: Particles ═══ */}
-            {flagship ? (
-                <ArtistParticleCanvas config={flagship.particles} />
-            ) : (
-                <div className="artist-particle-field" aria-hidden="true">
-                    {Array.from({ length: 16 }).map((_, index) => (
-                        <span key={index} className={`artist-particle particle-${index % 4}`} />
-                    ))}
-                </div>
-            )}
-
-            {/* ═══ Layer 5.5: Film Grain ═══ */}
-            {flagship?.filmGrain && <ArtistFilmGrain />}
 
             {/* ═══ Layer 6: Content ═══ */}
             <button className="btn btn-secondary back-btn" onClick={onBack}>
@@ -342,11 +290,6 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
                     <h1 className="artist-name">{displayArtist.name}</h1>
                     {displayArtist.genre && <p className="artist-genre">{displayArtist.genre}</p>}
                     <p className="artist-lead">{getBioLead(displayArtist.bio)}</p>
-                    <div className="artist-mood-row">
-                        <span className="artist-mood-chip">{artistUniverse.moodPrimary}</span>
-                        <span className="artist-mood-chip">{artistUniverse.moodSecondary}</span>
-                        <span className="artist-mood-chip">{artistUniverse.atmosphere}</span>
-                    </div>
                     <div className="artist-summary-row">
                         <div className="artist-summary-chip">
                             <strong>{songs.length}</strong>
@@ -363,7 +306,7 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
                     </div>
                 </div>
                 <div className="artist-mark-badge" aria-hidden="true">
-                    <span className="artist-mark-label">Wordmark</span>
+                    <span className="artist-mark-label">Archive</span>
                     <strong>{artistUniverse.initials}</strong>
                 </div>
             </div>
@@ -439,9 +382,9 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
                     <div className="overview-section">
                         <div className="overview-story-grid">
                             <div className="overview-story-card card">
-                                <span className="section-label">Signature atmosphere</span>
-                                <h3>{artistUniverse.moodPrimary} x {artistUniverse.moodSecondary}</h3>
-                                <p>{artistUniverse.signature}</p>
+                                <span className="section-label">Catalog focus</span>
+                                <h3>Verified discography</h3>
+                                <p>{artistUniverse.profileLead}</p>
                             </div>
 
                             <div className="overview-story-card card">
@@ -756,3 +699,5 @@ export default function ArtistProfile({ artistId, initialArtist, onBack }: Artis
         </div>
     )
 }
+
+export default memo(ArtistProfile)

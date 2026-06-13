@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import ArtistProfile from '../components/ArtistProfile'
 import GameComponent from '../components/GameComponent'
 import AINewsFeed from '../components/AINewsFeed'
@@ -143,6 +143,7 @@ const mapSongOfDayResponse = (payload: SongOfDayResponse): Song | null => {
 
 export default function HomePage() {
     const navigate = useNavigate()
+    const location = useLocation()
     const [activeTab, setActiveTab] = useState('songOfDay')
     const [searchQuery, setSearchQuery] = useState('')
     const [songOfDay, setSongOfDay] = useState<Song | null>(null)
@@ -281,12 +282,6 @@ export default function HomePage() {
     }, [])
 
     useEffect(() => {
-        const controller = new AbortController()
-        fetch('/api/game/random-song', { signal: controller.signal }).catch(() => undefined)
-        return () => controller.abort()
-    }, [])
-
-    useEffect(() => {
         if (activeTab !== 'upcoming' || upcomingReleases.length > 0 || releaseRadar.length > 0) {
             return
         }
@@ -314,6 +309,21 @@ export default function HomePage() {
             cancelled = true
         }
     }, [activeTab, upcomingReleases.length, releaseRadar.length])
+
+    useEffect(() => {
+        const state = location.state as { openArtistId?: number; openArtist?: Artist; activeTab?: string } | null
+        if (!state?.openArtistId && !state?.activeTab) return
+
+        if (state.openArtistId) {
+            setSelectedArtistId(state.openArtistId)
+            setSelectedArtist(state.openArtist || null)
+            setActiveTab(state.activeTab || 'artistProfile')
+        } else if (state.activeTab) {
+            setActiveTab(state.activeTab)
+        }
+
+        navigate('/home', { replace: true, state: null })
+    }, [location.state, navigate])
 
     useEffect(() => {
         setIsSongPlaying(false)
@@ -436,12 +446,6 @@ export default function HomePage() {
         }
     }
 
-    const introStats = [
-        { label: 'Artists', value: String(filteredArtists.length || artists.length || 0) },
-        { label: 'Playable cuts', value: String(topSongs.length || 0) },
-        { label: 'Recent drops', value: String(recentReleases.length || 0) }
-    ]
-
     return (
         <div className="home-page">
             <header className="home-header">
@@ -502,34 +506,6 @@ export default function HomePage() {
 
             <main className="home-content">
                 <div className="container">
-                    {activeTab !== 'artistProfile' && (
-                        <section className="home-intro card fade-in">
-                            <div className="home-intro-copy">
-                                <span className="home-intro-kicker">Scene control room</span>
-                                <h2>Browse the scene through songs, drops, artists, news, and arcade-style discovery.</h2>
-                                <p>
-                                    Every tab below runs on the existing catalog and API. This pass upgrades hierarchy, pacing,
-                                    and discoverability without disturbing the working playback and artist routes.
-                                </p>
-                            </div>
-                            <div className="home-intro-rail">
-                                <div className="home-intro-stats">
-                                    {introStats.map((stat) => (
-                                        <div key={stat.label} className="home-intro-stat">
-                                            <span>{stat.value}</span>
-                                            <small>{stat.label}</small>
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="home-intro-actions">
-                                    <button type="button" className="home-chip" onClick={() => setActiveTab('artists')}>Open artists</button>
-                                    <button type="button" className="home-chip" onClick={() => setActiveTab('topSongs')}>Play top songs</button>
-                                    <button type="button" className="home-chip" onClick={() => setActiveTab('game')}>Enter arcade</button>
-                                </div>
-                            </div>
-                        </section>
-                    )}
-
                     {activeTab === 'songOfDay' && (
                         <div className="song-of-day-section fade-in section-shell">
                             <div className="section-header">
@@ -984,11 +960,20 @@ export default function HomePage() {
                     logoUrl={SEEDHE_MAUT_LOGO_URL}
                     accentColor="#e63946"
                     label="ENTERING THE SEEDHE MAUT UNIVERSE"
-                    duration={2200}
+                    duration={2600}
                     onComplete={() => {
                         const artist = universeTransition.artist
                         setUniverseTransition(null)
-                        navigate('/universe/seedhe-maut', { state: { artist } })
+                        navigate('/universe/seedhe-maut', {
+                            state: {
+                                artist,
+                                returnState: {
+                                    openArtistId: artist.id,
+                                    openArtist: artist,
+                                    activeTab: 'artistProfile'
+                                }
+                            }
+                        })
                     }}
                 />
             )}

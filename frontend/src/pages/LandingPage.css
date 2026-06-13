@@ -100,9 +100,9 @@
     z-index: 1;
     display: grid;
     grid-template-columns: 1fr minmax(340px, 0.88fr);
-    gap: 2rem;
+    gap: 1.4rem;
     align-items: center;
-    padding: 0 5vw;
+    padding: 0.8rem 4vw 0.7rem;
     min-height: 0;
     overflow: hidden;
 }
@@ -113,9 +113,9 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 1.25rem;
+    gap: 1rem;
     min-width: 0;
-    padding: 1rem 0;
+    padding: 0.4rem 0;
 }
 
 .hero-copy-stack {
@@ -136,8 +136,8 @@
 
 .landing-tagline {
     max-width: 34rem;
-    font-size: 0.95rem;
-    line-height: 1.5;
+    font-size: 0.92rem;
+    line-height: 1.45;
     color: var(--text-secondary);
 }
 
@@ -153,40 +153,86 @@
 
 /* ── Hero Stats — Compact strip ──────────────────────────────────── */
 
-.hero-stats {
+.scene-control-room {
     display: flex;
-    gap: 0.5rem;
-}
-
-.stat {
-    flex: 1;
-    padding: 0.65rem 0.75rem;
-    border-radius: 12px;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.9rem;
+    border-radius: 18px;
     background: rgba(255, 255, 255, 0.025);
     border: 1px solid rgba(255, 255, 255, 0.06);
-    transition: border-color 200ms ease, background 200ms ease;
 }
 
-.stat:hover {
-    background: rgba(255, 255, 255, 0.04);
-    border-color: rgba(255, 255, 255, 0.1);
+.scene-control-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
 }
 
-.stat-number {
+.scene-control-kicker {
+    color: var(--accent-sand);
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.scene-control-copy p {
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    line-height: 1.45;
+}
+
+.scene-control-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.55rem;
+}
+
+.scene-control-stat {
+    padding: 0.7rem 0.75rem;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.scene-control-stat span {
     display: block;
     margin-bottom: 0.12rem;
-    color: var(--accent-sand);
-    font-size: 0.85rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
+    color: var(--text-primary);
+    font-family: 'Fraunces', serif;
+    font-size: 1.2rem;
+    line-height: 1;
 }
 
-.stat-label {
+.scene-control-stat small {
     display: block;
     color: var(--text-muted);
     font-size: 0.72rem;
     line-height: 1.3;
+}
+
+.scene-control-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+}
+
+.home-chip {
+    padding: 0.55rem 0.9rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-primary);
+    font-size: 0.78rem;
+    font-weight: 700;
+    transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.home-chip:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.16);
+    transform: translateY(-1px);
 }
 
 /* ── Hero Right — Visual stack ───────────────────────────────────── */
@@ -194,7 +240,7 @@
 .hero-visual {
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
+    gap: 0.55rem;
     justify-content: center;
     min-width: 0;
     overflow: hidden;
@@ -219,7 +265,7 @@
 }
 
 .now-playing-card {
-    padding: 0.75rem;
+    padding: 0.7rem;
 }
 
 .np-header {
@@ -252,8 +298,8 @@
 
 .np-body {
     display: grid;
-    grid-template-columns: 140px 1fr;
-    gap: 0.75rem;
+    grid-template-columns: 126px 1fr;
+    gap: 0.7rem;
     align-items: stretch;
 }
 
@@ -312,7 +358,7 @@
 
 .np-track {
     font-family: 'Fraunces', serif;
-    font-size: clamp(1.1rem, 1.6vw, 1.4rem);
+    font-size: clamp(1rem, 1.5vw, 1.28rem);
     line-height: 1.08;
     font-weight: 700;
     letter-spacing: -0.03em;
@@ -372,6 +418,7 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.6rem;
     align-items: stretch;
+    min-height: 0;
 }
 
 .landing-panel {
@@ -381,6 +428,7 @@
     padding: 0.7rem;
     min-height: 0;
     overflow: hidden;
+    justify-content: flex-start;
 }
 
 .landing-panel-head {
@@ -405,7 +453,8 @@
 .landing-list {
     display: flex;
     flex-direction: column;
-    gap: 0.1rem;
+    gap: 0.16rem;
+    min-height: 0;
 }
 
 .landing-list-row {
@@ -414,7 +463,8 @@
     gap: 0.65rem;
     align-items: flex-start;
     width: 100%;
-    padding: 0.65rem 0;
+    min-height: 72px;
+    padding: 0.52rem 0;
     background: transparent;
     border: none;
     color: inherit;
@@ -423,6 +473,10 @@
     transition: background 160ms ease;
     border-radius: 8px;
     cursor: pointer;
+}
+
+.landing-list-row-static {
+    cursor: default;
 }
 
 .landing-list-row:hover {
@@ -454,52 +508,16 @@
 }
 
 .landing-copy strong {
-    font-size: 0.88rem;
+    font-size: 0.84rem;
     font-weight: 700;
 }
 
 .landing-copy small {
     color: var(--text-muted);
-    font-size: 0.76rem;
-    line-height: 1.5;
+    font-size: 0.74rem;
+    line-height: 1.42;
     white-space: normal;
     overflow: visible;
-}
-
-.trivia-feature-card {
-    flex: 1;
-    padding: 0.85rem;
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.025);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
-    overflow: hidden;
-}
-
-.trivia-feature-card strong {
-    color: var(--accent-sand);
-    font-size: 0.68rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-}
-
-.trivia-feature-card span {
-    font-family: 'Fraunces', serif;
-    font-size: 1.05rem;
-    line-height: 1.2;
-    font-weight: 700;
-}
-
-.trivia-feature-card p {
-    color: var(--text-secondary);
-    font-size: 0.82rem;
-    line-height: 1.6;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
 }
 
 .landing-empty {
@@ -604,7 +622,7 @@
 
     .landing-hero {
         grid-template-columns: 1fr;
-        padding: 1.5rem 4vw 1.5rem;
+        padding: 1.2rem 4vw 1.2rem;
     }
 
     .landing-data-grid {
@@ -631,8 +649,8 @@
         gap: 0.4rem;
     }
 
-    .hero-stats {
-        flex-direction: column;
+    .scene-control-stats {
+        grid-template-columns: 1fr;
     }
 
     .np-body {

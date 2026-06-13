@@ -1,237 +1,154 @@
-/* ═══════════════════════════════════════════════════════════════════
-   UniverseTransition.css — Cinematic full-screen overlay
-   Phases: fade-to-dark → logo (if provided) → artist name + subtitle → fade out
-   All animations use transform + opacity only (GPU-composited)
-   ═══════════════════════════════════════════════════════════════════ */
-
 .universe-transition {
     position: fixed;
     inset: 0;
     z-index: 9999;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 1.25rem;
     background: #030108;
     pointer-events: all;
     isolation: isolate;
     overflow: hidden;
 }
 
-.universe-transition--preparing {
-    opacity: 1;
-}
-
-/* ── Phase 1: Fade to black ──────────────────────────────────────── */
-
-.universe-transition--entering {
-    animation: utFadeIn 400ms ease-out forwards;
-}
-
-@keyframes utFadeIn {
-    from {
-        opacity: 0;
-    }
-
-    to {
-        opacity: 1;
-    }
-}
-
-/* ── Phase 2: Logo phase (active) ────────────────────────────────── */
-
+.universe-transition--preparing,
 .universe-transition--active {
     opacity: 1;
 }
 
-/* ── Phase 3: Fade out ───────────────────────────────────────────── */
+.universe-transition--entering {
+    animation: utFadeIn 520ms ease-out forwards;
+}
 
 .universe-transition--exiting {
-    animation: utFadeOut 350ms ease-in forwards;
+    animation: utFadeOut 460ms ease-in forwards;
 }
 
-@keyframes utFadeOut {
-    from {
-        opacity: 1;
-    }
-
-    to {
-        opacity: 0;
-    }
+.ut-centerpiece {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    width: min(84vw, 760px);
+    padding: 1rem;
 }
 
-/* ── Logo Container ──────────────────────────────────────────────── */
+.ut-glow {
+    position: absolute;
+    width: 520px;
+    height: 240px;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.2;
+    pointer-events: none;
+    transform: translateZ(0);
+}
 
 .ut-logo-container {
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 280px;
-    height: 280px;
+    width: min(54vw, 420px);
+    height: min(54vw, 420px);
     opacity: 0;
-    animation: utLogoIn 760ms cubic-bezier(0.18, 0.82, 0.24, 1) 120ms forwards;
+    animation: utContentIn 640ms ease-out forwards;
+    transform: translateZ(0);
 }
 
 .ut-logo {
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
-    filter: drop-shadow(0 0 28px rgba(230, 57, 70, 0.22));
-    animation: utLogoFloat 4.2s ease-in-out infinite;
-    transform: translateZ(0);
+    filter: drop-shadow(0 0 28px rgba(230, 57, 70, 0.18));
 }
 
 .ut-logo-atmosphere {
     position: absolute;
-    inset: -40px;
-    background: radial-gradient(ellipse, rgba(230, 57, 70, 0.1) 0%, transparent 72%);
-    filter: blur(36px);
+    inset: -36px;
+    background: radial-gradient(circle, rgba(230, 57, 70, 0.1) 0%, transparent 72%);
+    filter: blur(28px);
     pointer-events: none;
-    animation: utLogoGlow 4.2s ease-in-out infinite;
+    opacity: 0.85;
 }
 
-@keyframes utLogoIn {
-    from {
-        opacity: 0;
-        transform: scale(0.95) translateY(10px);
-    }
-
-    to {
-        opacity: 1;
-        transform: scale(1) translateY(0);
-    }
+.ut-copy {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.7rem;
+    opacity: 0;
+    animation: utContentIn 720ms ease-out forwards;
 }
-
-@keyframes utLogoFloat {
-
-    0%,
-    100% {
-        transform: translateY(0) scale(1);
-    }
-
-    50% {
-        transform: translateY(-5px) scale(1.015);
-    }
-}
-
-@keyframes utLogoGlow {
-
-    0%,
-    100% {
-        opacity: 0.6;
-    }
-
-    50% {
-        opacity: 1;
-    }
-}
-
-/* ── Artist Name ─────────────────────────────────────────────────── */
 
 .ut-artist-name {
     font-family: 'Fraunces', serif;
-    font-size: clamp(2.6rem, 6vw, 5rem);
+    font-size: clamp(2.8rem, 7vw, 5.5rem);
     font-weight: 700;
-    letter-spacing: -0.04em;
-    line-height: 1;
+    letter-spacing: -0.05em;
+    line-height: 0.95;
     color: #fff;
     text-align: center;
-    opacity: 0;
-    transform: translateY(18px);
-    animation: utContentIn 560ms ease-out 140ms forwards;
 }
 
-/* ── Accent glow behind content ──────────────────────────────────── */
-
-.ut-glow {
-    position: absolute;
-    width: 420px;
-    height: 220px;
-    border-radius: 50%;
-    filter: blur(76px);
-    opacity: 0;
-    animation: utGlowIn 700ms ease-out 140ms forwards;
-    pointer-events: none;
-    z-index: -1;
+.ut-line {
+    width: 72px;
+    height: 1px;
+    opacity: 0.55;
 }
-
-@keyframes utGlowIn {
-    from {
-        opacity: 0;
-        transform: scale(0.7);
-    }
-
-    to {
-        opacity: 0.22;
-        transform: scale(1);
-    }
-}
-
-/* ── Subtitle ────────────────────────────────────────────────────── */
 
 .ut-subtitle {
-    font-family: 'Space Grotesk', sans-serif;
     font-size: 0.82rem;
-    font-weight: 600;
-    letter-spacing: 0.28em;
+    font-weight: 700;
+    letter-spacing: 0.24em;
     text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.56);
     text-align: center;
-    opacity: 0;
-    transform: translateY(12px);
-    animation: utContentIn 520ms ease-out 280ms forwards;
+}
+
+@keyframes utFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes utFadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
 }
 
 @keyframes utContentIn {
     from {
         opacity: 0;
-        transform: translateY(18px);
+        transform: translateY(16px) scale(0.97);
     }
-
     to {
         opacity: 1;
-        transform: translateY(0);
+        transform: translateY(0) scale(1);
     }
 }
 
-/* ── Horizontal line accent ──────────────────────────────────────── */
-
-.ut-line {
-    width: 48px;
-    height: 1px;
-    opacity: 0;
-    animation: utLineIn 440ms ease-out 220ms forwards;
-}
-
-@keyframes utLineIn {
-    from {
-        opacity: 0;
-        width: 0;
+@media (max-width: 768px) {
+    .ut-centerpiece {
+        width: min(90vw, 520px);
     }
 
-    to {
-        opacity: 0.4;
-        width: 48px;
+    .ut-logo-container {
+        width: min(62vw, 280px);
+        height: min(62vw, 280px);
+    }
+
+    .ut-subtitle {
+        letter-spacing: 0.16em;
+        line-height: 1.45;
     }
 }
-
-/* ── Reduced Motion ──────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
-
     .universe-transition--entering,
     .universe-transition--exiting,
-    .ut-artist-name,
-    .ut-subtitle,
-    .ut-line,
-    .ut-glow,
     .ut-logo-container,
-    .ut-logo,
-    .ut-logo-atmosphere {
+    .ut-copy {
         animation: none;
-        opacity: 1;
-        transform: none;
     }
 }

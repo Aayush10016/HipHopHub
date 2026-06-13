@@ -60,6 +60,11 @@ interface LandingTriviaItem {
     body: string
 }
 
+interface SceneControlStat {
+    label: string
+    value: string
+}
+
 interface LandingOverviewResponse {
     track?: RandomSongResponse
     undergroundArtists?: LandingArtist[]
@@ -193,12 +198,12 @@ const getBioSnapshot = (bio?: string) => {
         .slice(0, 2)
 
     const summary = sentences.join('. ')
-    const tightened = summary.length > 155 ? `${summary.slice(0, 152).trimEnd()}.` : summary
+    const tightened = summary.length > 108 ? `${summary.slice(0, 105).trimEnd()}.` : summary
     return tightened.endsWith('.') ? tightened : `${tightened}.`
 }
 
 const buildLoreCard = (artist: LandingArtist): LandingTriviaItem => ({
-    title: 'Scene Lore',
+    title: 'Lore',
     lead: artist.name,
     body: getBioSnapshot(artist.bio)
 })
@@ -211,6 +216,11 @@ export default function LandingPage() {
     const [isMuted, setIsMuted] = useState(true)
     const [undergroundArtists, setUndergroundArtists] = useState<LandingArtist[]>([])
     const [triviaItems, setTriviaItems] = useState<LandingTriviaItem[]>([])
+    const [sceneControlStats, setSceneControlStats] = useState<SceneControlStat[]>([
+        { label: 'Artists', value: '0' },
+        { label: 'Playable cuts', value: '0' },
+        { label: 'Daily rotations', value: '3' }
+    ])
     const audioRef = useRef<HTMLAudioElement | null>(null)
 
     useEffect(() => {
@@ -225,16 +235,17 @@ export default function LandingPage() {
                 const [overviewResult, artistResult, songPoolResult] = await Promise.allSettled([
                     fetch('/api/landing/overview'),
                     fetch('/api/artists?scope=dhh'),
-                    fetch('/api/songs/top/dhh?days=365&limit=60')
+                    fetch('/api/songs/top/dhh?days=365&limit=36')
                 ])
 
                 let overviewTrack: LandingTrack | null = null
                 let triviaFromOverview: LandingTriviaItem[] = []
+                let nextSceneStats = [...sceneControlStats]
 
                 if (overviewResult.status === 'fulfilled' && overviewResult.value.ok) {
                     const payload = (await overviewResult.value.json()) as LandingOverviewResponse
                     overviewTrack = payload.track ? normalizeRandomSong(payload.track) : null
-                    triviaFromOverview = payload.trivia || []
+                    triviaFromOverview = (payload.trivia || []).slice(0, 3)
                     fallbackArtists = (payload.undergroundArtists || []).slice(0, 3)
                 }
 
@@ -245,17 +256,19 @@ export default function LandingPage() {
                         fallbackArtists = rotatedArtists
                     }
 
-                    const loreArtist = pickLeastRecent(
-                        artists || [],
-                        artist => artist.name,
-                        readRecentValues('hiphophub:lore-recent-artists'),
-                        rotationSeed + 17
-                    )
-
-                    if (loreArtist) {
-                        fallbackTrivia = [buildLoreCard(loreArtist)]
-                        writeRecentValue('hiphophub:lore-recent-artists', loreArtist.name, 10)
+                    const loreArtists = pickDistinctItems(artists || [], artist => artist.name, 3, rotationSeed + 17)
+                    if (loreArtists.length > 0) {
+                        fallbackTrivia = loreArtists.map(buildLoreCard)
+                        loreArtists.forEach(loreArtist => {
+                            writeRecentValue('hiphophub:lore-recent-artists', loreArtist.name, 10)
+                        })
                     }
+
+                    nextSceneStats = [
+                        { label: 'Artists', value: String(artists.length || 0) },
+                        nextSceneStats[1],
+                        nextSceneStats[2]
+                    ]
                 }
 
                 let diversifiedTrack: LandingTrack | null = null
@@ -276,10 +289,16 @@ export default function LandingPage() {
                         diversifiedTrack = picked
                         writeRecentValue('hiphophub:landing-track-recent-artists', picked.artistName, 8)
                     }
+
+                    nextSceneStats = [
+                        nextSceneStats[0],
+                        { label: 'Playable cuts', value: String(songPool.length || 0) },
+                        { label: 'Daily rotations', value: String(Math.max(fallbackArtists.length, 3)) }
+                    ]
                 }
 
                 const finalTrack = diversifiedTrack || overviewTrack
-                const finalTrivia = fallbackTrivia.length > 0 ? fallbackTrivia : triviaFromOverview.slice(0, 1)
+                const finalTrivia = (fallbackTrivia.length > 0 ? fallbackTrivia : triviaFromOverview).slice(0, 3)
 
                 if (!cancelled) {
                     if (finalTrack) {
@@ -287,6 +306,7 @@ export default function LandingPage() {
                     }
                     setUndergroundArtists(fallbackArtists)
                     setTriviaItems(finalTrivia)
+                    setSceneControlStats(nextSceneStats)
                 }
 
                 if (finalTrack) {
@@ -373,7 +393,6 @@ export default function LandingPage() {
 
     const heroCover = useMemo(() => selectedTrack?.coverUrl || DEFAULT_COVER, [selectedTrack?.coverUrl])
     const canPlay = !!selectedTrack?.previewUrl
-    const featuredTrivia = triviaItems[0]
 
     const handleTogglePlay = async () => {
         const audio = audioRef.current
@@ -474,18 +493,23 @@ export default function LandingPage() {
                         </button>
                     </div>
 
-                    <div className="hero-stats">
-                        <div className="stat">
-                            <span className="stat-number">Universe</span>
-                            <span className="stat-label">Living artist catalogs</span>
+                    <div className="scene-control-room">
+                        <div className="scene-control-copy">
+                            <span className="scene-control-kicker">Scene Control Room</span>
+                            <p>Jump into artist profiles, latest playable cuts, and the arcade without leaving the hero.</p>
                         </div>
-                        <div className="stat">
-                            <span className="stat-number">30s</span>
-                            <span className="stat-label">Instant previews</span>
+                        <div className="scene-control-stats">
+                            {sceneControlStats.map((stat) => (
+                                <div key={stat.label} className="scene-control-stat">
+                                    <span>{stat.value}</span>
+                                    <small>{stat.label}</small>
+                                </div>
+                            ))}
                         </div>
-                        <div className="stat">
-                            <span className="stat-number">Daily</span>
-                            <span className="stat-label">Lore + underground</span>
+                        <div className="scene-control-actions">
+                            <button type="button" className="home-chip" onClick={() => navigate('/home', { state: { activeTab: 'artists' } })}>Open artists</button>
+                            <button type="button" className="home-chip" onClick={() => navigate('/home', { state: { activeTab: 'topSongs' } })}>Play top songs</button>
+                            <button type="button" className="home-chip" onClick={() => navigate('/home', { state: { activeTab: 'game' } })}>Enter arcade</button>
                         </div>
                     </div>
                 </div>
@@ -568,13 +592,19 @@ export default function LandingPage() {
                         <div className="landing-panel landing-panel-trivia">
                             <div className="landing-panel-head">
                                 <h3>Lyric + Lore</h3>
-                                <span>Scene card</span>
+                                <span>Scene cards</span>
                             </div>
-                            {featuredTrivia ? (
-                                <div className="trivia-feature-card">
-                                    <strong>{featuredTrivia.title}</strong>
-                                    <span>{featuredTrivia.lead}</span>
-                                    <p>{featuredTrivia.body}</p>
+                            {triviaItems.length > 0 ? (
+                                <div className="landing-list">
+                                    {triviaItems.map((item, index) => (
+                                        <div key={`${item.lead}-${index}`} className="landing-list-row landing-list-row-static">
+                                            <span className="landing-rank">{item.lead.charAt(0)}</span>
+                                            <span className="landing-copy">
+                                                <strong>{item.lead}</strong>
+                                                <small>{item.body}</small>
+                                            </span>
+                                        </div>
+                                    ))}
                                 </div>
                             ) : (
                                 <div className="landing-empty">Trivia syncing.</div>

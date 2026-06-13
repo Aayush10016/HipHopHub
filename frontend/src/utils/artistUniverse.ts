@@ -19,16 +19,6 @@ const palettes = [
     ['#9d88df', '#d97a64', '#7fa7a4', '#f8eee6']
 ]
 
-const moodWords = [
-    'Street', 'Cinematic', 'Aggressive', 'Luxury', 'Nocturnal', 'Experimental',
-    'Melancholic', 'Spiritual', 'Raw', 'Voltage', 'Monsoon', 'Concrete'
-]
-
-const atmosphereWords = [
-    'neon haze', 'alley echo', 'after-hours pressure', 'gold-lit tension',
-    'smoke bloom', 'subway pulse', 'city fog', 'rooftop static'
-]
-
 const toInitials = (name: string) => {
     const parts = name
         .replace(/[^A-Za-z0-9$]+/g, ' ')
@@ -86,10 +76,7 @@ export const buildArtistUniverse = (
             ],
             collageImages,
             releaseYears,
-            moodPrimary: flagship.moodPrimary,
-            moodSecondary: flagship.moodSecondary,
-            atmosphere: flagship.atmosphereLabel,
-            signature: bioLine ? `${bioLine}.` : `${artistName} channelled through ${flagship.atmosphereLabel}.`,
+            profileLead: bioLine ? `${bioLine}.` : 'Verified catalog, release history, and artist context.',
             /* Flagship-specific extras */
             isFlagship: true as const,
             flagship,
@@ -100,10 +87,6 @@ export const buildArtistUniverse = (
     const palette = palettes[seed % palettes.length]
     const accentAngle = getGradientAngles(seed)
     const watermark = artistName.length > 14 ? initials : artistName.toUpperCase()
-
-    const moodPrimary = moodWords[seed % moodWords.length]
-    const moodSecondary = moodWords[(seed + 5) % moodWords.length]
-    const atmosphere = atmosphereWords[seed % atmosphereWords.length]
     const bioLine = bio?.split('.')[0]?.trim()
 
     const style = {
@@ -122,10 +105,7 @@ export const buildArtistUniverse = (
         palette,
         collageImages,
         releaseYears,
-        moodPrimary,
-        moodSecondary,
-        atmosphere,
-        signature: bioLine ? `${bioLine}.` : `${artistName} channelled through ${atmosphere}.`,
+        profileLead: bioLine ? `${bioLine}.` : 'Verified catalog, release history, and artist context.',
         /* Non-flagship */
         isFlagship: false as const,
         flagship: null,
