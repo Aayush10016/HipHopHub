@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import ArtistProfilePage from './pages/ArtistProfilePage'
 import SeedheMautUniverse from './pages/SeedheMautUniverse'
+import ArtistUniversePage from './pages/ArtistUniversePage'
 
 export default function App() {
     return (
@@ -16,6 +17,7 @@ export default function App() {
                 <Route path="/signup" element={<SignupPage />} />
                 <Route path="/artists/:id" element={<ArtistProfilePage />} />
                 <Route path="/universe/seedhe-maut" element={<SeedheMautUniverse />} />
+                <Route path="/universe/artist/:id" element={<ArtistUniversePage />} />
             </Routes>
         </Router>
     )

@@ -1,0 +1,325 @@
+.artist-universe {
+    position: relative;
+    min-height: 100vh;
+    background: var(--artist-universe-bg);
+    color: var(--artist-universe-text, #fff);
+    overflow-x: hidden;
+    isolation: isolate;
+}
+
+.artist-universe-gradient-bg,
+.artist-universe-collage-wall,
+.artist-universe-veil,
+.artist-universe-vignette {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+}
+
+.artist-universe-gradient-bg {
+    z-index: 0;
+    background: var(--artist-universe-gradient);
+}
+
+.artist-universe-collage-wall {
+    z-index: 1;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    padding: 1rem;
+    opacity: 0.11;
+    mix-blend-mode: screen;
+    mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.34) 0%, rgba(0, 0, 0, 0.82) 34%, rgba(0, 0, 0, 0.82) 68%, rgba(0, 0, 0, 0.28) 100%);
+    -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.34) 0%, rgba(0, 0, 0, 0.82) 34%, rgba(0, 0, 0, 0.82) 68%, rgba(0, 0, 0, 0.28) 100%);
+}
+
+.artist-universe-collage-tile {
+    border-radius: 28px;
+    overflow: hidden;
+    transform: translateZ(0);
+}
+
+.artist-universe-collage-tile img {
+    width: 100%;
+    height: 100%;
+    min-height: 220px;
+    object-fit: cover;
+    opacity: 0.92;
+    filter: blur(2px);
+    transform: scale(1.03);
+}
+
+.artist-universe-veil {
+    z-index: 2;
+}
+
+.artist-universe-veil-top {
+    background: var(--artist-universe-top-veil);
+}
+
+.artist-universe-veil-bottom {
+    background: var(--artist-universe-bottom-veil);
+}
+
+.artist-universe-vignette {
+    z-index: 3;
+    background: var(--artist-universe-vignette);
+}
+
+.artist-universe-content {
+    position: relative;
+    z-index: 10;
+    width: min(100%, 1580px);
+    margin: 0 auto;
+    padding: 1.4rem clamp(1rem, 2vw, 2rem) 4rem;
+}
+
+.artist-universe-entry {
+    opacity: 0;
+    transform: translateY(16px);
+    animation: artistUniverseEntry 620ms ease forwards;
+}
+
+.artist-universe-entry--d1 { animation-delay: 120ms; }
+.artist-universe-entry--d2 { animation-delay: 220ms; }
+.artist-universe-entry--d3 { animation-delay: 320ms; }
+
+.artist-universe-back-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    padding: 0.68rem 1.18rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(10, 6, 12, 0.54);
+    color: rgba(255, 255, 255, 0.88);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.artist-universe-back-btn:hover {
+    background: rgba(18, 9, 15, 0.74);
+    border-color: rgba(255, 255, 255, 0.14);
+    transform: translateY(-1px);
+}
+
+.artist-universe-header {
+    max-width: 860px;
+    margin: 1.25rem 0 2rem;
+    padding-bottom: 1.35rem;
+    position: relative;
+}
+
+.artist-universe-header::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: min(360px, 58vw);
+    height: 1px;
+    background: var(--artist-universe-line);
+}
+
+.artist-universe-kicker {
+    display: inline-block;
+    margin-bottom: 0.6rem;
+    color: var(--artist-universe-kicker);
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+}
+
+.artist-universe-title {
+    margin: 0;
+    font-family: 'Fraunces', serif;
+    font-size: clamp(3rem, 8vw, 6.2rem);
+    line-height: 0.92;
+    letter-spacing: -0.06em;
+    color: var(--artist-universe-text);
+    transform: translateZ(0);
+}
+
+.artist-universe-title--classic {
+    text-shadow: 0 0 18px color-mix(in srgb, var(--artist-universe-glow) 55%, transparent);
+}
+
+.artist-universe-title--sharp {
+    letter-spacing: -0.08em;
+}
+
+.artist-universe-title--soft-glow {
+    text-shadow: 0 0 18px color-mix(in srgb, var(--artist-universe-glow) 68%, transparent);
+}
+
+.artist-universe-title--chrome {
+    background: linear-gradient(180deg, #ffffff 0%, color-mix(in srgb, var(--artist-universe-text) 72%, #d5d5e8) 58%, #ffffff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.artist-universe-title--shimmer {
+    background: linear-gradient(90deg, #f6f6f6 0%, color-mix(in srgb, var(--artist-universe-kicker) 28%, #fff1c8) 50%, #f6f6f6 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.artist-universe-title--warm-pulse {
+    text-shadow: 0 0 20px color-mix(in srgb, var(--artist-universe-glow) 74%, transparent);
+}
+
+.artist-universe-sub {
+    max-width: 720px;
+    margin: 0.9rem 0 0;
+    color: var(--artist-universe-subtext);
+    font-size: clamp(0.95rem, 1.4vw, 1.06rem);
+    line-height: 1.72;
+}
+
+.artist-universe-profile-shell {
+    position: relative;
+}
+
+.artist-universe-loading-shell,
+.artist-universe-error-shell {
+    min-height: 420px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.artist-universe-loading-shell::before {
+    content: '';
+    width: min(74vw, 1080px);
+    height: min(60vh, 720px);
+    border-radius: 30px;
+    background:
+        linear-gradient(120deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01)),
+        radial-gradient(circle at 24% 26%, var(--artist-accent-a), transparent 24%),
+        radial-gradient(circle at 72% 32%, var(--artist-accent-b), transparent 28%);
+}
+
+.artist-universe-error-shell {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+    color: var(--artist-universe-subtext);
+}
+
+.artist-universe .artist-profile {
+    background: transparent;
+    padding-top: 0;
+    overflow: visible;
+}
+
+.artist-universe .back-btn {
+    display: none;
+}
+
+.artist-universe .artist-header,
+.artist-universe .card,
+.artist-universe .bio-card,
+.artist-universe .overview-card,
+.artist-universe .catalog-strip-card,
+.artist-universe .song-item,
+.artist-universe .album-item,
+.artist-universe .tour-item,
+.artist-universe .fact-item,
+.artist-universe .overview-story-card {
+    background: rgba(8, 5, 10, 0.18);
+    border: none;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+.artist-universe .artist-header {
+    padding-inline: 0;
+    padding-top: 0;
+    margin-bottom: 1.25rem;
+}
+
+.artist-universe .artist-header-image {
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: none;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.artist-universe .catalog-strip-card,
+.artist-universe .profile-tab,
+.artist-universe .bio-card,
+.artist-universe .overview-card,
+.artist-universe .song-item,
+.artist-universe .album-item,
+.artist-universe .tour-item,
+.artist-universe .fact-item,
+.artist-universe .overview-story-card {
+    background: rgba(255, 255, 255, 0.018);
+}
+
+.artist-universe .profile-tab {
+    border-color: rgba(255, 255, 255, 0.06);
+}
+
+.artist-universe .profile-tab.active {
+    background: var(--artist-accent-d);
+    border-color: color-mix(in srgb, var(--artist-accent-d) 22%, transparent);
+    color: #0a0a0f;
+}
+
+.artist-universe .song-play-btn,
+.artist-universe .yt-link-btn,
+.artist-universe .btn-primary {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.artist-universe .artist-song-progress-fill {
+    background: linear-gradient(90deg, var(--artist-accent-d), color-mix(in srgb, var(--artist-accent-d) 72%, white));
+}
+
+@keyframes artistUniverseEntry {
+    from {
+        opacity: 0;
+        transform: translateY(16px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 900px) {
+    .artist-universe-collage-wall {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.7rem;
+        padding: 0.7rem;
+    }
+
+    .artist-universe-collage-tile img {
+        min-height: 180px;
+    }
+
+    .artist-universe-content {
+        padding: 1rem 1rem 3rem;
+    }
+
+    .artist-universe-title {
+        font-size: clamp(2.6rem, 13vw, 4.5rem);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .artist-universe-entry {
+        animation: none;
+        opacity: 1;
+        transform: none;
+    }
+}

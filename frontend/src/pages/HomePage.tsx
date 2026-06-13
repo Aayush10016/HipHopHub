@@ -9,6 +9,7 @@ import ArtistBlitzGame from '../components/ArtistBlitzGame'
 import SceneDecoderGame from '../components/SceneDecoderGame'
 import CoverShuffleGame from '../components/CoverShuffleGame'
 import UniverseTransition from '../components/UniverseTransition'
+import { buildArtistUniverse } from '../utils/artistUniverse'
 import { hashString, pickLeastRecent, readRecentValues, writeRecentValue } from '../utils/rotation'
 import './HomePage.css'
 
@@ -73,22 +74,34 @@ interface NewsStory {
     source?: string
 }
 
-const SM_NAMES = ['seedhe maut', 'seedhe maut inc', 'seedhe maut inc.']
-const SEEDHE_MAUT_LOGO_URL = '/assets/seedhe-maut-logo.jpg'
+interface UniverseTransitionState {
+    active: boolean
+    artistName: string
+    artist: Artist
+    logoUrl?: string
+    accentColor: string
+    label: string
+    transitionType: 'legacy' | 'pulse' | 'cinematic' | 'split'
+    nameEffect: 'classic' | 'sharp' | 'soft-glow' | 'chrome' | 'shimmer' | 'warm-pulse'
+    markText: string
+    route: string
+}
 
-let seedheMautLogoPromise: Promise<void> | null = null
+const SM_NAMES = ['seedhe maut', 'seedhe maut inc', 'seedhe maut inc.']
+
+const imagePreloadCache = new Map<string, Promise<void>>()
 
 const preloadImage = (src: string) => {
-    if (!seedheMautLogoPromise) {
-        seedheMautLogoPromise = new Promise<void>((resolve) => {
+    if (!imagePreloadCache.has(src)) {
+        imagePreloadCache.set(src, new Promise<void>((resolve) => {
             const img = new Image()
             img.onload = () => resolve()
             img.onerror = () => resolve()
             img.src = src
-        })
+        }))
     }
 
-    return seedheMautLogoPromise
+    return imagePreloadCache.get(src) as Promise<void>
 }
 
 const resolveSeedheMautArtist = (artists: Artist[], fallback?: Artist | null) => {
@@ -161,7 +174,7 @@ export default function HomePage() {
     const [topSongCurrentTime, setTopSongCurrentTime] = useState<Record<number, number>>({})
     const [artistImageErrorMap, setArtistImageErrorMap] = useState<Record<number, boolean>>({})
     const [selectedGame, setSelectedGame] = useState<'guess' | 'rapid' | 'lyric' | 'blitz' | 'decoder' | 'cover'>('guess')
-    const [universeTransition, setUniverseTransition] = useState<{ active: boolean; artistName: string; artist: Artist } | null>(null)
+    const [universeTransition, setUniverseTransition] = useState<UniverseTransitionState | null>(null)
     const [isPreparingUniverse, setIsPreparingUniverse] = useState(false)
 
     useEffect(() => {
@@ -416,28 +429,35 @@ export default function HomePage() {
     }
 
     const handleArtistClick = async (artist: Artist) => {
+        if (isPreparingUniverse) return
+
         const normalizedName = artist.name.toLowerCase().trim()
         const isSeedheMaut = SM_NAMES.some(name => normalizedName === name || normalizedName.includes(name))
+        const targetArtist = isSeedheMaut ? (resolveSeedheMautArtist(artists, artist) || artist) : artist
+        const universe = buildArtistUniverse(targetArtist.name, targetArtist.genre, targetArtist.bio, [])
+        const route = isSeedheMaut ? '/universe/seedhe-maut' : `/universe/artist/${targetArtist.id}`
 
-        if (isSeedheMaut) {
-            if (isPreparingUniverse) return
-
-            setIsPreparingUniverse(true)
-            const resolvedArtist = resolveSeedheMautArtist(artists, artist)
-
-            await preloadImage(SEEDHE_MAUT_LOGO_URL)
-
-            if (resolvedArtist) {
-                setUniverseTransition({ active: true, artistName: resolvedArtist.name, artist: resolvedArtist })
+        setIsPreparingUniverse(true)
+        try {
+            if (universe.logoUrl) {
+                await preloadImage(universe.logoUrl)
             }
 
+            setUniverseTransition({
+                active: true,
+                artistName: targetArtist.name,
+                artist: targetArtist,
+                logoUrl: universe.logoUrl,
+                accentColor: universe.palette.primary,
+                label: universe.label,
+                transitionType: universe.transitionType,
+                nameEffect: universe.nameEffect,
+                markText: universe.markText,
+                route,
+            })
+        } finally {
             setIsPreparingUniverse(false)
-            return
         }
-
-        setSelectedArtistId(artist.id)
-        setSelectedArtist(artist)
-        setActiveTab('artistProfile')
     }
 
     const handleSearchKeyPress = (e: React.KeyboardEvent) => {
@@ -957,14 +977,18 @@ export default function HomePage() {
             {universeTransition?.active && (
                 <UniverseTransition
                     artistName={universeTransition.artistName}
-                    logoUrl={SEEDHE_MAUT_LOGO_URL}
-                    accentColor="#e63946"
-                    label="ENTERING THE SEEDHE MAUT UNIVERSE"
+                    logoUrl={universeTransition.logoUrl}
+                    markText={universeTransition.markText}
+                    accentColor={universeTransition.accentColor}
+                    label={universeTransition.label}
+                    transitionType={universeTransition.transitionType}
+                    nameEffect={universeTransition.nameEffect}
                     duration={2600}
                     onComplete={() => {
                         const artist = universeTransition.artist
+                        const route = universeTransition.route
                         setUniverseTransition(null)
-                        navigate('/universe/seedhe-maut', {
+                        navigate(route, {
                             state: {
                                 artist,
                                 returnState: {

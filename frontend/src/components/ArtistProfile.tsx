@@ -259,11 +259,11 @@ function ArtistProfile({ artistId, initialArtist, onBack }: ArtistProfileProps) 
         return <div className="error-profile">{error || 'Artist not found'}</div>
     }
 
-    const themeId = artistUniverse.isFlagship && artistUniverse.flagship ? artistUniverse.flagship.id : 'default'
+    const themeId = artistUniverse.slug
 
     return (
         <div
-            className={`artist-profile fade-in ${artistUniverse.isFlagship ? 'flagship' : ''}`}
+            className="artist-profile fade-in flagship"
             style={artistUniverse.style}
             data-artist-theme={themeId}
         >
