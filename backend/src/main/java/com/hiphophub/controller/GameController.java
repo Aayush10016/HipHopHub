@@ -14,7 +14,8 @@ import com.hiphophub.repository.UserRepository;
 import com.hiphophub.service.MusicImportService;
 import com.hiphophub.util.DhhArtistClassifier;
 import com.hiphophub.util.YouTubeLinkBuilder;
-import org.springframework.data.domain.PageRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.time.LocalDateTime;
 import java.time.Duration;
 import java.time.Instant;
@@ -45,6 +46,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/game")
 @CrossOrigin(origins = { "http://localhost:3000", "http://localhost:5173" })
 public class GameController {
+    private static final Logger log = LoggerFactory.getLogger(GameController.class);
     private static final String WATCH_URL_PREFIX = "https://www.youtube.com/watch?v=";
 
     private static final String DEFAULT_COVER_URL =
@@ -229,10 +231,11 @@ public class GameController {
                 return cachedGlobalGameSongs;
             }
 
-            List<Song> refreshed = new ArrayList<>(songRepository.findLatestPlayableSongs(PageRequest.of(0, 600)).stream()
+            List<Song> refreshed = new ArrayList<>(songRepository.findAll().stream()
                     .filter(this::isPlayableSong)
                     .filter(this::isDhhSong)
                     .toList());
+            log.info("Game random-song pool refreshed: {} playable DHH songs", refreshed.size());
             cachedGlobalGameSongs = refreshed;
             cachedGlobalGameSongsAt = now;
             return refreshed;
@@ -252,6 +255,7 @@ public class GameController {
         List<Song> refreshed = new ArrayList<>(songRepository.findByAlbumArtistId(artistId).stream()
                 .filter(this::isPlayableSong)
                 .toList());
+        log.info("Game artist pool refreshed: artistId={} playable songs={}", artistId, refreshed.size());
         cachedArtistGameSongs.put(artistId, refreshed);
         cachedArtistGameSongsAt.put(artistId, now);
         return refreshed;
@@ -383,6 +387,8 @@ public class GameController {
             payload.put("artistCount", artistPayload.size());
             payload.put("songCount", songPayload.size());
             payload.put("releaseCount", releasePayload.size());
+            log.info("Game catalog built: artists={}, playableSongs={}, releases={}",
+                    artistPayload.size(), songPayload.size(), releasePayload.size());
 
             cachedGameCatalog = payload;
             cachedGameCatalogAt = now;

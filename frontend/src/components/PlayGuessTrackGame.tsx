@@ -82,7 +82,7 @@ export default memo(function PlayGuessTrackGame({
     onBack: () => void
 }) {
     const isRapidFire = variant === 'rapid'
-    const { artistCount, songCount } = useGameCatalog()
+    const { artistCount, songCount, loading: catalogLoading } = useGameCatalog()
     const [currentSong, setCurrentSong] = useState<GameSong | null>(null)
     const [guess, setGuess] = useState('')
     const [result, setResult] = useState<any>(null)
@@ -378,6 +378,7 @@ export default memo(function PlayGuessTrackGame({
     }, [currentSong?.songId])
 
     const roundFinished = !!result
+    const revealedCover = roundFinished ? (result?.albumCover || currentSong?.albumCover) : null
 
     return (
         <PlayGameFrame
@@ -394,7 +395,7 @@ export default memo(function PlayGuessTrackGame({
                 { label: 'XP', value: xp },
             ]}
             hero={
-                <div className={`arcade-guess-hero ${timeLeft <= 5 && roundActive ? 'is-urgent' : ''}`}>
+                <div className={`arcade-guess-hero ${timeLeft <= 5 && roundActive ? 'is-urgent' : ''} ${revealedCover ? 'arcade-guess-hero--revealed' : ''}`}>
                     <audio
                         ref={audioRef}
                         onTimeUpdate={handleTimeUpdate}
@@ -403,14 +404,12 @@ export default memo(function PlayGuessTrackGame({
                         onEnded={handleAudioEnded}
                     />
 
-                    <div className="arcade-guess-cover-shell">
-                        {currentSong?.albumCover ? (
-                            <img className="arcade-guess-cover" src={roundFinished ? currentSong.albumCover : currentSong.albumCover} alt={currentSong.songTitle || 'Album cover'} />
-                        ) : (
-                            <div className="arcade-guess-cover arcade-guess-cover--placeholder">?</div>
-                        )}
-                        {showConfetti && <div className="confetti-burst">+{scoreBurst}</div>}
-                    </div>
+                    {revealedCover && (
+                        <div className="arcade-guess-cover-shell">
+                            <img className="arcade-guess-cover" src={revealedCover} alt={currentSong?.songTitle || 'Album cover'} />
+                            {showConfetti && <div className="confetti-burst">+{scoreBurst}</div>}
+                        </div>
+                    )}
 
                     <div className="arcade-guess-hero-copy">
                         <div className="arcade-guess-mode-row">
@@ -442,12 +441,14 @@ export default memo(function PlayGuessTrackGame({
                         </div>
 
                         <h3 className="arcade-guess-heading">
-                            {message || (currentSong?.artistName ? `Artist clue: ${currentSong.artistName}` : 'Loading track...')}
+                            {message || (currentSong?.artistName ? `Artist: ${currentSong.artistName}` : 'Loading track...')}
                         </h3>
                         <p className="game-description">
-                            {isRapidFire
-                                ? `Round ${round}. No skipping, no pause exploits, ${artistCount} artists in rotation.`
-                                : `Guess from a ${previewLimit}-second preview. Full pool: ${artistCount} artists and ${songCount} playable tracks.`}
+                            {catalogLoading
+                                ? 'Loading the verified arcade pool...'
+                                : isRapidFire
+                                    ? `Round ${round}. No skipping, no pause exploits, ${artistCount} artists in rotation.`
+                                    : `Guess from a ${previewLimit}-second preview. Pool loaded: ${artistCount} artists and ${songCount} playable tracks.`}
                         </p>
 
                         <div className="progress-bar-container">
@@ -519,7 +520,7 @@ export default memo(function PlayGuessTrackGame({
                                 Locked 10s Run
                             </button>
                         )}
-                        {currentSong?.youtubeUrl && (
+                        {roundFinished && currentSong?.youtubeUrl && (
                             <button type="button" onClick={openDirectYouTube} className="game-yt-btn">
                                 Play on YouTube
                             </button>
@@ -552,6 +553,7 @@ export default memo(function PlayGuessTrackGame({
                             {result.correct ? (
                                 <div className="result correct">
                                     <h3>Correct</h3>
+                                    {revealedCover && <img className="result-cover" src={revealedCover} alt={result.correctTitle} />}
                                     <p className="song-title">{result.correctTitle}</p>
                                     <p className="artist-name">{result.artistName}</p>
                                     <p className="album-name">{result.albumName}</p>
@@ -560,6 +562,7 @@ export default memo(function PlayGuessTrackGame({
                             ) : (
                                 <div className="result incorrect">
                                     <h3>Wrong or Time Up</h3>
+                                    {revealedCover && <img className="result-cover" src={revealedCover} alt={result.correctTitle} />}
                                     <p className="song-title">{result.correctTitle}</p>
                                     <p className="artist-name">{result.artistName}</p>
                                     <p className="album-name">{result.albumName}</p>

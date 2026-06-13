@@ -32,6 +32,17 @@ const buildWave = (artist: GameCatalogArtist) => {
 
 const pickRandom = <T,>(items: T[]) => items[Math.floor(Math.random() * items.length)]
 
+const buildDiscographyClue = (artist: GameCatalogArtist, releases: GameCatalogRelease[]) => {
+    const artistReleases = releases
+        .filter(release => release.artistId === artist.id)
+        .slice(0, 3)
+        .map(release => release.title)
+
+    if (artistReleases.length < 2) return null
+
+    return `Discography clue: ${artistReleases.join(' / ')}`
+}
+
 export default function SceneDecoderGame({ onBack }: { onBack: () => void }) {
     const { artists, releases, artistCount, loading } = useGameCatalog()
     const [questions, setQuestions] = useState<SceneQuestion[]>([])
@@ -108,6 +119,39 @@ export default function SceneDecoderGame({ onBack }: { onBack: () => void }) {
                 label: 'Release order',
             })
         }
+
+        const releaseOwnedArtists = artists.filter(artist =>
+            releases.some(release => release.artistId === artist.id)
+        )
+        for (let i = 0; i < Math.min(12, releaseOwnedArtists.length); i += 1) {
+            const artist = releaseOwnedArtists[i]
+            const clue = buildDiscographyClue(artist, releases)
+            if (!clue) continue
+            const options = shuffle([
+                artist.name,
+                ...shuffle(releaseOwnedArtists.filter(item => item.id !== artist.id).map(item => item.name)).slice(0, 3)
+            ])
+            nextQuestions.push({
+                prompt: clue,
+                answer: artist.name,
+                options,
+                label: 'Discography clue',
+            })
+        }
+
+        const ownershipPool = releases.filter(release => !!release.artistName).slice(0, 40)
+        ownershipPool.forEach(release => {
+            const options = shuffle([
+                release.artistName,
+                ...shuffle(artists.filter(item => item.id !== release.artistId).map(item => item.name)).slice(0, 3)
+            ])
+            nextQuestions.push({
+                prompt: `Who owns the release "${release.title}"?`,
+                answer: release.artistName,
+                options,
+                label: 'Release owner',
+            })
+        })
 
         setQuestions(shuffle(nextQuestions))
     }, [artists, releases])
@@ -191,9 +235,9 @@ export default function SceneDecoderGame({ onBack }: { onBack: () => void }) {
             leaderboard={
                 <div className="game-placeholder card">
                     <h3>Decoder Pool</h3>
-                    <p>{artistCount} artists loaded.</p>
-                    <p>{releases.length} releases available for chronology questions.</p>
-                    <p>Question types: city, fact, wave, chronology.</p>
+                    <p>{loading ? 'Loading verified artists...' : `${artistCount} artists loaded.`}</p>
+                    <p>{loading ? 'Loading release archive...' : `${releases.length} releases available for chronology questions.`}</p>
+                    <p>Question types: city, fact, wave, chronology, discography, release owner.</p>
                 </div>
             }
         >

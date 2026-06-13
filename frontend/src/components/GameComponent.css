@@ -398,9 +398,13 @@
 
 .arcade-guess-hero {
     display: grid;
-    grid-template-columns: 260px minmax(0, 1fr);
+    grid-template-columns: 1fr;
     gap: 1.25rem;
     align-items: center;
+}
+
+.arcade-guess-hero--revealed {
+    grid-template-columns: 260px minmax(0, 1fr);
 }
 
 .arcade-guess-hero.is-urgent .progress-fill {
@@ -417,15 +421,6 @@
     border-radius: 24px;
     object-fit: cover;
     background: rgba(255, 255, 255, 0.04);
-}
-
-.arcade-guess-cover--placeholder {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Fraunces', serif;
-    font-size: 4rem;
-    color: var(--text-muted);
 }
 
 .arcade-guess-hero-copy {

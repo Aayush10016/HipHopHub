@@ -36,11 +36,18 @@ type RoundResult = {
 
 type DifficultyMode = 'easy' | 'hard'
 
+const uniqueChallenges = lyricChallenges.filter((challenge, index, source) => {
+    const key = `${normalize(challenge.artistName)}::${normalize(challenge.songTitle)}::${normalize(challenge.prompt)}`
+    return source.findIndex(item =>
+        `${normalize(item.artistName)}::${normalize(item.songTitle)}::${normalize(item.prompt)}` === key
+    ) === index
+})
+
 export default function CompleteLyricGame({ onBack }: { onBack: () => void }) {
     const [user] = useState(() => getStoredUser())
-    const { artists, songs, loading } = useGameCatalog()
+    const { artists, songs, loading, artistCount, songCount } = useGameCatalog()
     const [difficultyMode, setDifficultyMode] = useState<DifficultyMode>('easy')
-    const [session, setSession] = useState(() => shuffle(lyricChallenges).slice(0, TOTAL_ROUNDS))
+    const [session, setSession] = useState(() => shuffle(uniqueChallenges).slice(0, TOTAL_ROUNDS))
     const [roundIndex, setRoundIndex] = useState(0)
     const [usedSongHint, setUsedSongHint] = useState(false)
     const [timeLeft, setTimeLeft] = useState(ROUND_TIME)
@@ -53,7 +60,7 @@ export default function CompleteLyricGame({ onBack }: { onBack: () => void }) {
     const [selectedChoice, setSelectedChoice] = useState<string | null>(null)
 
     const filteredChallenges = useMemo(() => {
-        return lyricChallenges.filter(challenge =>
+        return uniqueChallenges.filter(challenge =>
             difficultyMode === 'easy'
                 ? challenge.difficulty === 'easy'
                 : challenge.difficulty !== 'easy'
@@ -101,12 +108,15 @@ export default function CompleteLyricGame({ onBack }: { onBack: () => void }) {
         if (!current) return []
         const answer = current.answers[0]
         const distractors = shuffle(
-            lyricChallenges
+            filteredChallenges
                 .map(challenge => challenge.answers[0])
                 .filter(option => normalize(option) !== normalize(answer))
+                .filter((option, index, source) =>
+                    source.findIndex(item => normalize(item) === normalize(option)) === index
+                )
         ).slice(0, 3)
         return shuffle([answer, ...distractors])
-    }, [current])
+    }, [current, filteredChallenges])
 
     useEffect(() => {
         if (sessionDone || roundResult) return
@@ -192,7 +202,7 @@ export default function CompleteLyricGame({ onBack }: { onBack: () => void }) {
         return (
             <PlayGameFrame
                 title="Complete The Lyric"
-                subtitle="Session finished. Reset the board, chase a better combo, and clean up the misses."
+            subtitle="Session finished. Reset the board, chase a better combo, and clean up the misses."
                 onBack={onBack}
                 stats={[
                     { label: 'Final Score', value: score, tone: 'accent' },
@@ -229,7 +239,7 @@ export default function CompleteLyricGame({ onBack }: { onBack: () => void }) {
     return (
         <PlayGameFrame
             title="Complete The Lyric"
-            subtitle="Spotify-style lyric rounds with metadata, progress pressure, and multiple-choice blanks."
+            subtitle="Read the missing-line prompt, lock the phrase, then reveal the track after the answer lands."
             onBack={onBack}
             stats={[
                 { label: 'Score', value: score, tone: 'accent' },
@@ -238,20 +248,19 @@ export default function CompleteLyricGame({ onBack }: { onBack: () => void }) {
                 { label: 'Combo', value: `${comboMultiplier.toFixed(2)}x` },
             ]}
             hero={
-                <div className="lyric-hero">
-                    <div className="lyric-hero-media">
-                        {currentSongMeta?.coverUrl ? (
-                            <img src={currentSongMeta.coverUrl} alt={current.songTitle} className="lyric-cover-art" />
-                        ) : (
-                            <div className="lyric-cover-art lyric-cover-art--placeholder">Cover</div>
-                        )}
-                        {currentArtist?.id ? (
-                            <img src={`/api/images/artist/${currentArtist.id}`} alt={current.artistName} className="lyric-artist-avatar" />
-                        ) : (
-                            <div className="lyric-artist-avatar lyric-artist-avatar--placeholder">{current.artistName.charAt(0)}</div>
-                        )}
-                    </div>
-
+                <div className={`lyric-hero ${roundResult ? 'lyric-hero--revealed' : ''}`}>
+                    {roundResult && (
+                        <div className="lyric-hero-media">
+                            {currentSongMeta?.coverUrl ? (
+                                <img src={currentSongMeta.coverUrl} alt={current.songTitle} className="lyric-cover-art" />
+                            ) : (
+                                <div className="lyric-cover-art lyric-cover-art--placeholder">Lyric</div>
+                            )}
+                            {currentArtist?.id ? (
+                                <img src={`/api/images/artist/${currentArtist.id}`} alt={current.artistName} className="lyric-artist-avatar" />
+                            ) : null}
+                        </div>
+                    )}
                     <div className="lyric-hero-copy">
                         <div className="lyric-status-row">
                             <button
@@ -271,8 +280,14 @@ export default function CompleteLyricGame({ onBack }: { onBack: () => void }) {
                             <span className="lyric-chip">Round {roundIndex + 1}/{TOTAL_ROUNDS}</span>
                         </div>
 
-                        <h3>{current.songTitle}</h3>
-                        <p>{current.artistName}</p>
+                        <h3>{roundResult ? current.songTitle : 'Fill the missing word'}</h3>
+                        <p>
+                            {roundResult
+                                ? current.artistName
+                                : loading
+                                    ? 'Loading the verified lyric pool...'
+                                    : `Choose the phrase that completes the lyric correctly. ${artistCount} artists and ${songCount} playable tracks back the hint validation.`}
+                        </p>
 
                         <div className="lyric-timer-track">
                             <div className="lyric-timer-fill" style={{ width: `${(timeLeft / ROUND_TIME) * 100}%` }} />
@@ -285,24 +300,16 @@ export default function CompleteLyricGame({ onBack }: { onBack: () => void }) {
             <div className="lyric-game">
                 <div className="lyric-clue-box">
                     <div className="lyric-chip-row">
-                        <span className="lyric-chip">Artist hint: {current.artistName}</span>
-                        {usedSongHint ? (
-                            <span className="lyric-chip strong">Song hint active</span>
-                        ) : (
-                            <button type="button" className="lyric-hint-btn" onClick={() => setUsedSongHint(true)}>
-                                Unlock Song Hint
-                            </button>
-                        )}
+                        <span className="lyric-chip">{difficultyMode === 'easy' ? 'Popular cut' : 'Deep cut'}</span>
+                        <span className="lyric-chip">{filteredChallenges.length} verified lyric cards</span>
                     </div>
                     <div className="lyric-prompt">{current.prompt}</div>
-                    {usedSongHint && <p className="lyric-prompt-note">Song hint: {current.songTitle}</p>}
+                    {!roundResult && <p className="lyric-prompt-note">Only the lyric is shown before you answer.</p>}
                 </div>
 
                 {!roundResult ? (
                     <div className="lyric-options-grid">
-                        {loading ? (
-                            <p className="game-description">Loading song metadata...</p>
-                        ) : currentChoices.map(choice => (
+                        {currentChoices.map(choice => (
                             <button
                                 key={choice}
                                 type="button"

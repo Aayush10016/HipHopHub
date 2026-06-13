@@ -43,9 +43,13 @@
 
 .lyric-hero {
     display: grid;
-    grid-template-columns: 220px minmax(0, 1fr);
+    grid-template-columns: 1fr;
     gap: 1rem;
     align-items: center;
+}
+
+.lyric-hero--revealed {
+    grid-template-columns: 220px minmax(0, 1fr);
 }
 
 .lyric-hero-media {

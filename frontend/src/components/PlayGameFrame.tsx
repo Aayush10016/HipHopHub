@@ -16,6 +16,7 @@ interface PlayGameFrameProps {
     children: ReactNode
     footer?: ReactNode
     leaderboard?: ReactNode
+    leaderboardPlacement?: 'below' | 'side'
 }
 
 export default function PlayGameFrame({
@@ -27,6 +28,7 @@ export default function PlayGameFrame({
     children,
     footer,
     leaderboard,
+    leaderboardPlacement = 'below',
 }: PlayGameFrameProps) {
     return (
         <section className="play-game-frame">
@@ -54,14 +56,19 @@ export default function PlayGameFrame({
                 </div>
             </div>
 
-            <div className="play-game-frame__body">
+            <div className={`play-game-frame__body play-game-frame__body--${leaderboardPlacement}`}>
                 <div className="play-game-frame__main">
                     {hero && <div className="play-game-frame__hero">{hero}</div>}
                     <div className="play-game-frame__game-area">{children}</div>
                     {footer && <div className="play-game-frame__footer">{footer}</div>}
+                    {leaderboard && leaderboardPlacement === 'below' && (
+                        <div className="play-game-frame__leaderboard-below">
+                            {leaderboard}
+                        </div>
+                    )}
                 </div>
 
-                {leaderboard && (
+                {leaderboard && leaderboardPlacement === 'side' && (
                     <aside className="play-game-frame__side">
                         {leaderboard}
                     </aside>

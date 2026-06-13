@@ -16,7 +16,7 @@ const shuffle = <T,>(items: T[]) => {
 }
 
 export default function ArtistBlitzGame({ onBack }: { onBack: () => void }) {
-    const { artists, songs, artistCount, loading } = useGameCatalog()
+    const { artists, songs, artistCount, songCount, loading } = useGameCatalog()
     const [queue, setQueue] = useState<typeof songs>([])
     const [index, setIndex] = useState(0)
     const [score, setScore] = useState(0)
@@ -137,7 +137,8 @@ export default function ArtistBlitzGame({ onBack }: { onBack: () => void }) {
             leaderboard={
                 <div className="game-placeholder card">
                     <h3>Blitz Notes</h3>
-                    <p>{artistCount} verified artists are in rotation.</p>
+                    <p>{loading ? 'Loading verified artists...' : `${artistCount} verified artists are in rotation.`}</p>
+                    <p>{loading ? 'Loading track deck...' : `${songCount} playable tracks are available for the blitz deck.`}</p>
                     <p>Perfect round bonus: {perfectMisses === 0 ? 'Live' : 'Lost this run'}</p>
                     <p>Correct picks: {correctCount}</p>
                 </div>
@@ -146,7 +147,7 @@ export default function ArtistBlitzGame({ onBack }: { onBack: () => void }) {
             {!current || loading ? (
                 <div className="game-placeholder card">
                     <h3>Artist Blitz</h3>
-                    <p>Artist Blitz is syncing its full 75-artist pool.</p>
+                    <p>{loading ? 'Artist Blitz is syncing its full verified pool.' : 'No artist-blitz tracks are available right now.'}</p>
                 </div>
             ) : !sessionStarted || sessionOver ? (
                 <div className="blitz-launch">

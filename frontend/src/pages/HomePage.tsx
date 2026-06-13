@@ -173,7 +173,12 @@ export default function HomePage() {
     const [topSongPlayingId, setTopSongPlayingId] = useState<number | null>(null)
     const [topSongCurrentTime, setTopSongCurrentTime] = useState<Record<number, number>>({})
     const [artistImageErrorMap, setArtistImageErrorMap] = useState<Record<number, boolean>>({})
-    const { artistCount: gameArtistCount, songCount: gameSongCount, releaseCount: gameReleaseCount } = useGameCatalog()
+    const {
+        artistCount: gameArtistCount,
+        songCount: gameSongCount,
+        releaseCount: gameReleaseCount,
+        loading: gameCatalogLoading
+    } = useGameCatalog()
     const [selectedGame, setSelectedGame] = useState<'guess' | 'rapid' | 'lyric' | 'blitz' | 'decoder' | 'timeline'>('guess')
     const [gameView, setGameView] = useState<'hub' | 'active'>('hub')
     const [universeTransition, setUniverseTransition] = useState<UniverseTransitionState | null>(null)
@@ -875,7 +880,11 @@ export default function HomePage() {
                                 <div>
                                     <span className="section-kicker">Arcade</span>
                                     <h2 className="section-title">Play</h2>
-                                    <p className="game-description">Immersive game pages built from {gameArtistCount || 75} verified artists, {gameSongCount || 0} playable tracks, and {gameReleaseCount || 0} official releases.</p>
+                                    <p className="game-description">
+                                        {gameCatalogLoading
+                                            ? 'Loading the verified arcade pool...'
+                                            : `Immersive game pages built from ${gameArtistCount} verified artists, ${gameSongCount} playable tracks, and ${gameReleaseCount} official releases.`}
+                                    </p>
                                 </div>
                             </div>
 

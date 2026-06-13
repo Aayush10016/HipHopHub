@@ -52,6 +52,10 @@ export default function DhhTimelineGame({ onBack }: { onBack: () => void }) {
 
     const current = rounds[roundIndex]
     const over = roundIndex >= rounds.length || lives <= 0
+    const timelineEventCount = useMemo(
+        () => releases.filter(release => !!release.releaseDate).length,
+        [releases]
+    )
 
     const orderedPreview = useMemo(() => {
         if (!current) return []
@@ -113,7 +117,7 @@ export default function DhhTimelineGame({ onBack }: { onBack: () => void }) {
                 { label: 'Score', value: score, tone: 'accent' },
                 { label: 'Lives', value: lives, tone: lives <= 1 ? 'danger' : 'default' },
                 { label: 'Round', value: `${Math.min(roundIndex + 1, rounds.length)}/${Math.max(1, rounds.length)}` },
-                { label: 'Releases', value: releaseCount },
+                { label: 'Events', value: loading ? '...' : (timelineEventCount || releaseCount) },
             ]}
             leaderboard={
                 <div className="game-placeholder card">
@@ -127,7 +131,7 @@ export default function DhhTimelineGame({ onBack }: { onBack: () => void }) {
             {loading || !current ? (
                 <div className="game-placeholder card">
                     <h3>DHH Timeline</h3>
-                    <p>Loading the release archive...</p>
+                    <p>{loading ? 'Loading the release archive...' : 'Not enough dated releases are available for a timeline round yet.'}</p>
                 </div>
             ) : !started || over ? (
                 <div className="blitz-launch">
