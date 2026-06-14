@@ -80,6 +80,9 @@ public class GameController {
     private volatile Map<String, Object> cachedGameCatalog = Map.of();
     private volatile Instant cachedGameCatalogAt;
     private final Object gameCatalogLock = new Object();
+    private static final int MIN_READY_ARTIST_COUNT = 8;
+    private static final int MIN_READY_SONG_COUNT = 20;
+    private static final int MIN_READY_RELEASE_COUNT = 12;
 
     /**
      * GET /api/game/random-song
@@ -265,7 +268,7 @@ public class GameController {
         Instant now = Instant.now();
         if (cachedGameCatalogAt != null
                 && Duration.between(cachedGameCatalogAt, now).compareTo(GAME_CATALOG_TTL) < 0
-                && !cachedGameCatalog.isEmpty()) {
+                && isReadyCatalog(cachedGameCatalog)) {
             return cachedGameCatalog;
         }
 
@@ -273,7 +276,7 @@ public class GameController {
             now = Instant.now();
             if (cachedGameCatalogAt != null
                     && Duration.between(cachedGameCatalogAt, now).compareTo(GAME_CATALOG_TTL) < 0
-                    && !cachedGameCatalog.isEmpty()) {
+                    && isReadyCatalog(cachedGameCatalog)) {
                 return cachedGameCatalog;
             }
 
@@ -387,12 +390,48 @@ public class GameController {
             payload.put("artistCount", artistPayload.size());
             payload.put("songCount", songPayload.size());
             payload.put("releaseCount", releasePayload.size());
+            boolean ready = isReadyCatalog(artistPayload.size(), songPayload.size(), releasePayload.size());
+            payload.put("catalogReady", ready);
             log.info("Game catalog built: artists={}, playableSongs={}, releases={}",
                     artistPayload.size(), songPayload.size(), releasePayload.size());
 
-            cachedGameCatalog = payload;
-            cachedGameCatalogAt = now;
+            if (ready) {
+                cachedGameCatalog = payload;
+                cachedGameCatalogAt = now;
+            } else {
+                cachedGameCatalog = Map.of();
+                cachedGameCatalogAt = null;
+                log.warn("Game catalog is still provisional. It will not be cached yet. artists={}, songs={}, releases={}",
+                        artistPayload.size(), songPayload.size(), releasePayload.size());
+            }
             return payload;
+        }
+    }
+
+    private boolean isReadyCatalog(Map<String, Object> payload) {
+        if (payload == null || payload.isEmpty()) {
+            return false;
+        }
+        return isReadyCatalog(asInt(payload.get("artistCount")), asInt(payload.get("songCount")), asInt(payload.get("releaseCount")));
+    }
+
+    private boolean isReadyCatalog(int artistCount, int songCount, int releaseCount) {
+        return artistCount >= MIN_READY_ARTIST_COUNT
+                && songCount >= MIN_READY_SONG_COUNT
+                && releaseCount >= MIN_READY_RELEASE_COUNT;
+    }
+
+    private int asInt(Object value) {
+        if (value == null) {
+            return 0;
+        }
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        try {
+            return Integer.parseInt(value.toString());
+        } catch (NumberFormatException ignored) {
+            return 0;
         }
     }
 

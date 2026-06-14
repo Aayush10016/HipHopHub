@@ -3,7 +3,7 @@ import ArcadeLeaderboard from './ArcadeLeaderboard'
 import GuessTrackLeaderboard from './GuessTrackLeaderboard'
 import PlayGameFrame from './PlayGameFrame'
 import { useArcadeCatalog } from '../hooks/useArcadeCatalog'
-import type { ArcadePlayableTrack } from '../utils/gameCatalog'
+import type { ArcadePlayableTrack } from '../lib/gameCatalog'
 import './GameComponent.css'
 
 type Variant = 'guess' | 'rapid'
@@ -36,6 +36,7 @@ const shuffle = <T,>(items: T[]) => {
 }
 
 const trimText = (value: string) => value.trim()
+const difficultyLabel = (round: number) => (round <= 3 ? 'Easy' : round <= 7 ? 'Medium' : 'Hard')
 
 const saveRapidScore = async (userId: number, points: number, streak: number, rounds: number) => {
     await fetch('/api/arcade/score', {
@@ -45,7 +46,7 @@ const saveRapidScore = async (userId: number, points: number, streak: number, ro
             userId,
             mode: 'RAPID_FIRE',
             points,
-            metaLabel: `Best streak ${streak} · Round ${rounds}`,
+            metaLabel: `Best streak ${streak} - Round ${rounds}`,
         }),
     })
 }
@@ -206,7 +207,7 @@ function PlayGuessTrackGameComponent({ variant, onBack }: { variant: Variant; on
                 correct: !!payload.correct,
                 correctTitle: payload.correctTitle || currentTrack.title,
                 artistName: payload.artistName || currentTrack.artistName,
-                albumName: payload.albumName || currentTrack.albumTitle || 'Unknown release',
+                albumName: payload.albumName || currentTrack.albumTitle || 'Verified DHH release',
                 points: awarded,
             })
 
@@ -253,7 +254,6 @@ function PlayGuessTrackGameComponent({ variant, onBack }: { variant: Variant; on
         setCurrentTime(0)
         setTimeLeft(seconds)
         setSelectedMarker(seconds)
-        setSelectedMarker(null)
 
         try {
             setStarted(true)
@@ -262,7 +262,7 @@ function PlayGuessTrackGameComponent({ variant, onBack }: { variant: Variant; on
         } catch (error) {
             console.error('Marker playback failed', error)
         }
-    }, [currentTrack?.previewUrl, gameOver, isRapid, previewLimit, roundResult])
+    }, [currentTrack?.previewUrl, gameOver, isRapid, roundResult])
 
     const handleSubmit = useCallback((event: React.FormEvent) => {
         event.preventDefault()
@@ -288,6 +288,7 @@ function PlayGuessTrackGameComponent({ variant, onBack }: { variant: Variant; on
     }, [currentTrack?.youtubeUrl])
 
     const revealedCover = roundResult ? currentTrack?.coverArtUrl : null
+    const previewProgress = Math.max(0, Math.min(100, (currentTime / previewLimit) * 100))
 
     const hero = (
         <div className={`arcade-game-hero ${flashState ? `is-${flashState}` : ''}`}>
@@ -322,8 +323,13 @@ function PlayGuessTrackGameComponent({ variant, onBack }: { variant: Variant; on
                 {revealedCover ? (
                     <img src={revealedCover} alt={currentTrack?.title || 'Album cover'} className="arcade-game-cover" />
                 ) : (
-                    <div className="arcade-game-cover arcade-game-cover--hidden">
-                        <span>?</span>
+                    <div className="arcade-game-cover arcade-game-cover--placeholder" aria-hidden="true">
+                        <div className="arcade-game-cover__placeholder-card">
+                            <span>Artist hint</span>
+                            <strong>{currentTrack?.artistName || 'Loading artist'}</strong>
+                            <small>{difficultyLabel(round)} difficulty</small>
+                            <small>Round {round}</small>
+                        </div>
                     </div>
                 )}
             </div>
@@ -332,6 +338,7 @@ function PlayGuessTrackGameComponent({ variant, onBack }: { variant: Variant; on
                 <div className="arcade-game-chip-row">
                     <span className="arcade-game-chip">Artist hint: {currentTrack?.artistName || 'Loading artist'}</span>
                     <span className="arcade-game-chip">Round {round}</span>
+                    <span className="arcade-game-chip">{difficultyLabel(round)} difficulty</span>
                     {isRapid && <span className="arcade-game-chip">10s auto-next</span>}
                 </div>
 
@@ -339,12 +346,18 @@ function PlayGuessTrackGameComponent({ variant, onBack }: { variant: Variant; on
                 <p>
                     {loading
                         ? 'Preparing the verified track deck...'
-                        : `Loaded artists: ${catalog.artistCount.toLocaleString()} | Loaded tracks: ${catalog.songCount.toLocaleString()}`}
+                        : `${catalog.playableArtists.length.toLocaleString()} verified artists loaded - ${catalog.playableTracks.length.toLocaleString()} playable tracks ready`}
                 </p>
 
                 <div className="arcade-timeline">
+                    {!isRapid && (
+                        <div className="arcade-timeline__ticks" aria-hidden="true">
+                            {[0, ...PREVIEW_MARKERS].map(marker => (
+                                <span key={`tick-${marker}`}>{marker}s</span>
+                            ))}
+                        </div>
+                    )}
                     <div className={`arcade-timeline__bar ${isPlaying ? 'is-playing' : ''}`}>
-                        <div className="arcade-timeline__fill" style={{ width: `${(currentTime / previewLimit) * 100}%` }} />
                         {!isRapid && PREVIEW_MARKERS.map(marker => (
                             <button
                                 key={marker}
@@ -353,10 +366,10 @@ function PlayGuessTrackGameComponent({ variant, onBack }: { variant: Variant; on
                                 style={{ left: `${(marker / previewLimit) * 100}%` }}
                                 onClick={() => void jumpToMarker(marker)}
                                 disabled={marker > previewLimit || !!roundResult}
-                            >
-                                <span>{marker}s</span>
-                            </button>
+                                aria-label={`Jump to ${marker} seconds`}
+                            />
                         ))}
+                        <div className="arcade-timeline__fill" style={{ width: `${previewProgress}%` }} />
                     </div>
                     <div className="arcade-timeline__legend">
                         <span>{currentTime.toFixed(1)}s</span>
@@ -412,7 +425,12 @@ function PlayGuessTrackGameComponent({ variant, onBack }: { variant: Variant; on
             ) : null}
             leaderboard={isRapid ? <ArcadeLeaderboard mode="RAPID_FIRE" title="Rapid Fire Leaderboard" /> : <GuessTrackLeaderboard />}
         >
-            {gameOver ? (
+            {trackDeck.length === 0 ? (
+                <div className="arcade-result-card arcade-result-card--summary">
+                    <h4>No playable tracks yet</h4>
+                    <p>The arcade is waiting for preview-enabled tracks from the live catalog.</p>
+                </div>
+            ) : gameOver ? (
                 <div className="arcade-result-card arcade-result-card--summary">
                     <h4>{isRapid ? 'Rapid Fire finished' : 'Run finished'}</h4>
                     <p>Final score: {score.toLocaleString()}</p>
@@ -474,7 +492,3 @@ function PlayGuessTrackGameComponent({ variant, onBack }: { variant: Variant; on
 }
 
 export default memo(PlayGuessTrackGameComponent)
-
-
-
-

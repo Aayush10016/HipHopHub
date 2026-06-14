@@ -1,7 +1,7 @@
 import { memo, useMemo, useState } from 'react'
 import PlayGameFrame from './PlayGameFrame'
 import { useArcadeCatalog } from '../hooks/useArcadeCatalog'
-import type { ArcadeConnectionPuzzle } from '../utils/gameCatalog'
+import type { ArcadeConnectionPuzzle } from '../lib/gameCatalog'
 
 function DhhConnectionsGameComponent({ onBack }: { onBack: () => void }) {
     const { loading, catalog } = useArcadeCatalog()

@@ -96,14 +96,41 @@
     box-shadow: 0 18px 36px rgba(8, 14, 24, 0.38);
 }
 
-.arcade-game-cover--hidden {
+.arcade-game-cover--placeholder {
     display: flex;
     align-items: center;
     justify-content: center;
     background: linear-gradient(135deg, #162235 0%, #0d1727 100%);
+    padding: 22px;
+}
+
+.arcade-game-cover__placeholder-card {
+    width: 100%;
+    height: 100%;
+    border-radius: 20px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 8px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
+        radial-gradient(circle at top left, rgba(232, 220, 199, 0.24), transparent 52%),
+        radial-gradient(circle at bottom right, rgba(142, 163, 181, 0.26), transparent 58%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.arcade-game-cover__placeholder-card span,
+.arcade-game-cover__placeholder-card small {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.arcade-game-cover__placeholder-card strong {
     color: var(--text-primary);
-    font-size: 88px;
-    font-weight: 800;
+    font-size: 1.5rem;
+    line-height: 1.1;
 }
 
 .arcade-game-hero__copy {
@@ -148,12 +175,25 @@
 .arcade-timeline {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
+}
+
+.arcade-timeline__ticks {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 8px;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.arcade-timeline__ticks span {
+    text-align: center;
 }
 
 .arcade-timeline__bar {
     position: relative;
-    height: 12px;
+    height: 10px;
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.08);
     overflow: visible;
@@ -182,25 +222,14 @@
 .arcade-timeline__marker,
 .time-marker {
     position: absolute;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    width: 1px;
-    height: 28px;
+    top: -10px;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 22px;
     background: rgba(255, 255, 255, 0.18);
     border: none;
     padding: 0;
-}
-
-.arcade-timeline__marker span,
-.marker-label {
-    position: absolute;
-    top: -26px;
-    left: 50%;
-    transform: translateX(-50%);
-    color: var(--text-muted);
-    font-size: 11px;
-    font-weight: 700;
-    white-space: nowrap;
+    border-radius: 999px;
 }
 
 .arcade-timeline__marker.active,
@@ -450,11 +479,19 @@
     gap: 16px;
 }
 
+.lyric-game--minimal {
+    gap: 24px;
+}
+
 .lyric-hero {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 200px;
     gap: 24px;
     align-items: center;
+}
+
+.lyric-hero--single-column {
+    grid-template-columns: minmax(0, 1fr);
 }
 
 .lyric-hero-copy {
@@ -502,20 +539,16 @@
     transition: width 1s linear;
 }
 
-.lyric-clue-box {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding: 20px;
-    border-radius: 24px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
 .lyric-prompt {
     font-size: clamp(1.8rem, 4vw, 2.7rem);
     font-weight: 800;
     letter-spacing: -0.04em;
+}
+
+.lyric-prompt-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
 
 .lyric-prompt-note {

@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useGameCatalog } from './useGameCatalog'
-import { buildArcadeCatalog } from '../utils/gameCatalog'
+import { buildArcadeCatalog } from '../lib/gameCatalog'
 
 export function useArcadeCatalog() {
     const raw = useGameCatalog()
@@ -12,7 +12,8 @@ export function useArcadeCatalog() {
         artistCount: raw.artistCount,
         songCount: raw.songCount,
         releaseCount: raw.releaseCount,
-    }), [raw.artistCount, raw.artists, raw.releaseCount, raw.releases, raw.songCount, raw.songs])
+        catalogReady: raw.catalogReady,
+    }), [raw.artistCount, raw.artists, raw.catalogReady, raw.releaseCount, raw.releases, raw.songCount, raw.songs])
 
     return {
         ...raw,

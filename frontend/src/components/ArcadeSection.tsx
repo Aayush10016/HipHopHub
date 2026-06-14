@@ -6,7 +6,7 @@ import DhhTimelineGame from './DhhTimelineGame'
 import PlayGuessTrackGame from './PlayGuessTrackGame'
 import SceneDecoderGame from './SceneDecoderGame'
 import { useArcadeCatalog } from '../hooks/useArcadeCatalog'
-import { buildCatalogSummary } from '../utils/gameCatalog'
+import { buildCatalogSummary } from '../lib/gameCatalog'
 import './ArcadeSection.css'
 
 type GameMode = 'guess' | 'rapid' | 'lyric' | 'blitz' | 'decoder' | 'timeline' | 'connections'
@@ -16,25 +16,25 @@ const MODE_COPY: Record<GameMode, { kicker: string; title: string; description: 
         kicker: 'Flagship',
         title: 'Guess The Track',
         description: 'Recognize DHH songs from preview snippets, push your streak, and chase leaderboard points.',
-        intensity: '30s preview · sticky leaderboard',
+        intensity: '30s preview - sticky leaderboard',
     },
     rapid: {
         kicker: 'Pressure',
         title: 'Rapid Fire',
         description: 'Ten-second rounds, auto-advance pacing, and combo scoring built for fast replay loops.',
-        intensity: '10s rounds · survival mode',
+        intensity: '10s rounds - survival mode',
     },
     lyric: {
         kicker: 'Lyric bank',
         title: 'Guess The Lyric',
         description: 'Complete missing words without metadata leaks, then reveal the song only after you answer.',
-        intensity: '8-round session · combo XP',
+        intensity: '8-round session - combo XP',
     },
     blitz: {
         kicker: 'Sprint',
         title: 'Artist Blitz',
         description: 'Run through cover, city, collaborator, year, and album prompts in a one-minute burst.',
-        intensity: '60s sprint · mixed prompts',
+        intensity: '60s sprint - mixed prompts',
     },
     decoder: {
         kicker: 'Culture quiz',
@@ -97,9 +97,7 @@ function ArcadeSectionComponent() {
                     <p className="game-description arcade-section__description">
                         {loading
                             ? 'Preparing the verified DHH arcade deck...'
-                            : error
-                                ? 'Arcade data is loading again. Open any mode to keep exploring.'
-                                : `The flagship HipHopHub experience now runs on ${summary.artistText} artists, ${summary.songText} playable tracks, and ${summary.releaseText} official releases.`}
+                            : `The flagship HipHopHub experience now runs on ${summary.artistText} artists, ${summary.songText} playable tracks, ${summary.lyricText} lyric rounds, and ${summary.releaseText} official releases.${error ? ' Some live calls may still be recovering.' : ''}`}
                     </p>
                 </div>
                 <div className="arcade-section__stats" aria-label="Arcade catalog stats">

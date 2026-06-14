@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useState } from 'react'
 import PlayGameFrame from './PlayGameFrame'
 import { useArcadeCatalog } from '../hooks/useArcadeCatalog'
-import type { ArcadeArtistQuestion } from '../utils/gameCatalog'
+import type { ArcadeArtistQuestion } from '../lib/gameCatalog'
 
 const SESSION_TIME = 60
 const ROUND_TIME = 10

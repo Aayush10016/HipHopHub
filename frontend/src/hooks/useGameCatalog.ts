@@ -1,50 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-
-export interface GameCatalogArtist {
-    id: number
-    name: string
-    genre?: string
-    bio?: string
-    imageUrl?: string
-    city?: string
-    facts: string[]
-    releaseYears: number[]
-    releaseCount: number
-    songCount: number
-}
-
-export interface GameCatalogSong {
-    id: number
-    title: string
-    artistId: number
-    artistName: string
-    previewUrl?: string
-    coverUrl?: string
-    youtubeUrl?: string
-    releaseDate?: string
-    albumTitle?: string
-    albumType?: string
-}
-
-export interface GameCatalogRelease {
-    id: number
-    title: string
-    artistId: number
-    artistName: string
-    releaseDate?: string
-    type?: string
-    coverUrl?: string
-    youtubeUrl?: string
-}
-
-interface GameCatalogResponse {
-    artists: GameCatalogArtist[]
-    songs: GameCatalogSong[]
-    releases: GameCatalogRelease[]
-    artistCount: number
-    songCount: number
-    releaseCount: number
-}
+import type { GameCatalogArtist, GameCatalogRelease, GameCatalogResponse, GameCatalogSong } from '../lib/gameCatalog'
 
 let catalogPromise: Promise<GameCatalogResponse> | null = null
 let catalogCache: GameCatalogResponse | null = null
@@ -56,9 +11,17 @@ const emptyCatalog: GameCatalogResponse = {
     artistCount: 0,
     songCount: 0,
     releaseCount: 0,
+    catalogReady: false,
 }
 
+const RETRY_DELAYS_MS = [800, 1500, 2500, 4000]
+
 const coerceArray = <T,>(value: unknown) => Array.isArray(value) ? value as T[] : []
+
+const isCatalogReady = (payload: GameCatalogResponse) => {
+    if (payload.catalogReady === false) return false
+    return payload.artistCount > 0 && payload.songCount > 0 && payload.releaseCount > 0
+}
 
 const fetchCatalog = async (): Promise<GameCatalogResponse> => {
     const response = await fetch('/api/game/catalog')
@@ -78,35 +41,48 @@ const fetchCatalog = async (): Promise<GameCatalogResponse> => {
         artistCount: Number(payload?.artistCount || artists.length || 0),
         songCount: Number(payload?.songCount || songs.length || 0),
         releaseCount: Number(payload?.releaseCount || releases.length || 0),
+        catalogReady: Boolean(payload?.catalogReady ?? (artists.length > 0 && songs.length > 0 && releases.length > 0)),
     }
+}
+
+const getCatalogPromise = () => {
+    if (!catalogPromise) {
+        catalogPromise = fetchCatalog().finally(() => {
+            catalogPromise = null
+        })
+    }
+    return catalogPromise
 }
 
 export function useGameCatalog() {
     const [data, setData] = useState<GameCatalogResponse>(catalogCache || emptyCatalog)
-    const [loading, setLoading] = useState(!catalogCache)
+    const [loading, setLoading] = useState(!catalogCache || !isCatalogReady(catalogCache))
     const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
         let cancelled = false
+        let retryTimer: number | null = null
+        let attempt = 0
 
-        if (catalogCache) {
-            setLoading(false)
-            return
+        const clearRetry = () => {
+            if (retryTimer !== null) {
+                window.clearTimeout(retryTimer)
+                retryTimer = null
+            }
         }
 
-        if (!catalogPromise) {
-            catalogPromise = fetchCatalog()
-                .then(payload => {
-                    catalogCache = payload
-                    return payload
-                })
-                .finally(() => {
-                    catalogPromise = null
-                })
+        const scheduleRetry = () => {
+            clearRetry()
+            const delay = RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)]
+            retryTimer = window.setTimeout(() => {
+                attempt += 1
+                void loadCatalog()
+            }, delay)
         }
 
-        catalogPromise
-            .then(payload => {
+        const loadCatalog = async () => {
+            try {
+                const payload = await getCatalogPromise()
                 if (cancelled) return
 
                 console.info(`Loaded artists: ${payload.artistCount}`)
@@ -115,25 +91,45 @@ export function useGameCatalog() {
                     artists: payload.artistCount,
                     tracks: payload.songCount,
                     releases: payload.releaseCount,
+                    ready: payload.catalogReady,
                 })
 
-                if (payload.artistCount === 0 || payload.songCount === 0) {
-                    console.warn('Arcade catalog returned an unexpectedly small pool.', payload)
+                setData(payload)
+
+                if (isCatalogReady(payload)) {
+                    catalogCache = payload
+                    setLoading(false)
+                    setError(null)
+                    return
                 }
 
-                setData(payload)
-                setLoading(false)
-            })
-            .catch(err => {
+                console.warn('Arcade catalog is still provisional. Retrying until the live catalog is ready.', payload)
+                setLoading(true)
+                setError(null)
+                scheduleRetry()
+            } catch (err) {
                 console.error('Failed to load game catalog:', err)
-                if (!cancelled) {
-                    setError('Could not load the arcade catalog.')
-                    setLoading(false)
-                }
-            })
+                if (cancelled) return
+                setError('Could not load the arcade catalog.')
+                setLoading(false)
+            }
+        }
+
+        if (catalogCache && isCatalogReady(catalogCache)) {
+            setData(catalogCache)
+            setLoading(false)
+            return () => {
+                cancelled = true
+                clearRetry()
+            }
+        }
+
+        setLoading(true)
+        void loadCatalog()
 
         return () => {
             cancelled = true
+            clearRetry()
         }
     }, [])
 

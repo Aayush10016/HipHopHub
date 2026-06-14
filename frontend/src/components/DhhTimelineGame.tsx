@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useState } from 'react'
 import PlayGameFrame from './PlayGameFrame'
 import { useArcadeCatalog } from '../hooks/useArcadeCatalog'
-import type { ArcadeTimelineEvent } from '../utils/gameCatalog'
+import type { ArcadeTimelineEvent } from '../lib/gameCatalog'
 
 const TOTAL_ROUNDS = 6
 const LIVES = 3
