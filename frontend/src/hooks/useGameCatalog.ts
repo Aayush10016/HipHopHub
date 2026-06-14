@@ -103,6 +103,10 @@ export function useGameCatalog() {
                 if (!cancelled) {
                     console.info(`Loaded artists: ${payload.artistCount}`)
                     console.info(`Loaded tracks: ${payload.songCount}`)
+                    console.log({
+                        artists: payload.artistCount,
+                        tracks: payload.songCount,
+                    })
                     setData(payload)
                     setLoading(false)
                 }

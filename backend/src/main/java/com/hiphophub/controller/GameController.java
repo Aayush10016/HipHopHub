@@ -566,8 +566,19 @@ public class GameController {
      * Get global leaderboard
      */
     @GetMapping("/leaderboard")
-    public List<Map<String, Object>> getGlobalLeaderboard() {
-        List<Object[]> results = gameScoreRepository.getGlobalLeaderboard();
+    public List<Map<String, Object>> getGlobalLeaderboard(
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "global") String scope,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) Long userId) {
+        List<Object[]> results;
+
+        if ("weekly".equalsIgnoreCase(scope)) {
+            results = gameScoreRepository.getWeeklyLeaderboard(LocalDateTime.now().minusDays(7));
+        } else if ("friends".equalsIgnoreCase(scope) && userId != null) {
+            results = gameScoreRepository.getUserLeaderboard(userId);
+        } else {
+            results = gameScoreRepository.getGlobalLeaderboard();
+        }
+
         return results.stream()
                 .limit(100)
                 .map(row -> {

@@ -28,7 +28,7 @@ export default function PlayGameFrame({
     children,
     footer,
     leaderboard,
-    leaderboardPlacement = 'below',
+    leaderboardPlacement = 'side',
 }: PlayGameFrameProps) {
     return (
         <section className="play-game-frame">
@@ -44,25 +44,33 @@ export default function PlayGameFrame({
                 </div>
             </div>
 
-            <div className={`play-game-frame__surface game-component play-game-frame__body--${leaderboardPlacement}`}>
-                <div className="play-game-frame__stats">
-                    {stats.map(stat => (
-                        <div
-                            key={stat.label}
-                            className={`play-game-frame__stat play-game-frame__stat--${stat.tone || 'default'}`}
-                        >
-                            <span>{stat.label}</span>
-                            <strong>{stat.value}</strong>
-                        </div>
-                    ))}
+            <div className={`play-game-frame__body play-game-frame__body--${leaderboardPlacement}`}>
+                <div className="play-game-frame__surface game-component">
+                    <div className="play-game-frame__stats">
+                        {stats.map(stat => (
+                            <div
+                                key={stat.label}
+                                className={`play-game-frame__stat play-game-frame__stat--${stat.tone || 'default'}`}
+                            >
+                                <span>{stat.label}</span>
+                                <strong>{stat.value}</strong>
+                            </div>
+                        ))}
+                    </div>
+
+                    {footer && <div className="play-game-frame__footer">{footer}</div>}
+                    {hero && <div className="play-game-frame__hero">{hero}</div>}
+                    <div className="play-game-frame__game-area">{children}</div>
                 </div>
 
-                {footer && <div className="play-game-frame__footer">{footer}</div>}
-                {hero && <div className="play-game-frame__hero">{hero}</div>}
-                <div className="play-game-frame__game-area">{children}</div>
+                {leaderboard && leaderboardPlacement === 'side' && (
+                    <aside className="play-game-frame__leaderboard-side">
+                        {leaderboard}
+                    </aside>
+                )}
             </div>
 
-            {leaderboard && (
+            {leaderboard && leaderboardPlacement === 'below' && (
                 <div className="play-game-frame__leaderboard-below">
                     {leaderboard}
                 </div>

@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -26,6 +27,20 @@ public interface GameScoreRepository extends JpaRepository<GameScore, Long> {
             "GROUP BY gs.user.id, gs.user.username " +
             "ORDER BY totalPoints DESC")
     List<Object[]> getGlobalLeaderboard();
+
+    @Query("SELECT gs.user.id, gs.user.username, SUM(gs.points) as totalPoints " +
+            "FROM GameScore gs " +
+            "WHERE gs.playedAt >= :since " +
+            "GROUP BY gs.user.id, gs.user.username " +
+            "ORDER BY totalPoints DESC")
+    List<Object[]> getWeeklyLeaderboard(LocalDateTime since);
+
+    @Query("SELECT gs.user.id, gs.user.username, SUM(gs.points) as totalPoints " +
+            "FROM GameScore gs " +
+            "WHERE gs.user.id = :userId " +
+            "GROUP BY gs.user.id, gs.user.username " +
+            "ORDER BY totalPoints DESC")
+    List<Object[]> getUserLeaderboard(Long userId);
 
     /**
      * Get artist-specific leaderboard

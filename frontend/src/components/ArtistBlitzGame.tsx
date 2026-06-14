@@ -1,10 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
 import PlayGameFrame from './PlayGameFrame'
-import { useGameCatalog } from '../hooks/useGameCatalog'
+import { useGameCatalog, type GameCatalogArtist, type GameCatalogSong } from '../hooks/useGameCatalog'
 
 const SESSION_TIME = 60
 const ROUND_DELAY_MS = 900
 const ROUND_TIME = 6
+
+type BlitzQuestion = {
+    key: string
+    prompt: string
+    answer: string
+    options: string[]
+    label: string
+    mediaType?: 'cover'
+    mediaUrl?: string
+    mediaAlt?: string
+}
 
 const shuffle = <T,>(items: T[]) => {
     const copy = [...items]
@@ -15,9 +26,12 @@ const shuffle = <T,>(items: T[]) => {
     return copy
 }
 
+const uniqueOptions = (options: string[]) =>
+    options.filter((option, index, source) => source.indexOf(option) === index)
+
 export default function ArtistBlitzGame({ onBack }: { onBack: () => void }) {
     const { artists, songs, artistCount, songCount, loading } = useGameCatalog()
-    const [queue, setQueue] = useState<typeof songs>([])
+    const [queue, setQueue] = useState<BlitzQuestion[]>([])
     const [index, setIndex] = useState(0)
     const [score, setScore] = useState(0)
     const [totalTimeLeft, setTotalTimeLeft] = useState(SESSION_TIME)
@@ -30,24 +44,126 @@ export default function ArtistBlitzGame({ onBack }: { onBack: () => void }) {
     const [perfectMisses, setPerfectMisses] = useState(0)
     const [scoreBurst, setScoreBurst] = useState<number | null>(null)
 
+    const questionPool = useMemo(() => {
+        const artistNamePool = artists.map(artist => artist.name)
+        const questions: BlitzQuestion[] = []
+
+        songs
+            .filter(song => !!song.coverUrl)
+            .slice(0, 30)
+            .forEach(song => {
+                const options = uniqueOptions(shuffle([
+                    song.artistName,
+                    ...shuffle(artistNamePool.filter(name => name !== song.artistName)).slice(0, 3)
+                ]))
+                if (options.length === 4) {
+                    questions.push({
+                        key: `cover-${song.id}`,
+                        prompt: `Who owns the artwork for "${song.title}"?`,
+                        answer: song.artistName,
+                        options,
+                        label: 'Album image',
+                        mediaType: 'cover',
+                        mediaUrl: song.coverUrl,
+                        mediaAlt: song.title,
+                    })
+                }
+            })
+
+        artists
+            .filter(artist => !!artist.city)
+            .slice(0, 24)
+            .forEach(artist => {
+                const options = uniqueOptions(shuffle([
+                    artist.name,
+                    ...shuffle(artistNamePool.filter(name => name !== artist.name)).slice(0, 3)
+                ]))
+                if (options.length === 4) {
+                    questions.push({
+                        key: `city-${artist.id}`,
+                        prompt: `Which artist is most associated with ${artist.city}?`,
+                        answer: artist.name,
+                        options,
+                        label: 'City',
+                    })
+                }
+            })
+
+        songs
+            .filter(song => !!song.releaseDate)
+            .slice(0, 24)
+            .forEach(song => {
+                const year = song.releaseDate?.slice(0, 4)
+                if (!year) return
+                const options = uniqueOptions(shuffle([
+                    year,
+                    ...shuffle(songs
+                        .map(item => item.releaseDate?.slice(0, 4))
+                        .filter((item): item is string => !!item && item !== year))
+                        .slice(0, 3)
+                ]))
+                if (options.length === 4) {
+                    questions.push({
+                        key: `year-${song.id}`,
+                        prompt: `Which year did "${song.title}" release?`,
+                        answer: year,
+                        options,
+                        label: 'Release year',
+                    })
+                }
+            })
+
+        songs
+            .filter(song => song.albumType === 'APPEARS_ON')
+            .slice(0, 24)
+            .forEach(song => {
+                const options = uniqueOptions(shuffle([
+                    song.artistName,
+                    ...shuffle(artistNamePool.filter(name => name !== song.artistName)).slice(0, 3)
+                ]))
+                if (options.length === 4) {
+                    questions.push({
+                        key: `feature-${song.id}`,
+                        prompt: `Who is credited on the collaboration "${song.title}"?`,
+                        answer: song.artistName,
+                        options,
+                        label: 'Collaborator',
+                        mediaType: song.coverUrl ? 'cover' : undefined,
+                        mediaUrl: song.coverUrl,
+                        mediaAlt: song.title,
+                    })
+                }
+            })
+
+        songs
+            .slice(0, 24)
+            .forEach(song => {
+                const options = uniqueOptions(shuffle([
+                    song.artistName,
+                    ...shuffle(artistNamePool.filter(name => name !== song.artistName)).slice(0, 3)
+                ]))
+                if (options.length === 4) {
+                    questions.push({
+                        key: `title-${song.id}`,
+                        prompt: `Which artist recorded "${song.title}"?`,
+                        answer: song.artistName,
+                        options,
+                        label: 'Track title',
+                    })
+                }
+            })
+
+        return shuffle(questions)
+    }, [artists, songs])
+
     useEffect(() => {
-        if (songs.length > 0) {
-            setQueue(shuffle(songs).slice(0, Math.min(40, songs.length)))
+        if (questionPool.length > 0) {
+            setQueue(questionPool.slice(0, Math.min(45, questionPool.length)))
         }
-    }, [songs])
+    }, [questionPool])
 
     const current = queue[index % Math.max(1, queue.length)]
     const sessionOver = totalTimeLeft <= 0
-
-    const options = useMemo(() => {
-        if (!current) return []
-        const pool = shuffle(
-            artists
-                .map(artist => artist.name)
-                .filter(name => name !== current.artistName)
-        ).slice(0, 3)
-        return shuffle([current.artistName, ...pool])
-    }, [artists, current])
 
     useEffect(() => {
         if (!sessionStarted || sessionOver) return
@@ -64,7 +180,7 @@ export default function ArtistBlitzGame({ onBack }: { onBack: () => void }) {
             setRoundTimeLeft(prev => {
                 if (prev <= 1) {
                     window.clearInterval(timer)
-                    setStatus(`Time up. Correct artist: ${current.artistName}`)
+                    setStatus(`Time up. Correct answer: ${current.answer}`)
                     setSelectedAnswer('__timeout__')
                     setCombo(0)
                     setPerfectMisses(prevMisses => prevMisses + 1)
@@ -100,13 +216,13 @@ export default function ArtistBlitzGame({ onBack }: { onBack: () => void }) {
         setCombo(0)
         setPerfectMisses(0)
         setScoreBurst(null)
-        setQueue(shuffle(songs).slice(0, Math.min(40, songs.length)))
+        setQueue(shuffle(questionPool).slice(0, Math.min(45, questionPool.length)))
     }
 
     const choose = (answer: string) => {
         if (!current || selectedAnswer || !sessionStarted || sessionOver) return
         setSelectedAnswer(answer)
-        if (answer === current.artistName) {
+        if (answer === current.answer) {
             const roundPoints = Math.round(100 + (roundTimeLeft * 12) + (combo * 20))
             setScore(prev => prev + roundPoints)
             setScoreBurst(roundPoints)
@@ -114,19 +230,18 @@ export default function ArtistBlitzGame({ onBack }: { onBack: () => void }) {
             setCombo(prev => prev + 1)
             setStatus('Correct pick.')
         } else {
-            setStatus(`Wrong pick. Correct artist: ${current.artistName}`)
+            setStatus(`Wrong pick. Correct answer: ${current.answer}`)
             setCombo(0)
             setPerfectMisses(prev => prev + 1)
         }
     }
 
     const perfectBonus = sessionOver && correctCount > 0 && perfectMisses === 0 ? 400 : 0
-    const cover = current?.coverUrl
 
     return (
         <PlayGameFrame
             title="Artist Blitz"
-            subtitle="One-minute recognition sprint across the full artist pool. Faster rounds, rising combos, and perfect-run bonus pressure."
+            subtitle="One-minute recognition sprint across artwork, city cues, feature credits, release years, and title ownership."
             onBack={onBack}
             stats={[
                 { label: 'Score', value: score + perfectBonus, tone: 'accent' },
@@ -139,7 +254,7 @@ export default function ArtistBlitzGame({ onBack }: { onBack: () => void }) {
                     <h3>Blitz Notes</h3>
                     <p>{loading ? 'Loading verified artists...' : `${artistCount} verified artists are in rotation.`}</p>
                     <p>{loading ? 'Loading track deck...' : `${songCount} playable tracks are available for the blitz deck.`}</p>
-                    <p>Perfect round bonus: {perfectMisses === 0 ? 'Live' : 'Lost this run'}</p>
+                    <p>Question pool: artwork, city, collaborator, year, title.</p>
                     <p>Correct picks: {correctCount}</p>
                 </div>
             }
@@ -147,7 +262,7 @@ export default function ArtistBlitzGame({ onBack }: { onBack: () => void }) {
             {!current || loading ? (
                 <div className="game-placeholder card">
                     <h3>Artist Blitz</h3>
-                    <p>{loading ? 'Artist Blitz is syncing its full verified pool.' : 'No artist-blitz tracks are available right now.'}</p>
+                    <p>{loading ? 'Artist Blitz is syncing its full verified pool.' : 'No artist-blitz questions are available right now.'}</p>
                 </div>
             ) : !sessionStarted || sessionOver ? (
                 <div className="blitz-launch">
@@ -159,15 +274,18 @@ export default function ArtistBlitzGame({ onBack }: { onBack: () => void }) {
                 </div>
             ) : (
                 <>
-                    <div className="blitz-cover">
-                        {cover ? <img src={cover} alt={current.title} /> : <div className="album-cover-placeholder">Cover</div>}
-                    </div>
-                    <div className="blitz-title">{current.title}</div>
+                    {current.mediaType === 'cover' && current.mediaUrl && (
+                        <div className="blitz-cover">
+                            <img src={current.mediaUrl} alt={current.mediaAlt || current.prompt} />
+                        </div>
+                    )}
+                    <div className="lyric-chip strong">{current.label}</div>
+                    <div className="blitz-title">{current.prompt}</div>
                     {scoreBurst && <div className="points-earned">+{scoreBurst}</div>}
                     <div className="blitz-options">
-                        {options.map(option => (
+                        {current.options.map(option => (
                             <button
-                                key={option}
+                                key={`${current.key}-${option}`}
                                 type="button"
                                 className={`blitz-option ${selectedAnswer === option ? 'active' : ''}`}
                                 onClick={() => choose(option)}

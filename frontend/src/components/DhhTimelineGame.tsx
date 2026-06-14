@@ -142,7 +142,7 @@ export default function DhhTimelineGame({ onBack }: { onBack: () => void }) {
     return (
         <PlayGameFrame
             title="DHH Timeline"
-            subtitle="Replace cover-guessing with release chronology. Click the events in the order they happened."
+            subtitle="Arrange official DHH releases chronologically with drag-and-drop slots and replayable four-event rounds."
             onBack={onBack}
             stats={[
                 { label: 'Score', value: score, tone: 'accent' },

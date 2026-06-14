@@ -183,10 +183,10 @@ export default function SceneDecoderGame({ onBack }: { onBack: () => void }) {
                 ...shuffle(artists.filter(item => item.id !== release.artistId).map(item => item.name)).slice(0, 3)
             ])
             nextQuestions.push({
-                prompt: `Who owns the release "${release.title}"?`,
+                prompt: `Who is credited on "${release.title}"?`,
                 answer: release.artistName,
                 options,
-                label: 'Release owner',
+                label: release.type === 'APPEARS_ON' ? 'Collaborator credit' : 'Release owner',
             })
         })
 

@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -61,9 +62,22 @@ public class ArcadeScoreController {
     }
 
     @GetMapping("/leaderboard")
-    public List<Map<String, Object>> getLeaderboard(@RequestParam String mode) {
+    public List<Map<String, Object>> getLeaderboard(
+            @RequestParam String mode,
+            @RequestParam(defaultValue = "global") String scope,
+            @RequestParam(required = false) Long userId) {
         ArcadeScore.Mode parsedMode = ArcadeScore.Mode.valueOf(mode.trim().toUpperCase());
-        return arcadeScoreRepository.getModeLeaderboard(parsedMode).stream()
+        List<Object[]> rows;
+
+        if ("weekly".equalsIgnoreCase(scope)) {
+            rows = arcadeScoreRepository.getModeLeaderboardSince(parsedMode, LocalDateTime.now().minusDays(7));
+        } else if ("friends".equalsIgnoreCase(scope) && userId != null) {
+            rows = arcadeScoreRepository.getModeLeaderboardForUser(parsedMode, userId);
+        } else {
+            rows = arcadeScoreRepository.getModeLeaderboard(parsedMode);
+        }
+
+        return rows.stream()
                 .limit(20)
                 .map(row -> {
                     Map<String, Object> entry = new HashMap<>();

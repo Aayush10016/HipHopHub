@@ -162,6 +162,13 @@ export default memo(function PlayGuessTrackGame({
     }, [cacheKey, fetchGameSong])
 
     const loadNewSong = useCallback(async () => {
+        if (catalogLoading) return
+        if (songCount <= 0) {
+            setCurrentSong(null)
+            setMessage('Game catalog is still syncing. No playable tracks available yet.')
+            return
+        }
+
         resetAudio()
         setGuess('')
         setResult(null)
@@ -196,17 +203,19 @@ export default memo(function PlayGuessTrackGame({
         } finally {
             setLoadingSong(false)
         }
-    }, [cacheKey, fetchGameSong, prefetchNextSong, resetAudio, roundLimit])
+    }, [cacheKey, catalogLoading, fetchGameSong, prefetchNextSong, resetAudio, roundLimit, songCount])
 
     useEffect(() => {
-        void loadNewSong()
+        if (!catalogLoading) {
+            void loadNewSong()
+        }
         return () => {
             resetAudio()
             if (resultTimerRef.current) {
                 window.clearTimeout(resultTimerRef.current)
             }
         }
-    }, [loadNewSong, resetAudio])
+    }, [catalogLoading, loadNewSong, resetAudio])
 
     useEffect(() => {
         if (!sessionStarted || !roundActive || !!result || loadingSong || gameOver || !currentSong) return
@@ -458,7 +467,7 @@ export default memo(function PlayGuessTrackGame({
                     </div>
 
                     <div className="progress-bar-container">
-                        <div className={`progress-bar ${timeLeft <= 5 && roundActive ? 'is-urgent' : ''}`}>
+                        <div className={`progress-bar ${timeLeft <= 5 && roundActive ? 'is-urgent' : ''} ${isPlaying ? 'is-playing' : ''}`}>
                             <div
                                 className="progress-fill"
                                 style={{ width: `${(currentTime / previewLimit) * 100}%` }}

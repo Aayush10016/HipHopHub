@@ -1,10 +1,11 @@
 .play-game-frame {
-    max-width: 760px;
+    max-width: 1240px;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
     gap: 0.85rem;
     color: var(--text-primary);
+    min-height: calc(100vh - 5.5rem);
 }
 
 .play-game-frame__toolbar {
@@ -53,10 +54,25 @@
 
 .play-game-frame__surface {
     margin: 0;
-    max-width: none;
+    max-width: 100%;
     max-height: none;
     overflow: visible;
     padding: 1.1rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.play-game-frame__body {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(280px, 1fr);
+    gap: 1rem;
+    align-items: stretch;
+    min-height: calc(100vh - 12rem);
+}
+
+.play-game-frame__body--below {
+    grid-template-columns: 1fr;
 }
 
 .play-game-frame__stats {
@@ -117,6 +133,62 @@
     justify-content: center;
 }
 
+.play-game-frame__leaderboard-side {
+    display: flex;
+    align-items: stretch;
+    min-height: 100%;
+}
+
+.play-game-frame__leaderboard-side > * {
+    width: 100%;
+}
+
+.play-game-frame__leaderboard-side .leaderboard-card,
+.play-game-frame__leaderboard-below .leaderboard-card {
+    position: sticky;
+    top: 5.75rem;
+}
+
+.leaderboard-card {
+    min-height: 100%;
+}
+
+.leaderboard-card__header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 0.85rem;
+}
+
+.leaderboard-card__header h3 {
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.leaderboard-card__tabs {
+    display: flex;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+}
+
+.leaderboard-card__tab {
+    min-height: 34px;
+    padding: 0.45rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-secondary);
+    font-size: 0.76rem;
+    font-weight: 700;
+    text-transform: capitalize;
+}
+
+.leaderboard-card__tab.active {
+    background: rgba(255, 255, 255, 0.14);
+    color: var(--text-primary);
+    border-color: rgba(232, 220, 199, 0.2);
+}
+
 .play-game-frame__leaderboard-below {
     margin-top: 0;
 }
@@ -128,6 +200,15 @@
 
     .play-game-frame__surface {
         padding: 1rem;
+    }
+
+    .play-game-frame__body {
+        grid-template-columns: 1fr;
+    }
+
+    .play-game-frame__leaderboard-side .leaderboard-card,
+    .play-game-frame__leaderboard-below .leaderboard-card {
+        position: static;
     }
 
     .play-game-frame__stats {
