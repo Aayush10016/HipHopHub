@@ -395,7 +395,7 @@ export default memo(function PlayGuessTrackGame({
                 { label: 'XP', value: xp },
             ]}
             hero={
-                <div className={`arcade-guess-hero ${timeLeft <= 5 && roundActive ? 'is-urgent' : ''} ${revealedCover ? 'arcade-guess-hero--revealed' : ''}`}>
+                <div className={`arcade-guess-hero ${timeLeft <= 5 && roundActive ? 'is-urgent' : ''}`}>
                     <audio
                         ref={audioRef}
                         onTimeUpdate={handleTimeUpdate}
@@ -404,73 +404,78 @@ export default memo(function PlayGuessTrackGame({
                         onEnded={handleAudioEnded}
                     />
 
-                    {revealedCover && (
-                        <div className="arcade-guess-cover-shell">
-                            <img className="arcade-guess-cover" src={revealedCover} alt={currentSong?.songTitle || 'Album cover'} />
-                            {showConfetti && <div className="confetti-burst">+{scoreBurst}</div>}
-                        </div>
-                    )}
-
-                    <div className="arcade-guess-hero-copy">
-                        <div className="arcade-guess-mode-row">
-                            {!isRapidFire && (
-                                <div className="arcade-difficulty-toggle">
-                                    {(Object.keys(DIFFICULTY_CONFIG) as Difficulty[]).map(mode => (
-                                        <button
-                                            key={mode}
-                                            type="button"
-                                            className={`arcade-difficulty-btn ${difficulty === mode ? 'active' : ''}`}
-                                            onClick={() => {
-                                                setDifficulty(mode)
-                                                setSessionStarted(false)
-                                                setRound(1)
-                                                setLives(3)
-                                                setStreak(0)
-                                                setScore(0)
-                                                setXp(0)
-                                                setTimeLeft(DIFFICULTY_CONFIG[mode].roundTime)
-                                                void loadNewSong()
-                                            }}
-                                        >
-                                            {mode}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                            <span className="lyric-chip">{isRapidFire ? '10s lock run' : difficultyConfig.label}</span>
-                        </div>
-
-                        <h3 className="arcade-guess-heading">
-                            {message || (currentSong?.artistName ? `Artist: ${currentSong.artistName}` : 'Loading track...')}
-                        </h3>
-                        <p className="game-description">
-                            {catalogLoading
-                                ? 'Loading the verified arcade pool...'
-                                : isRapidFire
-                                    ? `Round ${round}. No skipping, no pause exploits, ${artistCount} artists in rotation.`
-                                    : `Guess from a ${previewLimit}-second preview. Pool loaded: ${artistCount} artists and ${songCount} playable tracks.`}
-                        </p>
-
-                        <div className="progress-bar-container">
-                            <div className={`progress-bar ${timeLeft <= 5 && roundActive ? 'is-urgent' : ''}`}>
-                                <div
-                                    className="progress-fill"
-                                    style={{ width: `${(currentTime / previewLimit) * 100}%` }}
-                                />
-                                {timeMarkers.map(marker => (
-                                    <div
-                                        key={marker}
-                                        className={`time-marker ${selectedMarker === marker ? 'selected' : ''}`}
-                                        style={{ left: `${(marker / previewLimit) * 100}%` }}
-                                        onClick={() => !roundFinished && !loadingSong && jumpToMarker(marker)}
+                    <div className="arcade-guess-mode-row">
+                        {!isRapidFire && (
+                            <div className="arcade-difficulty-toggle">
+                                {(Object.keys(DIFFICULTY_CONFIG) as Difficulty[]).map(mode => (
+                                    <button
+                                        key={mode}
+                                        type="button"
+                                        className={`arcade-difficulty-btn ${difficulty === mode ? 'active' : ''}`}
+                                        onClick={() => {
+                                            setDifficulty(mode)
+                                            setSessionStarted(false)
+                                            setRound(1)
+                                            setLives(3)
+                                            setStreak(0)
+                                            setScore(0)
+                                            setXp(0)
+                                            setTimeLeft(DIFFICULTY_CONFIG[mode].roundTime)
+                                            void loadNewSong()
+                                        }}
                                     >
-                                        <div className="marker-label">{marker}s</div>
-                                        <div className="marker-dot" />
-                                    </div>
+                                        {mode}
+                                    </button>
                                 ))}
                             </div>
-                            <div className="time-display">{currentTime.toFixed(1)}s / {previewLimit}s</div>
+                        )}
+                        <span className="lyric-chip">{isRapidFire ? '10s lock run' : difficultyConfig.label}</span>
+                    </div>
+
+                    <p className="game-description arcade-guess-description">
+                        {catalogLoading
+                            ? 'Loading the verified arcade pool...'
+                            : isRapidFire
+                                ? `Loaded artists: ${artistCount} | Loaded tracks: ${songCount} | Round ${round}`
+                                : `Loaded artists: ${artistCount} | Loaded tracks: ${songCount}`}
+                    </p>
+
+                    <h3 className="arcade-guess-heading">
+                        {message || (currentSong?.artistName ? `Artist: ${currentSong.artistName}` : 'Loading track...')}
+                    </h3>
+
+                    <div className="album-cover-section">
+                        {revealedCover ? (
+                            <div className="album-cover revealed arcade-guess-cover-shell">
+                            <img className="arcade-guess-cover" src={revealedCover} alt={currentSong?.songTitle || 'Album cover'} />
+                            {showConfetti && <div className="confetti-burst">+{scoreBurst}</div>}
+                            </div>
+                        ) : (
+                            <div className="album-cover hidden">
+                                <div className="mystery-icon">?</div>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="progress-bar-container">
+                        <div className={`progress-bar ${timeLeft <= 5 && roundActive ? 'is-urgent' : ''}`}>
+                            <div
+                                className="progress-fill"
+                                style={{ width: `${(currentTime / previewLimit) * 100}%` }}
+                            />
+                            {timeMarkers.map(marker => (
+                                <div
+                                    key={marker}
+                                    className={`time-marker ${selectedMarker === marker ? 'selected' : ''}`}
+                                    style={{ left: `${(marker / previewLimit) * 100}%` }}
+                                    onClick={() => !roundFinished && !loadingSong && jumpToMarker(marker)}
+                                >
+                                    <div className="marker-label">{marker}s</div>
+                                    <div className="marker-dot" />
+                                </div>
+                            ))}
                         </div>
+                        <div className="time-display">{currentTime.toFixed(1)}s / {previewLimit}s</div>
                     </div>
                 </div>
             }

@@ -101,6 +101,8 @@ export function useGameCatalog() {
         catalogPromise
             .then(payload => {
                 if (!cancelled) {
+                    console.info(`Loaded artists: ${payload.artistCount}`)
+                    console.info(`Loaded tracks: ${payload.songCount}`)
                     setData(payload)
                     setLoading(false)
                 }

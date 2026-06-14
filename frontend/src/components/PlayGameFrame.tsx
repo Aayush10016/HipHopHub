@@ -32,7 +32,7 @@ export default function PlayGameFrame({
 }: PlayGameFrameProps) {
     return (
         <section className="play-game-frame">
-            <div className="play-game-frame__header">
+            <div className="play-game-frame__toolbar">
                 <button type="button" className="play-game-frame__back" onClick={onBack}>
                     Back to Arcade
                 </button>
@@ -42,7 +42,9 @@ export default function PlayGameFrame({
                     <h2>{title}</h2>
                     <p>{subtitle}</p>
                 </div>
+            </div>
 
+            <div className={`play-game-frame__surface game-component play-game-frame__body--${leaderboardPlacement}`}>
                 <div className="play-game-frame__stats">
                     {stats.map(stat => (
                         <div
@@ -54,26 +56,17 @@ export default function PlayGameFrame({
                         </div>
                     ))}
                 </div>
+
+                {footer && <div className="play-game-frame__footer">{footer}</div>}
+                {hero && <div className="play-game-frame__hero">{hero}</div>}
+                <div className="play-game-frame__game-area">{children}</div>
             </div>
 
-            <div className={`play-game-frame__body play-game-frame__body--${leaderboardPlacement}`}>
-                <div className="play-game-frame__main">
-                    {hero && <div className="play-game-frame__hero">{hero}</div>}
-                    <div className="play-game-frame__game-area">{children}</div>
-                    {footer && <div className="play-game-frame__footer">{footer}</div>}
-                    {leaderboard && leaderboardPlacement === 'below' && (
-                        <div className="play-game-frame__leaderboard-below">
-                            {leaderboard}
-                        </div>
-                    )}
+            {leaderboard && (
+                <div className="play-game-frame__leaderboard-below">
+                    {leaderboard}
                 </div>
-
-                {leaderboard && leaderboardPlacement === 'side' && (
-                    <aside className="play-game-frame__side">
-                        {leaderboard}
-                    </aside>
-                )}
-            </div>
+            )}
         </section>
     )
 }

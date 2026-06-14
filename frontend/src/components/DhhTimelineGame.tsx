@@ -38,6 +38,7 @@ export default function DhhTimelineGame({ onBack }: { onBack: () => void }) {
     const [lives, setLives] = useState(LIVES)
     const [status, setStatus] = useState<string | null>(null)
     const [started, setStarted] = useState(false)
+    const [draggedId, setDraggedId] = useState<number | null>(null)
 
     useEffect(() => {
         if (releases.length === 0) return
@@ -59,10 +60,15 @@ export default function DhhTimelineGame({ onBack }: { onBack: () => void }) {
 
     const orderedPreview = useMemo(() => {
         if (!current) return []
-        return selectedOrder
-            .map(id => current.items.find(item => item.id === id))
-            .filter((item): item is GameCatalogRelease => !!item)
+        return selectedOrder.map(id =>
+            id ? current.items.find(item => item.id === id) || null : null
+        )
     }, [current, selectedOrder])
+
+    const firstEmptySlot = useMemo(
+        () => selectedOrder.findIndex(item => item === 0),
+        [selectedOrder]
+    )
 
     const start = () => {
         const nextRounds: TimelineRound[] = []
@@ -73,37 +79,62 @@ export default function DhhTimelineGame({ onBack }: { onBack: () => void }) {
         }
         setRounds(nextRounds)
         setRoundIndex(0)
-        setSelectedOrder([])
+        setSelectedOrder(new Array(nextRounds[0]?.correctOrder.length || 4).fill(0))
         setScore(0)
         setLives(LIVES)
         setStatus(null)
         setStarted(true)
+        setDraggedId(null)
     }
 
-    const pickEvent = (id: number) => {
-        if (!current || over || selectedOrder.includes(id)) return
-        const nextOrder = [...selectedOrder, id]
+    const evaluateOrder = (nextOrder: number[]) => {
+        if (!current || nextOrder.some(item => item === 0)) return
         setSelectedOrder(nextOrder)
 
-        if (nextOrder.length === current.correctOrder.length) {
-            const correctPositions = nextOrder.filter((item, idx) => item === current.correctOrder[idx]).length
-            if (correctPositions === current.correctOrder.length) {
-                const points = 220 + (roundIndex * 30)
-                setScore(prev => prev + points)
-                setStatus(`Perfect timeline. +${points}`)
-            } else {
-                setLives(prev => Math.max(0, prev - 1))
-                setStatus(`Not quite. Correct order started with ${current.items.find(item => item.id === current.correctOrder[0])?.title}.`)
-            }
+        const correctPositions = nextOrder.filter((item, idx) => item === current.correctOrder[idx]).length
+        if (correctPositions === current.correctOrder.length) {
+            const points = 220 + (roundIndex * 30)
+            setScore(prev => prev + points)
+            setStatus(`Perfect timeline. +${points}`)
+        } else {
+            setLives(prev => Math.max(0, prev - 1))
+            setStatus(`Not quite. Correct order started with ${current.items.find(item => item.id === current.correctOrder[0])?.title}.`)
         }
+    }
+
+    const pickEvent = (id: number, slotIndex?: number) => {
+        if (!current || over) return
+        if (selectedOrder.includes(id)) return
+
+        const nextOrder = selectedOrder.length === 0
+            ? new Array(current.correctOrder.length).fill(0)
+            : [...selectedOrder]
+
+        const targetSlot = typeof slotIndex === 'number'
+            ? slotIndex
+            : nextOrder.findIndex(item => item === 0)
+
+        if (targetSlot < 0) return
+        nextOrder[targetSlot] = id
+        evaluateOrder(nextOrder)
+    }
+
+    const clearSlot = (slotIndex: number) => {
+        if (!current || status) return
+        const nextOrder = selectedOrder.length === 0
+            ? new Array(current.correctOrder.length).fill(0)
+            : [...selectedOrder]
+        nextOrder[slotIndex] = 0
+        setSelectedOrder(nextOrder)
     }
 
     useEffect(() => {
         if (!current || !status) return
         const timer = window.setTimeout(() => {
             setRoundIndex(prev => prev + 1)
-            setSelectedOrder([])
+            setSelectedOrder(new Array(current.correctOrder.length).fill(0))
             setStatus(null)
+            setDraggedId(null)
         }, 1400)
         return () => window.clearTimeout(timer)
     }, [current, status])
@@ -143,16 +174,37 @@ export default function DhhTimelineGame({ onBack }: { onBack: () => void }) {
             ) : (
                 <>
                     <div className="timeline-selected-strip">
-                        {orderedPreview.length > 0 ? orderedPreview.map((item, idx) => (
-                            <div key={`${item.id}-${idx}`} className="timeline-selected-card">
-                                <span>{idx + 1}</span>
-                                <strong>{item.title}</strong>
-                                <small>{item.artistName}</small>
-                            </div>
-                        )) : (
-                            <p className="game-description">Tap the events in the order they happened.</p>
-                        )}
+                        {Array.from({ length: current.correctOrder.length }).map((_, idx) => {
+                            const item = orderedPreview[idx]
+                            return (
+                                <button
+                                    key={`slot-${idx}`}
+                                    type="button"
+                                    className={`timeline-selected-card ${item ? 'filled' : 'empty'}`}
+                                    onDragOver={(event) => event.preventDefault()}
+                                    onDrop={(event) => {
+                                        event.preventDefault()
+                                        if (draggedId) pickEvent(draggedId, idx)
+                                    }}
+                                    onClick={() => clearSlot(idx)}
+                                >
+                                    <span>{idx + 1}</span>
+                                    {item ? (
+                                        <>
+                                            <strong>{item.title}</strong>
+                                            <small>{item.artistName}</small>
+                                        </>
+                                    ) : (
+                                        <small>Drop event here</small>
+                                    )}
+                                </button>
+                            )
+                        })}
                     </div>
+
+                    {!status && firstEmptySlot >= 0 && (
+                        <p className="game-description">Drag events into the numbered slots or tap cards to fill the next open slot.</p>
+                    )}
 
                     <div className="timeline-grid">
                         {current.items.map(item => (
@@ -161,6 +213,9 @@ export default function DhhTimelineGame({ onBack }: { onBack: () => void }) {
                                 type="button"
                                 className={`timeline-card ${selectedOrder.includes(item.id) ? 'active' : ''}`}
                                 onClick={() => pickEvent(item.id)}
+                                draggable={!selectedOrder.includes(item.id)}
+                                onDragStart={() => setDraggedId(item.id)}
+                                onDragEnd={() => setDraggedId(null)}
                             >
                                 {item.coverUrl && <img src={item.coverUrl} alt={item.title} className="timeline-card-cover" />}
                                 <strong>{item.title}</strong>

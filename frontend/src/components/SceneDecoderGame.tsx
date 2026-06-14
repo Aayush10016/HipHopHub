@@ -120,6 +120,43 @@ export default function SceneDecoderGame({ onBack }: { onBack: () => void }) {
             })
         }
 
+        for (let i = 0; i < Math.min(12, datedReleases.length); i += 1) {
+            const release = datedReleases[i]
+            const year = release.releaseDate?.slice(0, 4)
+            if (!year) continue
+            const yearOptions = shuffle([
+                year,
+                ...shuffle(datedReleases
+                    .map(item => item.releaseDate?.slice(0, 4))
+                    .filter((item): item is string => !!item && item !== year))
+                    .slice(0, 3)
+            ])
+            nextQuestions.push({
+                prompt: `Which year did "${release.title}" release?`,
+                answer: year,
+                options: yearOptions,
+                label: 'Release year',
+            })
+        }
+
+        const albumTypeReleases = releases.filter(release => (release.type || '').toUpperCase() === 'ALBUM')
+        for (let i = 0; i < Math.min(12, albumTypeReleases.length); i += 1) {
+            const release = albumTypeReleases[i]
+            const options = shuffle([
+                release.title,
+                ...shuffle(albumTypeReleases
+                    .filter(item => item.id !== release.id)
+                    .map(item => item.title))
+                    .slice(0, 3)
+            ])
+            nextQuestions.push({
+                prompt: `Which album belongs to ${release.artistName}?`,
+                answer: release.title,
+                options,
+                label: 'Album pick',
+            })
+        }
+
         const releaseOwnedArtists = artists.filter(artist =>
             releases.some(release => release.artistId === artist.id)
         )
@@ -237,7 +274,7 @@ export default function SceneDecoderGame({ onBack }: { onBack: () => void }) {
                     <h3>Decoder Pool</h3>
                     <p>{loading ? 'Loading verified artists...' : `${artistCount} artists loaded.`}</p>
                     <p>{loading ? 'Loading release archive...' : `${releases.length} releases available for chronology questions.`}</p>
-                    <p>Question types: city, fact, wave, chronology, discography, release owner.</p>
+                    <p>Question types: city, fact, wave, chronology, discography, release owner, album, year.</p>
                 </div>
             }
         >
