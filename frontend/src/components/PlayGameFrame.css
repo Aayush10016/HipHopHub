@@ -1,40 +1,40 @@
 .play-game-frame {
-    max-width: 1240px;
+    max-width: 1600px;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
-    gap: 0.85rem;
+    gap: 24px;
     color: var(--text-primary);
-    min-height: calc(100vh - 5.5rem);
 }
 
 .play-game-frame__toolbar {
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 0.85rem;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 16px;
 }
 
 .play-game-frame__back {
-    min-height: 42px;
-    padding: 0.7rem 1rem;
+    align-self: flex-start;
+    min-height: 44px;
+    padding: 0 20px;
     border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     background: rgba(255, 255, 255, 0.04);
     color: var(--text-primary);
     font-weight: 700;
 }
 
 .play-game-frame__title-block {
-    flex: 1;
-    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .play-game-frame__title-block h2 {
-    margin: 0.15rem 0 0.2rem;
+    margin: 0;
     font-family: 'Fraunces', serif;
-    font-size: clamp(1.55rem, 3vw, 2rem);
+    font-size: clamp(2rem, 3vw, 3rem);
+    letter-spacing: -0.04em;
     color: var(--text-primary);
 }
 
@@ -45,66 +45,67 @@
 }
 
 .play-game-frame__kicker {
-    display: inline-block;
-    font-size: 0.72rem;
+    font-size: 12px;
     font-weight: 700;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
-}
-
-.play-game-frame__surface {
-    margin: 0;
-    max-width: 100%;
-    max-height: none;
-    overflow: visible;
-    padding: 1.1rem;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
 }
 
 .play-game-frame__body {
     display: grid;
-    grid-template-columns: minmax(0, 3fr) minmax(280px, 1fr);
-    gap: 1rem;
-    align-items: stretch;
-    min-height: calc(100vh - 12rem);
+    grid-template-columns: minmax(0, 1.72fr) minmax(320px, 0.68fr);
+    gap: 24px;
+    align-items: start;
 }
 
 .play-game-frame__body--below {
     grid-template-columns: 1fr;
 }
 
-.play-game-frame__stats {
+.play-game-frame__surface {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 24px;
     display: flex;
-    gap: 0.6rem;
-    flex-wrap: wrap;
-    margin-bottom: 0.75rem;
+    flex-direction: column;
+    gap: 24px;
+    background:
+        radial-gradient(circle at top right, rgba(200, 171, 121, 0.12), transparent 28%),
+        radial-gradient(circle at left center, rgba(142, 163, 181, 0.12), transparent 22%),
+        rgba(15, 18, 23, 0.94);
+    border-radius: 28px;
+}
+
+.play-game-frame__stats {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 16px;
 }
 
 .play-game-frame__stat {
-    min-width: 92px;
-    padding: 0.6rem 0.8rem;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.05);
+    min-height: 96px;
+    padding: 16px 18px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
 }
 
 .play-game-frame__stat span {
-    display: block;
-    font-size: 0.68rem;
+    font-size: 12px;
     font-weight: 700;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--text-muted);
 }
 
 .play-game-frame__stat strong {
-    display: block;
-    margin-top: 0.1rem;
-    font-family: 'Fraunces', serif;
-    font-size: 1rem;
+    font-size: clamp(1.1rem, 2vw, 1.5rem);
     color: var(--text-primary);
+    line-height: 1;
 }
 
 .play-game-frame__stat--accent strong {
@@ -115,49 +116,39 @@
     color: #ff9a8a;
 }
 
-.play-game-frame__footer {
-    margin-bottom: 0.85rem;
-}
-
-.play-game-frame__footer .auth-gate {
-    margin: 0;
-}
-
-.play-game-frame__hero {
-    margin-bottom: 0.85rem;
+.play-game-frame__footer,
+.play-game-frame__hero,
+.play-game-frame__game-area {
+    width: 100%;
 }
 
 .play-game-frame__game-area {
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    gap: 16px;
 }
 
 .play-game-frame__leaderboard-side {
-    display: flex;
-    align-items: stretch;
-    min-height: 100%;
+    position: sticky;
+    top: 96px;
 }
 
-.play-game-frame__leaderboard-side > * {
+.play-game-frame__leaderboard-side > *,
+.play-game-frame__leaderboard-below > * {
     width: 100%;
 }
 
-.play-game-frame__leaderboard-side .leaderboard-card,
-.play-game-frame__leaderboard-below .leaderboard-card {
-    position: sticky;
-    top: 5.75rem;
-}
-
 .leaderboard-card {
+    width: 100%;
+    padding: 24px;
     min-height: 100%;
 }
 
 .leaderboard-card__header {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-    margin-bottom: 0.85rem;
+    gap: 16px;
+    margin-bottom: 16px;
 }
 
 .leaderboard-card__header h3 {
@@ -167,15 +158,15 @@
 
 .leaderboard-card__tabs {
     display: flex;
-    gap: 0.45rem;
+    gap: 8px;
     flex-wrap: wrap;
 }
 
 .leaderboard-card__tab {
-    min-height: 34px;
-    padding: 0.45rem 0.75rem;
+    min-height: 36px;
+    padding: 0 14px;
     border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     background: rgba(255, 255, 255, 0.04);
     color: var(--text-secondary);
     font-size: 0.76rem;
@@ -186,36 +177,32 @@
 .leaderboard-card__tab.active {
     background: rgba(255, 255, 255, 0.14);
     color: var(--text-primary);
-    border-color: rgba(232, 220, 199, 0.2);
 }
 
-.play-game-frame__leaderboard-below {
-    margin-top: 0;
+@media (max-width: 1100px) {
+    .play-game-frame__body,
+    .play-game-frame__stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .play-game-frame__leaderboard-side {
+        position: static;
+    }
 }
 
 @media (max-width: 768px) {
-    .play-game-frame {
-        gap: 0.75rem;
-    }
-
+    .play-game-frame,
     .play-game-frame__surface {
-        padding: 1rem;
+        gap: 16px;
     }
 
-    .play-game-frame__body {
+    .play-game-frame__body,
+    .play-game-frame__stats {
         grid-template-columns: 1fr;
     }
 
-    .play-game-frame__leaderboard-side .leaderboard-card,
-    .play-game-frame__leaderboard-below .leaderboard-card {
-        position: static;
-    }
-
-    .play-game-frame__stats {
-        gap: 0.5rem;
-    }
-
-    .play-game-frame__stat {
-        min-width: calc(50% - 0.25rem);
+    .play-game-frame__surface,
+    .leaderboard-card {
+        padding: 20px;
     }
 }

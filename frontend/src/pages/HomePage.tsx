@@ -2,13 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import ArtistProfile from '../components/ArtistProfile'
 import AINewsFeed from '../components/AINewsFeed'
-import CompleteLyricGame from '../components/CompleteLyricGame'
-import ArtistBlitzGame from '../components/ArtistBlitzGame'
-import SceneDecoderGame from '../components/SceneDecoderGame'
-import DhhTimelineGame from '../components/DhhTimelineGame'
-import PlayGuessTrackGame from '../components/PlayGuessTrackGame'
+import ArcadeSection from '../components/ArcadeSection'
 import UniverseTransition from '../components/UniverseTransition'
-import { useGameCatalog } from '../hooks/useGameCatalog'
 import { buildArtistUniverse } from '../utils/artistUniverse'
 import { hashString, pickLeastRecent, readRecentValues, writeRecentValue } from '../utils/rotation'
 import './HomePage.css'
@@ -173,14 +168,6 @@ export default function HomePage() {
     const [topSongPlayingId, setTopSongPlayingId] = useState<number | null>(null)
     const [topSongCurrentTime, setTopSongCurrentTime] = useState<Record<number, number>>({})
     const [artistImageErrorMap, setArtistImageErrorMap] = useState<Record<number, boolean>>({})
-    const {
-        artistCount: gameArtistCount,
-        songCount: gameSongCount,
-        releaseCount: gameReleaseCount,
-        loading: gameCatalogLoading
-    } = useGameCatalog()
-    const [selectedGame, setSelectedGame] = useState<'guess' | 'rapid' | 'lyric' | 'blitz' | 'decoder' | 'timeline'>('guess')
-    const [gameView, setGameView] = useState<'hub' | 'active'>('hub')
     const [universeTransition, setUniverseTransition] = useState<UniverseTransitionState | null>(null)
     const [isPreparingUniverse, setIsPreparingUniverse] = useState(false)
 
@@ -875,91 +862,7 @@ export default function HomePage() {
                     )}
 
                     {activeTab === 'game' && (
-                        <div className="game-section fade-in section-shell">
-                            <div className="section-header">
-                                <div>
-                                    <span className="section-kicker">Arcade</span>
-                                    <h2 className="section-title">Play</h2>
-                                    <p className="game-description">
-                                        {gameCatalogLoading
-                                            ? 'Loading the verified arcade pool...'
-                                            : `Immersive game pages built from ${gameArtistCount} verified artists, ${gameSongCount} playable tracks, and ${gameReleaseCount} official releases.`}
-                                    </p>
-                                </div>
-                            </div>
-
-                            {gameView === 'hub' ? (
-                                <div className="game-hub-grid">
-                                    <button
-                                        type="button"
-                                        className={`game-mode-card card ${selectedGame === 'guess' ? 'active' : ''}`}
-                                        onClick={() => { setSelectedGame('guess'); setGameView('active') }}
-                                    >
-                                        <span className="game-mode-kicker">Featured</span>
-                                        <h3>Guess The Track</h3>
-                                        <p>Difficulty ladders, streak multipliers, and a proper global board.</p>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={`game-mode-card card ${selectedGame === 'rapid' ? 'active' : ''}`}
-                                        onClick={() => { setSelectedGame('rapid'); setGameView('active') }}
-                                    >
-                                        <span className="game-mode-kicker">Pressure mode</span>
-                                        <h3>Rapid Fire</h3>
-                                        <p>Locked 10-second bursts, dramatic clock pressure, and survival pacing.</p>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={`game-mode-card card ${selectedGame === 'lyric' ? 'active' : ''}`}
-                                        onClick={() => { setSelectedGame('lyric'); setGameView('active') }}
-                                    >
-                                        <span className="game-mode-kicker">Lyric bank</span>
-                                        <h3>Complete The Lyric</h3>
-                                        <p>Metadata-rich multiple-choice lyric rounds with combo scoring.</p>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={`game-mode-card card ${selectedGame === 'blitz' ? 'active' : ''}`}
-                                        onClick={() => { setSelectedGame('blitz'); setGameView('active') }}
-                                    >
-                                        <span className="game-mode-kicker">Speed round</span>
-                                        <h3>Artist Blitz</h3>
-                                        <p>Use all 75 artists in a one-minute recognition sprint.</p>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={`game-mode-card card ${selectedGame === 'decoder' ? 'active' : ''}`}
-                                        onClick={() => { setSelectedGame('decoder'); setGameView('active') }}
-                                    >
-                                        <span className="game-mode-kicker">Culture quiz</span>
-                                        <h3>Scene Decoder</h3>
-                                        <p>City roots, release order, wave knowledge, and artist facts.</p>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={`game-mode-card card ${selectedGame === 'timeline' ? 'active' : ''}`}
-                                        onClick={() => { setSelectedGame('timeline'); setGameView('active') }}
-                                    >
-                                        <span className="game-mode-kicker">New mode</span>
-                                        <h3>DHH Timeline</h3>
-                                        <p>Place albums, debuts, and catalog moments in the right order.</p>
-                                    </button>
-                                </div>
-                            ) : selectedGame === 'lyric' ? (
-                                <CompleteLyricGame onBack={() => setGameView('hub')} />
-                            ) : selectedGame === 'blitz' ? (
-                                <ArtistBlitzGame onBack={() => setGameView('hub')} />
-                            ) : selectedGame === 'decoder' ? (
-                                <SceneDecoderGame onBack={() => setGameView('hub')} />
-                            ) : selectedGame === 'timeline' ? (
-                                <DhhTimelineGame onBack={() => setGameView('hub')} />
-                            ) : (
-                                <PlayGuessTrackGame
-                                    variant={selectedGame === 'rapid' ? 'rapid' : 'guess'}
-                                    onBack={() => setGameView('hub')}
-                                />
-                            )}
-                        </div>
+                        <ArcadeSection />
                     )}
 
                     {activeTab === 'artistProfile' && selectedArtistId && (
@@ -1005,3 +908,7 @@ export default function HomePage() {
         </div>
     )
 }
+
+
+
+

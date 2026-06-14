@@ -58,19 +58,26 @@ const emptyCatalog: GameCatalogResponse = {
     releaseCount: 0,
 }
 
+const coerceArray = <T,>(value: unknown) => Array.isArray(value) ? value as T[] : []
+
 const fetchCatalog = async (): Promise<GameCatalogResponse> => {
     const response = await fetch('/api/game/catalog')
     if (!response.ok) {
         throw new Error('Failed to load game catalog')
     }
+
     const payload = await response.json()
+    const artists = coerceArray<GameCatalogArtist>(payload?.artists)
+    const songs = coerceArray<GameCatalogSong>(payload?.songs)
+    const releases = coerceArray<GameCatalogRelease>(payload?.releases)
+
     return {
-        artists: Array.isArray(payload?.artists) ? payload.artists : [],
-        songs: Array.isArray(payload?.songs) ? payload.songs : [],
-        releases: Array.isArray(payload?.releases) ? payload.releases : [],
-        artistCount: Number(payload?.artistCount || 0),
-        songCount: Number(payload?.songCount || 0),
-        releaseCount: Number(payload?.releaseCount || 0),
+        artists,
+        songs,
+        releases,
+        artistCount: Number(payload?.artistCount || artists.length || 0),
+        songCount: Number(payload?.songCount || songs.length || 0),
+        releaseCount: Number(payload?.releaseCount || releases.length || 0),
     }
 }
 
@@ -100,21 +107,27 @@ export function useGameCatalog() {
 
         catalogPromise
             .then(payload => {
-                if (!cancelled) {
-                    console.info(`Loaded artists: ${payload.artistCount}`)
-                    console.info(`Loaded tracks: ${payload.songCount}`)
-                    console.log({
-                        artists: payload.artistCount,
-                        tracks: payload.songCount,
-                    })
-                    setData(payload)
-                    setLoading(false)
+                if (cancelled) return
+
+                console.info(`Loaded artists: ${payload.artistCount}`)
+                console.info(`Loaded tracks: ${payload.songCount}`)
+                console.log({
+                    artists: payload.artistCount,
+                    tracks: payload.songCount,
+                    releases: payload.releaseCount,
+                })
+
+                if (payload.artistCount === 0 || payload.songCount === 0) {
+                    console.warn('Arcade catalog returned an unexpectedly small pool.', payload)
                 }
+
+                setData(payload)
+                setLoading(false)
             })
             .catch(err => {
                 console.error('Failed to load game catalog:', err)
                 if (!cancelled) {
-                    setError('Could not load full game catalog.')
+                    setError('Could not load the arcade catalog.')
                     setLoading(false)
                 }
             })

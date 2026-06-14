@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 interface Entry {
     userId: number
     username: string
     bestPoints: number
+    streak?: string | null
 }
 
 type Scope = 'global' | 'weekly' | 'friends'
@@ -13,14 +14,14 @@ export default function ArcadeLeaderboard({ mode, title }: { mode: 'RAPID_FIRE' 
     const [entries, setEntries] = useState<Entry[]>([])
     const [loading, setLoading] = useState(true)
 
-    const userId = (() => {
+    const userId = useMemo(() => {
         try {
             const raw = localStorage.getItem('hiphophub_user')
             return raw ? JSON.parse(raw)?.id : null
         } catch {
             return null
         }
-    })()
+    }, [])
 
     useEffect(() => {
         let cancelled = false
@@ -44,6 +45,7 @@ export default function ArcadeLeaderboard({ mode, title }: { mode: 'RAPID_FIRE' 
                     setLoading(false)
                 }
             })
+
         return () => {
             cancelled = true
         }
@@ -67,21 +69,22 @@ export default function ArcadeLeaderboard({ mode, title }: { mode: 'RAPID_FIRE' 
                 </div>
             </div>
             {loading ? (
-                <p>Loading leaderboard...</p>
+                <div className="arcade-skeleton arcade-skeleton--body" />
             ) : entries.length > 0 ? (
                 <div className="arcade-board">
-                    {entries.map((entry, index) => (
+                    {entries.slice(0, 10).map((entry, index) => (
                         <div key={`${mode}-${entry.userId}`} className="arcade-board-row">
-                            <span>#{index + 1}</span>
-                            <strong>{entry.username}</strong>
-                            <span>{entry.bestPoints}</span>
+                            <span className="arcade-board-rank">#{index + 1}</span>
+                            <strong className="arcade-board-name">{index === 0 ? <><span className="arcade-board-crown">? </span>{entry.username}</> : entry.username}</strong>
+                            <span className="arcade-board-score">{entry.bestPoints}</span>
+                            <span className="arcade-board-streak">{entry.streak || '—'}</span>
                         </div>
                     ))}
                 </div>
             ) : scope === 'friends' ? (
-                <p>{userId ? 'Finish a run to surface your own comparison view.' : 'Log in to unlock your personal comparison view.'}</p>
+                <p>{userId ? 'Finish a run to populate your personal comparison view.' : 'Log in to unlock your personal comparison view.'}</p>
             ) : (
-                <p>No scores yet. Log in and set the first run.</p>
+                <p>No scores yet. Set the first run.</p>
             )}
         </div>
     )

@@ -1,22 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
 import ArcadeLeaderboard from './ArcadeLeaderboard'
 import PlayGameFrame from './PlayGameFrame'
-import { lyricChallenges } from '../data/lyricChallenges'
-import { useGameCatalog } from '../hooks/useGameCatalog'
+import { useArcadeCatalog } from '../hooks/useArcadeCatalog'
+import type { ArcadeLyricCard } from '../utils/gameCatalog'
 import './CompleteLyricGame.css'
 
 const TOTAL_ROUNDS = 8
-const ROUND_TIME = 20
+const ROUND_TIME = 22
 
-const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '')
-
-const getStoredUser = () => {
-    try {
-        const raw = localStorage.getItem('hiphophub_user')
-        return raw ? JSON.parse(raw) as { id: number; username: string } : null
-    } catch {
-        return null
-    }
+type AuthUser = {
+    id: number
+    username: string
 }
 
 const shuffle = <T,>(items: T[]) => {
@@ -28,138 +22,62 @@ const shuffle = <T,>(items: T[]) => {
     return copy
 }
 
-type RoundResult = {
-    correct: boolean
-    points: number
-    usedSongHint: boolean
+const getStoredUser = (): AuthUser | null => {
+    try {
+        const raw = localStorage.getItem('hiphophub_user')
+        return raw ? JSON.parse(raw) as AuthUser : null
+    } catch {
+        return null
+    }
 }
 
-type DifficultyMode = 'easy' | 'hard'
+const getChoices = (card: ArcadeLyricCard, pool: ArcadeLyricCard[]) => {
+    const answer = card.answers[0]
+    const distractors = pool
+        .flatMap(item => item.answers[0])
+        .filter(item => item.toLowerCase() !== answer.toLowerCase())
+        .filter((item, index, source) => source.findIndex(candidate => candidate.toLowerCase() === item.toLowerCase()) === index)
+    return shuffle([answer, ...shuffle(distractors).slice(0, 3)])
+}
 
-const uniqueChallenges = lyricChallenges.filter((challenge, index, source) => {
-    const key = `${normalize(challenge.artistName)}::${normalize(challenge.songTitle)}::${normalize(challenge.prompt)}`
-    return source.findIndex(item =>
-        `${normalize(item.artistName)}::${normalize(item.songTitle)}::${normalize(item.prompt)}` === key
-    ) === index
-})
+function CompleteLyricGameComponent({ onBack }: { onBack: () => void }) {
+    const { loading, catalog } = useArcadeCatalog()
+    const user = useMemo(() => getStoredUser(), [])
+    const deck = useMemo(() => shuffle(catalog.playableLyrics).slice(0, TOTAL_ROUNDS), [catalog.playableLyrics])
 
-export default function CompleteLyricGame({ onBack }: { onBack: () => void }) {
-    const [user] = useState(() => getStoredUser())
-    const { artists, songs, loading, artistCount, songCount } = useGameCatalog()
-    const [difficultyMode, setDifficultyMode] = useState<DifficultyMode>('easy')
-    const [session, setSession] = useState(() => shuffle(uniqueChallenges).slice(0, TOTAL_ROUNDS))
-    const [roundIndex, setRoundIndex] = useState(0)
-    const [usedSongHint, setUsedSongHint] = useState(false)
-    const [timeLeft, setTimeLeft] = useState(ROUND_TIME)
+    const [index, setIndex] = useState(0)
     const [score, setScore] = useState(0)
-    const [streak, setStreak] = useState(0)
+    const [combo, setCombo] = useState(0)
+    const [bestCombo, setBestCombo] = useState(0)
     const [lives, setLives] = useState(3)
-    const [roundResult, setRoundResult] = useState<RoundResult | null>(null)
-    const [history, setHistory] = useState<RoundResult[]>([])
-    const [savedRun, setSavedRun] = useState(false)
+    const [timeLeft, setTimeLeft] = useState(ROUND_TIME)
     const [selectedChoice, setSelectedChoice] = useState<string | null>(null)
+    const [roundResult, setRoundResult] = useState<null | { correct: boolean; points: number }>(null)
+    const [savedRun, setSavedRun] = useState(false)
 
-    const filteredChallenges = useMemo(() => {
-        return uniqueChallenges.filter(challenge =>
-            difficultyMode === 'easy'
-                ? challenge.difficulty === 'easy'
-                : challenge.difficulty !== 'easy'
-        )
-    }, [difficultyMode])
+    const current = deck[index]
+    const gameOver = !current || lives <= 0 || index >= deck.length
+    const choices = useMemo(() => current ? getChoices(current, catalog.playableLyrics) : [], [catalog.playableLyrics, current])
 
     useEffect(() => {
-        setSession(shuffle(filteredChallenges).slice(0, TOTAL_ROUNDS))
-        setRoundIndex(0)
-        setUsedSongHint(false)
-        setTimeLeft(ROUND_TIME)
-        setScore(0)
-        setStreak(0)
-        setLives(3)
-        setRoundResult(null)
-        setHistory([])
-        setSavedRun(false)
-        setSelectedChoice(null)
-    }, [filteredChallenges])
-
-    const current = session[roundIndex]
-    const sessionDone = roundIndex >= session.length || lives <= 0
-
-    const currentArtist = useMemo(() => {
-        if (!current) return null
-        return artists.find(artist => normalize(artist.name) === normalize(current.artistName)) || null
-    }, [artists, current])
-
-    const currentSongMeta = useMemo(() => {
-        if (!currentArtist || !current) return null
-        return songs.find(song =>
-            song.artistId === currentArtist.id &&
-            normalize(song.title) === normalize(current.songTitle)
-        ) || null
-    }, [current, currentArtist, songs])
-
-    const maxPoints = useMemo(() => {
-        const base = difficultyMode === 'hard' ? 160 : 100
-        return usedSongHint ? Math.max(40, base - 45) : base
-    }, [difficultyMode, usedSongHint])
-
-    const comboMultiplier = useMemo(() => 1 + Math.min(1.2, streak * 0.15), [streak])
-
-    const currentChoices = useMemo(() => {
-        if (!current) return []
-        const answer = current.answers[0]
-        const distractors = shuffle(
-            filteredChallenges
-                .map(challenge => challenge.answers[0])
-                .filter(option => normalize(option) !== normalize(answer))
-                .filter((option, index, source) =>
-                    source.findIndex(item => normalize(item) === normalize(option)) === index
-                )
-        ).slice(0, 3)
-        return shuffle([answer, ...distractors])
-    }, [current, filteredChallenges])
-
-    useEffect(() => {
-        if (sessionDone || roundResult) return
+        if (!current || roundResult || gameOver) return
         const timer = window.setInterval(() => {
             setTimeLeft(prev => {
                 if (prev <= 1) {
                     window.clearInterval(timer)
                     setLives(currentLives => Math.max(0, currentLives - 1))
-                    setStreak(0)
-                    setRoundResult({ correct: false, points: 0, usedSongHint })
-                    setHistory(prevHistory => [...prevHistory, { correct: false, points: 0, usedSongHint }])
+                    setCombo(0)
+                    setRoundResult({ correct: false, points: 0 })
                     return 0
                 }
                 return prev - 1
             })
         }, 1000)
         return () => window.clearInterval(timer)
-    }, [roundResult, sessionDone, usedSongHint])
-
-    const nextRound = () => {
-        setRoundIndex(prev => prev + 1)
-        setUsedSongHint(false)
-        setTimeLeft(ROUND_TIME)
-        setRoundResult(null)
-        setSelectedChoice(null)
-    }
-
-    const restartSession = () => {
-        setSession(shuffle(filteredChallenges).slice(0, TOTAL_ROUNDS))
-        setRoundIndex(0)
-        setUsedSongHint(false)
-        setTimeLeft(ROUND_TIME)
-        setScore(0)
-        setStreak(0)
-        setLives(3)
-        setRoundResult(null)
-        setHistory([])
-        setSavedRun(false)
-        setSelectedChoice(null)
-    }
+    }, [current, gameOver, roundResult])
 
     useEffect(() => {
-        if (!sessionDone || !user || savedRun || score <= 0) return
+        if (!gameOver || !user || savedRun || score <= 0) return
         fetch('/api/arcade/score', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -167,176 +85,154 @@ export default function CompleteLyricGame({ onBack }: { onBack: () => void }) {
                 userId: user.id,
                 mode: 'COMPLETE_THE_LYRIC',
                 points: score,
-                metaLabel: `${history.filter(item => item.correct).length}/${history.length} correct`
-            })
+                metaLabel: `Best combo ${bestCombo}`,
+            }),
         }).finally(() => setSavedRun(true))
-    }, [history, savedRun, score, sessionDone, user])
+    }, [bestCombo, gameOver, savedRun, score, user])
+
+    const nextRound = () => {
+        setIndex(prev => prev + 1)
+        setSelectedChoice(null)
+        setRoundResult(null)
+        setTimeLeft(ROUND_TIME)
+    }
+
+    const restart = () => {
+        setIndex(0)
+        setScore(0)
+        setCombo(0)
+        setBestCombo(0)
+        setLives(3)
+        setTimeLeft(ROUND_TIME)
+        setSelectedChoice(null)
+        setRoundResult(null)
+        setSavedRun(false)
+    }
 
     const lockAnswer = (choice: string) => {
         if (!current || roundResult) return
         setSelectedChoice(choice)
 
-        const normalizedGuess = normalize(choice)
-        const correct = current.answers.some(answer => normalize(answer) === normalizedGuess)
-        const timeBonus = Math.max(0, timeLeft * 3)
-        const points = correct ? Math.round((maxPoints + timeBonus) * comboMultiplier) : 0
-        const result = { correct, points, usedSongHint }
+        const correct = current.answers.some(answer => answer.toLowerCase() === choice.toLowerCase())
+        const base = current.difficulty === 'hard' ? 180 : current.difficulty === 'medium' ? 140 : 100
+        const awarded = correct ? Math.round(base + (combo * 24) + (timeLeft * 4)) : 0
 
         if (correct) {
-            setScore(prev => prev + points)
-            setStreak(prev => prev + 1)
+            setScore(prev => prev + awarded)
+            setCombo(prev => {
+                const next = prev + 1
+                setBestCombo(currentBest => Math.max(currentBest, next))
+                return next
+            })
         } else {
             setLives(prev => Math.max(0, prev - 1))
-            setStreak(0)
+            setCombo(0)
         }
 
-        setRoundResult(result)
-        setHistory(prev => [...prev, result])
+        setRoundResult({ correct, points: awarded })
     }
 
-    if (!current || sessionDone) {
-        const accuracy = history.length
-            ? Math.round((history.filter(item => item.correct).length / history.length) * 100)
-            : 0
-
+    if (loading && catalog.playableLyrics.length === 0) {
         return (
             <PlayGameFrame
-                title="Complete The Lyric"
-            subtitle="Session finished. Reset the board, chase a better combo, and clean up the misses."
+                title="Guess The Lyric"
+                subtitle="Complete missing words without seeing the song title until the round resolves."
                 onBack={onBack}
                 stats={[
-                    { label: 'Final Score', value: score, tone: 'accent' },
-                    { label: 'Accuracy', value: `${accuracy}%` },
-                    { label: 'Correct', value: history.filter(item => item.correct).length },
-                    { label: 'Hints Used', value: history.filter(item => item.usedSongHint).length },
+                    { label: 'Score', value: '...' },
+                    { label: 'Timer', value: '...' },
+                    { label: 'Lives', value: '...' },
+                    { label: 'Streak', value: '...' },
+                    { label: 'XP', value: '...' },
                 ]}
+                hero={<div className="arcade-skeleton arcade-skeleton--hero" />}
                 leaderboard={<ArcadeLeaderboard mode="COMPLETE_THE_LYRIC" title="Lyric Mode Leaderboard" />}
             >
-                <div className="lyric-game">
-                    <div className="lyric-summary-grid">
-                        <div className="lyric-summary-card">
-                            <strong>{history.filter(item => item.correct).length}</strong>
-                            <span>Correct</span>
-                        </div>
-                        <div className="lyric-summary-card">
-                            <strong>{accuracy}%</strong>
-                            <span>Accuracy</span>
-                        </div>
-                        <div className="lyric-summary-card">
-                            <strong>{difficultyMode}</strong>
-                            <span>Difficulty</span>
-                        </div>
-                    </div>
-
-                    <button type="button" className="btn-next" onClick={restartSession}>
-                        Play Another Session
-                    </button>
-                </div>
+                <div className="arcade-skeleton arcade-skeleton--body" />
             </PlayGameFrame>
         )
     }
 
     return (
         <PlayGameFrame
-            title="Complete The Lyric"
-            subtitle="Read the missing-line prompt, lock the phrase, then reveal the track after the answer lands."
+            title="Guess The Lyric"
+            subtitle="Read the lyric only, choose the missing phrase, and reveal the song after the answer lands."
             onBack={onBack}
             stats={[
-                { label: 'Score', value: score, tone: 'accent' },
+                { label: 'Score', value: score.toLocaleString(), tone: 'accent' },
                 { label: 'Timer', value: `${timeLeft}s`, tone: timeLeft <= 5 ? 'danger' : 'default' },
                 { label: 'Lives', value: lives, tone: lives <= 1 ? 'danger' : 'default' },
-                { label: 'Combo', value: `${comboMultiplier.toFixed(2)}x` },
+                { label: 'Streak', value: `${combo}x` },
+                { label: 'XP', value: Math.round(score * 0.42).toLocaleString() },
             ]}
-            hero={
-                <div className={`lyric-hero ${roundResult ? 'lyric-hero--revealed' : ''}`}>
-                    {roundResult && (
-                        <div className="lyric-hero-media">
-                            {currentSongMeta?.coverUrl ? (
-                                <img src={currentSongMeta.coverUrl} alt={current.songTitle} className="lyric-cover-art" />
-                            ) : (
-                                <div className="lyric-cover-art lyric-cover-art--placeholder">Lyric</div>
-                            )}
-                            {currentArtist?.id ? (
-                                <img src={`/api/images/artist/${currentArtist.id}`} alt={current.artistName} className="lyric-artist-avatar" />
-                            ) : null}
-                        </div>
-                    )}
+            hero={current ? (
+                <div className="lyric-hero">
                     <div className="lyric-hero-copy">
-                        <div className="lyric-status-row">
-                            <button
-                                type="button"
-                                className={`arcade-difficulty-btn ${difficultyMode === 'easy' ? 'active' : ''}`}
-                                onClick={() => setDifficultyMode('easy')}
-                            >
-                                Easy
-                            </button>
-                            <button
-                                type="button"
-                                className={`arcade-difficulty-btn ${difficultyMode === 'hard' ? 'active' : ''}`}
-                                onClick={() => setDifficultyMode('hard')}
-                            >
-                                Hard
-                            </button>
-                            <span className="lyric-chip">Round {roundIndex + 1}/{TOTAL_ROUNDS}</span>
+                        <div className="lyric-chip-row">
+                            <span className="lyric-chip">{current.difficulty}</span>
+                            <span className="lyric-chip">Round {Math.min(index + 1, TOTAL_ROUNDS)}/{TOTAL_ROUNDS}</span>
+                            <span className="lyric-chip">{catalog.playableLyrics.length} lyric cards</span>
                         </div>
-
-                        <h3>{roundResult ? current.songTitle : 'Fill the missing word'}</h3>
+                        <h3>{roundResult ? current.songTitle : 'Fill the missing lyric'}</h3>
                         <p>
                             {roundResult
-                                ? current.artistName
-                                : loading
-                                    ? 'Loading the verified lyric pool...'
-                                    : `Choose the phrase that completes the lyric correctly. ${artistCount} artists and ${songCount} playable tracks back the hint validation.`}
+                                ? `${current.artistName} · ${current.albumTitle || 'Verified DHH release'}`
+                                : 'Song title, artist, and album stay hidden until you answer.'}
                         </p>
-
                         <div className="lyric-timer-track">
                             <div className="lyric-timer-fill" style={{ width: `${(timeLeft / ROUND_TIME) * 100}%` }} />
                         </div>
                     </div>
+                    {roundResult && (
+                        <div className="lyric-hero-media">
+                            {current.coverUrl ? <img src={current.coverUrl} alt={current.songTitle} className="lyric-cover-art" /> : <div className="lyric-cover-art lyric-cover-art--placeholder">Lyric</div>}
+                        </div>
+                    )}
                 </div>
-            }
+            ) : undefined}
             leaderboard={<ArcadeLeaderboard mode="COMPLETE_THE_LYRIC" title="Lyric Mode Leaderboard" />}
         >
-            <div className="lyric-game">
-                <div className="lyric-clue-box">
-                    <div className="lyric-chip-row">
-                        <span className="lyric-chip">{difficultyMode === 'easy' ? 'Popular cut' : 'Deep cut'}</span>
-                        <span className="lyric-chip">{filteredChallenges.length} verified lyric cards</span>
+            {gameOver ? (
+                <div className="arcade-result-card arcade-result-card--summary">
+                    <h4>Session complete</h4>
+                    <p>Final score: {score.toLocaleString()}</p>
+                    <p>Best combo: {bestCombo}x</p>
+                    <div className="arcade-action-row">
+                        <button type="button" className="btn-next" onClick={restart}>Play again</button>
                     </div>
-                    <div className="lyric-prompt">{current.prompt}</div>
-                    {!roundResult && <p className="lyric-prompt-note">Only the lyric is shown before you answer.</p>}
                 </div>
+            ) : current ? (
+                <div className="lyric-game">
+                    <div className="lyric-clue-box">
+                        <div className="lyric-prompt">{current.maskedPrompt}</div>
+                        {!roundResult && <p className="lyric-prompt-note">Only the lyric is visible before you answer.</p>}
+                    </div>
 
-                {!roundResult ? (
-                    <div className="lyric-options-grid">
-                        {currentChoices.map(choice => (
-                            <button
-                                key={choice}
-                                type="button"
-                                className={`lyric-choice ${selectedChoice === choice ? 'active' : ''}`}
-                                onClick={() => lockAnswer(choice)}
-                            >
-                                {choice}
-                            </button>
-                        ))}
-                    </div>
-                ) : (
-                    <div className={`lyric-result ${roundResult.correct ? 'correct' : 'incorrect'}`}>
-                        <h4>{roundResult.correct ? 'Clean hit' : 'Missed this round'}</h4>
-                        <p>Answer: {current.answers[0]}</p>
-                        <p>Song: {current.songTitle}</p>
-                        <p>Artist: {current.artistName}</p>
-                        {roundResult.correct
-                            ? <p>+{roundResult.points} points</p>
-                            : <p>Life lost. Combo reset.</p>}
-                        <div className="lyric-result-actions">
-                            <button type="button" className="btn-next" onClick={nextRound}>
-                                Next Round
-                            </button>
+                    {!roundResult ? (
+                        <div className="lyric-options-grid">
+                            {choices.map(choice => (
+                                <button key={choice} type="button" className={`lyric-choice ${selectedChoice === choice ? 'active' : ''}`} onClick={() => lockAnswer(choice)}>
+                                    {choice}
+                                </button>
+                            ))}
                         </div>
-                    </div>
-                )}
-            </div>
+                    ) : (
+                        <div className={`arcade-result-card ${roundResult.correct ? 'is-correct' : 'is-wrong'}`}>
+                            <h4>{roundResult.correct ? 'Locked in' : 'Missed the phrase'}</h4>
+                            <p>Answer: {current.answers[0]}</p>
+                            <p>Song: {current.songTitle}</p>
+                            <p>Artist: {current.artistName}</p>
+                            {roundResult.correct ? <p className="points-earned">+{roundResult.points} points</p> : <p className="album-name">Life lost. Combo reset.</p>}
+                            <div className="arcade-action-row">
+                                <button type="button" className="btn-next" onClick={nextRound}>Next round</button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            ) : null}
         </PlayGameFrame>
     )
 }
+
+export default memo(CompleteLyricGameComponent)
+

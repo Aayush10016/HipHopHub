@@ -1,16 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
 import PlayGameFrame from './PlayGameFrame'
-import { useGameCatalog, type GameCatalogArtist, type GameCatalogRelease } from '../hooks/useGameCatalog'
+import { useArcadeCatalog } from '../hooks/useArcadeCatalog'
+import type { ArcadeSceneQuestion } from '../utils/gameCatalog'
 
 const SESSION_TIME = 60
-const ROUND_TIME = 8
-
-type SceneQuestion = {
-    prompt: string
-    answer: string
-    options: string[]
-    label: string
-}
+const ROUND_TIME = 10
 
 const shuffle = <T,>(items: T[]) => {
     const copy = [...items]
@@ -21,285 +15,143 @@ const shuffle = <T,>(items: T[]) => {
     return copy
 }
 
-const buildWave = (artist: GameCatalogArtist) => {
-    const firstYear = artist.releaseYears?.[0]
-    if (!firstYear) return 'Modern Wave'
-    if (firstYear <= 2015) return 'Pioneer Wave'
-    if (firstYear <= 2018) return 'Breakout Wave'
-    if (firstYear <= 2021) return 'New Guard'
-    return 'Current Wave'
-}
+function SceneDecoderGameComponent({ onBack }: { onBack: () => void }) {
+    const { loading, catalog } = useArcadeCatalog()
+    const questionDeck = useMemo(() => shuffle(catalog.sceneFacts).slice(0, 48), [catalog.sceneFacts])
 
-const pickRandom = <T,>(items: T[]) => items[Math.floor(Math.random() * items.length)]
-
-const buildDiscographyClue = (artist: GameCatalogArtist, releases: GameCatalogRelease[]) => {
-    const artistReleases = releases
-        .filter(release => release.artistId === artist.id)
-        .slice(0, 3)
-        .map(release => release.title)
-
-    if (artistReleases.length < 2) return null
-
-    return `Discography clue: ${artistReleases.join(' / ')}`
-}
-
-export default function SceneDecoderGame({ onBack }: { onBack: () => void }) {
-    const { artists, releases, artistCount, loading } = useGameCatalog()
-    const [questions, setQuestions] = useState<SceneQuestion[]>([])
+    const [started, setStarted] = useState(false)
     const [index, setIndex] = useState(0)
     const [score, setScore] = useState(0)
+    const [combo, setCombo] = useState(0)
     const [timeLeft, setTimeLeft] = useState(SESSION_TIME)
+    const [roundTimeLeft, setRoundTimeLeft] = useState(ROUND_TIME)
     const [selected, setSelected] = useState<string | null>(null)
     const [status, setStatus] = useState<string | null>(null)
-    const [started, setStarted] = useState(false)
-    const [roundTimeLeft, setRoundTimeLeft] = useState(ROUND_TIME)
-    const [combo, setCombo] = useState(0)
+    const [didYouKnow, setDidYouKnow] = useState<string | null>(null)
+
+    const current: ArcadeSceneQuestion | undefined = questionDeck[index]
+    const gameOver = started && (timeLeft <= 0 || !current)
 
     useEffect(() => {
-        if (artists.length === 0) return
-        const nextQuestions: SceneQuestion[] = []
-
-        const cityArtists = artists.filter(artist => !!artist.city)
-        for (let i = 0; i < Math.min(12, cityArtists.length); i += 1) {
-            const artist = cityArtists[i]
-            const options = shuffle([
-                artist.city as string,
-                ...shuffle(cityArtists.filter(item => item.id !== artist.id).map(item => item.city as string)).slice(0, 3)
-            ])
-            nextQuestions.push({
-                prompt: `Which city is ${artist.name} most associated with?`,
-                answer: artist.city as string,
-                options,
-                label: 'City roots',
-            })
-        }
-
-        const factArtists = artists.filter(artist => artist.facts.length > 0)
-        for (let i = 0; i < Math.min(12, factArtists.length); i += 1) {
-            const artist = factArtists[i]
-            const fact = pickRandom(artist.facts)
-            const options = shuffle([
-                artist.name,
-                ...shuffle(factArtists.filter(item => item.id !== artist.id).map(item => item.name)).slice(0, 3)
-            ])
-            nextQuestions.push({
-                prompt: `Guess the artist from this fact: ${fact}`,
-                answer: artist.name,
-                options,
-                label: 'Fact check',
-            })
-        }
-
-        const waveArtists = artists.filter(artist => artist.releaseYears.length > 0)
-        for (let i = 0; i < Math.min(12, waveArtists.length); i += 1) {
-            const artist = waveArtists[i]
-            const answer = buildWave(artist)
-            const options = shuffle([
-                answer,
-                ...['Pioneer Wave', 'Breakout Wave', 'New Guard', 'Current Wave'].filter(item => item !== answer).slice(0, 3)
-            ])
-            nextQuestions.push({
-                prompt: `Which DHH wave best fits ${artist.name} based on catalog timing?`,
-                answer,
-                options,
-                label: 'Scene wave',
-            })
-        }
-
-        const datedReleases = releases.filter(release => !!release.releaseDate)
-        for (let i = 0; i < Math.min(12, datedReleases.length / 4); i += 1) {
-            const selection = shuffle(datedReleases).slice(0, 4)
-            const ordered = [...selection].sort((a, b) => (a.releaseDate || '').localeCompare(b.releaseDate || ''))
-            const answer = ordered[0]?.title
-            if (!answer) continue
-            nextQuestions.push({
-                prompt: 'Which release came first?',
-                answer,
-                options: shuffle(selection.map(item => item.title)),
-                label: 'Release order',
-            })
-        }
-
-        for (let i = 0; i < Math.min(12, datedReleases.length); i += 1) {
-            const release = datedReleases[i]
-            const year = release.releaseDate?.slice(0, 4)
-            if (!year) continue
-            const yearOptions = shuffle([
-                year,
-                ...shuffle(datedReleases
-                    .map(item => item.releaseDate?.slice(0, 4))
-                    .filter((item): item is string => !!item && item !== year))
-                    .slice(0, 3)
-            ])
-            nextQuestions.push({
-                prompt: `Which year did "${release.title}" release?`,
-                answer: year,
-                options: yearOptions,
-                label: 'Release year',
-            })
-        }
-
-        const albumTypeReleases = releases.filter(release => (release.type || '').toUpperCase() === 'ALBUM')
-        for (let i = 0; i < Math.min(12, albumTypeReleases.length); i += 1) {
-            const release = albumTypeReleases[i]
-            const options = shuffle([
-                release.title,
-                ...shuffle(albumTypeReleases
-                    .filter(item => item.id !== release.id)
-                    .map(item => item.title))
-                    .slice(0, 3)
-            ])
-            nextQuestions.push({
-                prompt: `Which album belongs to ${release.artistName}?`,
-                answer: release.title,
-                options,
-                label: 'Album pick',
-            })
-        }
-
-        const releaseOwnedArtists = artists.filter(artist =>
-            releases.some(release => release.artistId === artist.id)
-        )
-        for (let i = 0; i < Math.min(12, releaseOwnedArtists.length); i += 1) {
-            const artist = releaseOwnedArtists[i]
-            const clue = buildDiscographyClue(artist, releases)
-            if (!clue) continue
-            const options = shuffle([
-                artist.name,
-                ...shuffle(releaseOwnedArtists.filter(item => item.id !== artist.id).map(item => item.name)).slice(0, 3)
-            ])
-            nextQuestions.push({
-                prompt: clue,
-                answer: artist.name,
-                options,
-                label: 'Discography clue',
-            })
-        }
-
-        const ownershipPool = releases.filter(release => !!release.artistName).slice(0, 40)
-        ownershipPool.forEach(release => {
-            const options = shuffle([
-                release.artistName,
-                ...shuffle(artists.filter(item => item.id !== release.artistId).map(item => item.name)).slice(0, 3)
-            ])
-            nextQuestions.push({
-                prompt: `Who is credited on "${release.title}"?`,
-                answer: release.artistName,
-                options,
-                label: release.type === 'APPEARS_ON' ? 'Collaborator credit' : 'Release owner',
-            })
-        })
-
-        setQuestions(shuffle(nextQuestions))
-    }, [artists, releases])
-
-    const current = questions[index % Math.max(1, questions.length)]
-    const over = timeLeft <= 0
-    const options = useMemo(() => current ? shuffle(current.options) : [], [current])
-
-    useEffect(() => {
-        if (!started || over) return
+        if (!started || gameOver) return
         const timer = window.setInterval(() => setTimeLeft(prev => Math.max(0, prev - 1)), 1000)
         return () => window.clearInterval(timer)
-    }, [over, started])
+    }, [gameOver, started])
 
     useEffect(() => {
-        if (!started || over || selected || !current) return
+        if (!started || gameOver || selected || !current) return
         setRoundTimeLeft(ROUND_TIME)
         const timer = window.setInterval(() => {
             setRoundTimeLeft(prev => {
                 if (prev <= 1) {
                     window.clearInterval(timer)
                     setSelected('__timeout__')
-                    setStatus(`Time up. Correct answer: ${current.answer}`)
                     setCombo(0)
+                    setStatus(`Time up. Correct answer: ${current.answer}`)
+                    setDidYouKnow(current.explanation)
                     return 0
                 }
                 return prev - 1
             })
         }, 1000)
         return () => window.clearInterval(timer)
-    }, [current, over, selected, started])
+    }, [current, gameOver, selected, started])
 
     useEffect(() => {
-        if (!selected || over) return
+        if (!selected || gameOver) return
         const timeout = window.setTimeout(() => {
+            setIndex(prev => prev + 1)
             setSelected(null)
             setStatus(null)
-            setIndex(prev => prev + 1)
+            setDidYouKnow(null)
             setRoundTimeLeft(ROUND_TIME)
-        }, 900)
+        }, 1800)
         return () => window.clearTimeout(timeout)
-    }, [over, selected])
+    }, [gameOver, selected])
 
     const start = () => {
-        setQuestions(shuffle(questions))
+        setStarted(true)
         setIndex(0)
         setScore(0)
+        setCombo(0)
         setTimeLeft(SESSION_TIME)
+        setRoundTimeLeft(ROUND_TIME)
         setSelected(null)
         setStatus(null)
-        setStarted(true)
-        setRoundTimeLeft(ROUND_TIME)
-        setCombo(0)
+        setDidYouKnow(null)
     }
 
     const choose = (option: string) => {
-        if (!started || over || selected || !current) return
+        if (!current || selected || gameOver || !started) return
         setSelected(option)
         if (option === current.answer) {
-            const points = 120 + (combo * 20) + (roundTimeLeft * 5)
+            const points = Math.round(100 + roundTimeLeft * 10 + combo * 18)
             setScore(prev => prev + points)
             setCombo(prev => prev + 1)
             setStatus(`Correct. +${points}`)
         } else {
-            setStatus(`Correct answer: ${current.answer}`)
             setCombo(0)
+            setStatus(`Correct answer: ${current.answer}`)
         }
+        setDidYouKnow(current.explanation)
     }
 
     return (
         <PlayGameFrame
             title="Scene Decoder"
-            subtitle="Culture quiz mode built from artist facts, city roots, release timing, and wave awareness across the full DHH catalog."
+            subtitle="DHH cultural trivia built from city roots, facts, release years, albums, collaborators, and scene waves."
             onBack={onBack}
             stats={[
-                { label: 'Score', value: score, tone: 'accent' },
+                { label: 'Score', value: score.toLocaleString(), tone: 'accent' },
                 { label: 'Timer', value: `${timeLeft}s`, tone: timeLeft <= 10 ? 'danger' : 'default' },
-                { label: 'Round', value: `${roundTimeLeft}s`, tone: roundTimeLeft <= 2 ? 'danger' : 'default' },
-                { label: 'Combo', value: `${combo}x` },
+                { label: 'Round', value: `${roundTimeLeft}s`, tone: roundTimeLeft <= 3 ? 'danger' : 'default' },
+                { label: 'Streak', value: `${combo}x` },
+                { label: 'XP', value: Math.round(score * 0.38).toLocaleString() },
             ]}
+            hero={current ? (
+                <div className="arcade-game-hero arcade-game-hero--compact">
+                    <div className="arcade-game-hero__copy">
+                        <div className="arcade-game-chip-row">
+                            <span className="arcade-game-chip">{current.category}</span>
+                            <span className="arcade-game-chip">Did-you-know trivia mode</span>
+                        </div>
+                        <h3>{current.prompt}</h3>
+                        <p>Answer first, then get a context note pulled from the verified catalog.</p>
+                    </div>
+                </div>
+            ) : undefined}
             leaderboard={
-                <div className="game-placeholder card">
-                    <h3>Decoder Pool</h3>
-                    <p>{loading ? 'Loading verified artists...' : `${artistCount} artists loaded.`}</p>
-                    <p>{loading ? 'Loading release archive...' : `${releases.length} releases available for chronology questions.`}</p>
-                    <p>Question types: city, fact, wave, chronology, discography, release owner, album, year.</p>
+                <div className="game-placeholder card leaderboard-card">
+                    <div className="leaderboard-card__header">
+                        <h3>Decoder Pool</h3>
+                    </div>
+                    <div className="arcade-board arcade-board--notes">
+                        <div className="arcade-board-row"><strong>Question deck</strong><span>{catalog.sceneFacts.length}</span></div>
+                        <div className="arcade-board-row"><strong>Artists loaded</strong><span>{catalog.artistCount.toLocaleString()}</span></div>
+                        <div className="arcade-board-row"><strong>Releases loaded</strong><span>{catalog.releaseCount.toLocaleString()}</span></div>
+                        <div className="arcade-board-row"><strong>Categories</strong><span>6</span></div>
+                    </div>
                 </div>
             }
         >
-            {loading || !current ? (
-                <div className="game-placeholder card">
-                    <h3>Scene Decoder</h3>
-                    <p>Loading the culture map...</p>
+            {loading && questionDeck.length === 0 ? (
+                <div className="arcade-skeleton arcade-skeleton--body" />
+            ) : !started || gameOver ? (
+                <div className="arcade-result-card arcade-result-card--summary">
+                    <h4>{gameOver ? 'Scene Decoder complete' : 'Ready for Scene Decoder'}</h4>
+                    <p>{gameOver ? `Final score: ${score.toLocaleString()}` : 'A fast DHH culture quiz designed for repeat runs.'}</p>
+                    <div className="arcade-action-row">
+                        <button type="button" className="btn-next" onClick={start}>{gameOver ? 'Play again' : 'Start decoder'}</button>
+                    </div>
                 </div>
-            ) : !started || over ? (
-                <div className="blitz-launch">
-                    {over && <p className="game-description">Session over. Final score: {score}</p>}
-                    <button type="button" className="btn-next" onClick={start}>
-                        {over ? 'Play Again' : 'Start Scene Decoder'}
-                    </button>
-                </div>
-            ) : (
+            ) : current ? (
                 <>
-                    <div className="lyric-chip strong">{current.label}</div>
-                    <div className="blitz-title">{current.prompt}</div>
-                    <div className="blitz-options">
-                        {options.map(option => (
+                    <div className="arcade-option-grid">
+                        {current.options.map(option => (
                             <button
-                                key={option}
+                                key={`${current.id}-${option}`}
                                 type="button"
-                                className={`blitz-option ${selected === option ? 'active' : ''}`}
+                                className={`arcade-option-card ${selected === option ? 'active' : ''}`}
                                 onClick={() => choose(option)}
                             >
                                 {option}
@@ -307,8 +159,12 @@ export default function SceneDecoderGame({ onBack }: { onBack: () => void }) {
                         ))}
                     </div>
                     {status && <p className="game-description">{status}</p>}
+                    {didYouKnow && <div className="arcade-did-you-know"><strong>Did you know?</strong><p>{didYouKnow}</p></div>}
                 </>
-            )}
+            ) : null}
         </PlayGameFrame>
     )
 }
+
+export default memo(SceneDecoderGameComponent)
+

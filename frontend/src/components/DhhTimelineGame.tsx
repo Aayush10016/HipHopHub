@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
 import PlayGameFrame from './PlayGameFrame'
-import { useGameCatalog, type GameCatalogRelease } from '../hooks/useGameCatalog'
+import { useArcadeCatalog } from '../hooks/useArcadeCatalog'
+import type { ArcadeTimelineEvent } from '../utils/gameCatalog'
 
-const ROUNDS = 6
+const TOTAL_ROUNDS = 6
 const LIVES = 3
 
 const shuffle = <T,>(items: T[]) => {
@@ -15,196 +16,188 @@ const shuffle = <T,>(items: T[]) => {
 }
 
 type TimelineRound = {
-    items: GameCatalogRelease[]
-    correctOrder: number[]
+    items: ArcadeTimelineEvent[]
+    orderedIds: number[]
 }
 
-const buildRound = (releases: GameCatalogRelease[]): TimelineRound | null => {
-    const pool = shuffle(releases.filter(release => !!release.releaseDate)).slice(0, 4)
-    if (pool.length < 4) return null
-    const sorted = [...pool].sort((a, b) => (a.releaseDate || '').localeCompare(b.releaseDate || ''))
+const buildRound = (events: ArcadeTimelineEvent[]): TimelineRound | null => {
+    const sample = shuffle(events).slice(0, 4)
+    if (sample.length < 4) return null
+    const ordered = [...sample].sort((left, right) => left.year - right.year)
     return {
-        items: pool,
-        correctOrder: sorted.map(item => item.id),
+        items: sample,
+        orderedIds: ordered.map(item => item.id),
     }
 }
 
-export default function DhhTimelineGame({ onBack }: { onBack: () => void }) {
-    const { releases, releaseCount, loading } = useGameCatalog()
+function DhhTimelineGameComponent({ onBack }: { onBack: () => void }) {
+    const { loading, catalog } = useArcadeCatalog()
+    const eventPool = useMemo(() => catalog.timelineEvents, [catalog.timelineEvents])
+
+    const [started, setStarted] = useState(false)
     const [rounds, setRounds] = useState<TimelineRound[]>([])
     const [roundIndex, setRoundIndex] = useState(0)
     const [selectedOrder, setSelectedOrder] = useState<number[]>([])
     const [score, setScore] = useState(0)
+    const [combo, setCombo] = useState(0)
     const [lives, setLives] = useState(LIVES)
     const [status, setStatus] = useState<string | null>(null)
-    const [started, setStarted] = useState(false)
     const [draggedId, setDraggedId] = useState<number | null>(null)
 
-    useEffect(() => {
-        if (releases.length === 0) return
-        const nextRounds: TimelineRound[] = []
-        const safeReleases = releases.filter(release => !!release.releaseDate)
-        for (let i = 0; i < ROUNDS; i += 1) {
-            const round = buildRound(safeReleases)
-            if (round) nextRounds.push(round)
-        }
-        setRounds(nextRounds)
-    }, [releases])
-
     const current = rounds[roundIndex]
-    const over = roundIndex >= rounds.length || lives <= 0
-    const timelineEventCount = useMemo(
-        () => releases.filter(release => !!release.releaseDate).length,
-        [releases]
-    )
+    const gameOver = started && (roundIndex >= rounds.length || lives <= 0)
 
-    const orderedPreview = useMemo(() => {
-        if (!current) return []
-        return selectedOrder.map(id =>
-            id ? current.items.find(item => item.id === id) || null : null
-        )
-    }, [current, selectedOrder])
-
-    const firstEmptySlot = useMemo(
-        () => selectedOrder.findIndex(item => item === 0),
-        [selectedOrder]
-    )
-
-    const start = () => {
+    const resetRounds = () => {
         const nextRounds: TimelineRound[] = []
-        const safeReleases = releases.filter(release => !!release.releaseDate)
-        for (let i = 0; i < ROUNDS; i += 1) {
-            const round = buildRound(safeReleases)
+        for (let i = 0; i < TOTAL_ROUNDS; i += 1) {
+            const round = buildRound(eventPool)
             if (round) nextRounds.push(round)
         }
         setRounds(nextRounds)
         setRoundIndex(0)
-        setSelectedOrder(new Array(nextRounds[0]?.correctOrder.length || 4).fill(0))
-        setScore(0)
-        setLives(LIVES)
-        setStatus(null)
-        setStarted(true)
-        setDraggedId(null)
-    }
-
-    const evaluateOrder = (nextOrder: number[]) => {
-        if (!current || nextOrder.some(item => item === 0)) return
-        setSelectedOrder(nextOrder)
-
-        const correctPositions = nextOrder.filter((item, idx) => item === current.correctOrder[idx]).length
-        if (correctPositions === current.correctOrder.length) {
-            const points = 220 + (roundIndex * 30)
-            setScore(prev => prev + points)
-            setStatus(`Perfect timeline. +${points}`)
-        } else {
-            setLives(prev => Math.max(0, prev - 1))
-            setStatus(`Not quite. Correct order started with ${current.items.find(item => item.id === current.correctOrder[0])?.title}.`)
-        }
-    }
-
-    const pickEvent = (id: number, slotIndex?: number) => {
-        if (!current || over) return
-        if (selectedOrder.includes(id)) return
-
-        const nextOrder = selectedOrder.length === 0
-            ? new Array(current.correctOrder.length).fill(0)
-            : [...selectedOrder]
-
-        const targetSlot = typeof slotIndex === 'number'
-            ? slotIndex
-            : nextOrder.findIndex(item => item === 0)
-
-        if (targetSlot < 0) return
-        nextOrder[targetSlot] = id
-        evaluateOrder(nextOrder)
-    }
-
-    const clearSlot = (slotIndex: number) => {
-        if (!current || status) return
-        const nextOrder = selectedOrder.length === 0
-            ? new Array(current.correctOrder.length).fill(0)
-            : [...selectedOrder]
-        nextOrder[slotIndex] = 0
-        setSelectedOrder(nextOrder)
+        setSelectedOrder(new Array(nextRounds[0]?.orderedIds.length || 4).fill(0))
     }
 
     useEffect(() => {
-        if (!current || !status) return
-        const timer = window.setTimeout(() => {
-            setRoundIndex(prev => prev + 1)
-            setSelectedOrder(new Array(current.correctOrder.length).fill(0))
+        if (eventPool.length === 0 || started) return
+        resetRounds()
+    }, [eventPool, started])
+
+    useEffect(() => {
+        if (!status || !current) return
+        const timeout = window.setTimeout(() => {
+            const nextRound = roundIndex + 1
+            setRoundIndex(nextRound)
+            setSelectedOrder(new Array(rounds[nextRound]?.orderedIds.length || 4).fill(0))
             setStatus(null)
             setDraggedId(null)
         }, 1400)
-        return () => window.clearTimeout(timer)
-    }, [current, status])
+        return () => window.clearTimeout(timeout)
+    }, [current, roundIndex, rounds, status])
+
+    const start = () => {
+        setStarted(true)
+        setScore(0)
+        setCombo(0)
+        setLives(LIVES)
+        setStatus(null)
+        setDraggedId(null)
+        resetRounds()
+    }
+
+    const clearSlot = (slotIndex: number) => {
+        if (status) return
+        const next = [...selectedOrder]
+        next[slotIndex] = 0
+        setSelectedOrder(next)
+    }
+
+    const evaluate = (order: number[]) => {
+        if (!current || order.some(item => item === 0)) return
+        setSelectedOrder(order)
+        const perfect = order.every((item, index) => item === current.orderedIds[index])
+        if (perfect) {
+            const points = 220 + combo * 35 + roundIndex * 30
+            setScore(prev => prev + points)
+            setCombo(prev => prev + 1)
+            setStatus(`Perfect order. +${points}`)
+        } else {
+            setLives(prev => Math.max(0, prev - 1))
+            setCombo(0)
+            const first = current.items.find(item => item.id === current.orderedIds[0])
+            setStatus(`Not quite. The earliest release here was ${first?.title || 'the first card'}.`)
+        }
+    }
+
+    const placeInSlot = (eventId: number, slotIndex?: number) => {
+        if (!current || status || selectedOrder.includes(eventId)) return
+        const next = [...selectedOrder]
+        const target = typeof slotIndex === 'number' ? slotIndex : next.findIndex(item => item === 0)
+        if (target < 0) return
+        next[target] = eventId
+        evaluate(next)
+    }
+
+    const orderedPreview = selectedOrder.map(id => current?.items.find(item => item.id === id) || null)
 
     return (
         <PlayGameFrame
             title="DHH Timeline"
-            subtitle="Arrange official DHH releases chronologically with drag-and-drop slots and replayable four-event rounds."
+            subtitle="Arrange official releases chronologically with drag-and-drop slots, snap feedback, and escalating rounds."
             onBack={onBack}
             stats={[
-                { label: 'Score', value: score, tone: 'accent' },
+                { label: 'Score', value: score.toLocaleString(), tone: 'accent' },
                 { label: 'Lives', value: lives, tone: lives <= 1 ? 'danger' : 'default' },
-                { label: 'Round', value: `${Math.min(roundIndex + 1, rounds.length)}/${Math.max(1, rounds.length)}` },
-                { label: 'Events', value: loading ? '...' : (timelineEventCount || releaseCount) },
+                { label: 'Round', value: `${Math.min(roundIndex + 1, TOTAL_ROUNDS)}/${TOTAL_ROUNDS}` },
+                { label: 'Streak', value: `${combo}x` },
+                { label: 'XP', value: Math.round(score * 0.36).toLocaleString() },
             ]}
+            hero={current ? (
+                <div className="arcade-game-hero arcade-game-hero--compact">
+                    <div className="arcade-game-hero__copy">
+                        <div className="arcade-game-chip-row">
+                            <span className="arcade-game-chip">4 release cards</span>
+                            <span className="arcade-game-chip">Drag or tap to place</span>
+                        </div>
+                        <h3>Arrange the releases from earliest to latest.</h3>
+                        <p>Only official dated releases from the verified HipHopHub catalog are used here.</p>
+                    </div>
+                </div>
+            ) : undefined}
             leaderboard={
-                <div className="game-placeholder card">
-                    <h3>How It Works</h3>
-                    <p>Pick the four events in chronological order.</p>
-                    <p>Rounds get harder as catalog range widens.</p>
-                    <p>Only official release dates from the verified catalog are used.</p>
+                <div className="game-placeholder card leaderboard-card">
+                    <div className="leaderboard-card__header">
+                        <h3>Timeline Notes</h3>
+                    </div>
+                    <div className="arcade-board arcade-board--notes">
+                        <div className="arcade-board-row"><strong>Dated events</strong><span>{catalog.timelineEvents.length.toLocaleString()}</span></div>
+                        <div className="arcade-board-row"><strong>Official releases</strong><span>{catalog.releaseCount.toLocaleString()}</span></div>
+                        <div className="arcade-board-row"><strong>Lives</strong><span>{lives}</span></div>
+                        <div className="arcade-board-row"><strong>Best combo</strong><span>{combo}x</span></div>
+                    </div>
                 </div>
             }
         >
-            {loading || !current ? (
-                <div className="game-placeholder card">
-                    <h3>DHH Timeline</h3>
-                    <p>{loading ? 'Loading the release archive...' : 'Not enough dated releases are available for a timeline round yet.'}</p>
+            {loading && eventPool.length === 0 ? (
+                <div className="arcade-skeleton arcade-skeleton--body" />
+            ) : !started || gameOver ? (
+                <div className="arcade-result-card arcade-result-card--summary">
+                    <h4>{gameOver ? 'Timeline run complete' : 'Ready for DHH Timeline'}</h4>
+                    <p>{gameOver ? `Final score: ${score.toLocaleString()}` : 'Arrange four releases at a time and hold the streak.'}</p>
+                    <div className="arcade-action-row">
+                        <button type="button" className="btn-next" onClick={start}>{gameOver ? 'Play again' : 'Start timeline'}</button>
+                    </div>
                 </div>
-            ) : !started || over ? (
-                <div className="blitz-launch">
-                    {over && <p className="game-description">Run over. Final score: {score}</p>}
-                    <button type="button" className="btn-next" onClick={start}>
-                        {over ? 'Play Again' : 'Start Timeline'}
-                    </button>
-                </div>
-            ) : (
+            ) : current ? (
                 <>
                     <div className="timeline-selected-strip">
-                        {Array.from({ length: current.correctOrder.length }).map((_, idx) => {
-                            const item = orderedPreview[idx]
+                        {current.orderedIds.map((_, index) => {
+                            const item = orderedPreview[index]
                             return (
                                 <button
-                                    key={`slot-${idx}`}
+                                    key={`slot-${index}`}
                                     type="button"
                                     className={`timeline-selected-card ${item ? 'filled' : 'empty'}`}
-                                    onDragOver={(event) => event.preventDefault()}
-                                    onDrop={(event) => {
+                                    onDragOver={event => event.preventDefault()}
+                                    onDrop={event => {
                                         event.preventDefault()
-                                        if (draggedId) pickEvent(draggedId, idx)
+                                        if (draggedId) placeInSlot(draggedId, index)
                                     }}
-                                    onClick={() => clearSlot(idx)}
+                                    onClick={() => clearSlot(index)}
                                 >
-                                    <span>{idx + 1}</span>
+                                    <span>{index + 1}</span>
                                     {item ? (
                                         <>
                                             <strong>{item.title}</strong>
                                             <small>{item.artistName}</small>
                                         </>
                                     ) : (
-                                        <small>Drop event here</small>
+                                        <small>Drop release here</small>
                                     )}
                                 </button>
                             )
                         })}
                     </div>
-
-                    {!status && firstEmptySlot >= 0 && (
-                        <p className="game-description">Drag events into the numbered slots or tap cards to fill the next open slot.</p>
-                    )}
 
                     <div className="timeline-grid">
                         {current.items.map(item => (
@@ -212,12 +205,12 @@ export default function DhhTimelineGame({ onBack }: { onBack: () => void }) {
                                 key={item.id}
                                 type="button"
                                 className={`timeline-card ${selectedOrder.includes(item.id) ? 'active' : ''}`}
-                                onClick={() => pickEvent(item.id)}
                                 draggable={!selectedOrder.includes(item.id)}
                                 onDragStart={() => setDraggedId(item.id)}
                                 onDragEnd={() => setDraggedId(null)}
+                                onClick={() => placeInSlot(item.id)}
                             >
-                                {item.coverUrl && <img src={item.coverUrl} alt={item.title} className="timeline-card-cover" />}
+                                {item.coverUrl ? <img src={item.coverUrl} alt={item.title} className="timeline-card-cover" /> : null}
                                 <strong>{item.title}</strong>
                                 <span>{item.artistName}</span>
                             </button>
@@ -226,7 +219,9 @@ export default function DhhTimelineGame({ onBack }: { onBack: () => void }) {
 
                     {status && <p className="game-description">{status}</p>}
                 </>
-            )}
+            ) : null}
         </PlayGameFrame>
     )
 }
+
+export default memo(DhhTimelineGameComponent)

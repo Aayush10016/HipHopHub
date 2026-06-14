@@ -1,21 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
 import PlayGameFrame from './PlayGameFrame'
-import { useGameCatalog, type GameCatalogArtist, type GameCatalogSong } from '../hooks/useGameCatalog'
+import { useArcadeCatalog } from '../hooks/useArcadeCatalog'
+import type { ArcadeArtistQuestion } from '../utils/gameCatalog'
 
 const SESSION_TIME = 60
-const ROUND_DELAY_MS = 900
-const ROUND_TIME = 6
-
-type BlitzQuestion = {
-    key: string
-    prompt: string
-    answer: string
-    options: string[]
-    label: string
-    mediaType?: 'cover'
-    mediaUrl?: string
-    mediaAlt?: string
-}
+const ROUND_TIME = 10
 
 const shuffle = <T,>(items: T[]) => {
     const copy = [...items]
@@ -26,268 +15,149 @@ const shuffle = <T,>(items: T[]) => {
     return copy
 }
 
-const uniqueOptions = (options: string[]) =>
-    options.filter((option, index, source) => source.indexOf(option) === index)
+function ArtistBlitzGameComponent({ onBack }: { onBack: () => void }) {
+    const { loading, catalog } = useArcadeCatalog()
+    const questionPool = useMemo(() => shuffle(catalog.artistQuestions).slice(0, 60), [catalog.artistQuestions])
 
-export default function ArtistBlitzGame({ onBack }: { onBack: () => void }) {
-    const { artists, songs, artistCount, songCount, loading } = useGameCatalog()
-    const [queue, setQueue] = useState<BlitzQuestion[]>([])
+    const [started, setStarted] = useState(false)
     const [index, setIndex] = useState(0)
     const [score, setScore] = useState(0)
-    const [totalTimeLeft, setTotalTimeLeft] = useState(SESSION_TIME)
-    const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
-    const [status, setStatus] = useState<string | null>(null)
-    const [sessionStarted, setSessionStarted] = useState(false)
-    const [correctCount, setCorrectCount] = useState(0)
-    const [roundTimeLeft, setRoundTimeLeft] = useState(ROUND_TIME)
     const [combo, setCombo] = useState(0)
-    const [perfectMisses, setPerfectMisses] = useState(0)
-    const [scoreBurst, setScoreBurst] = useState<number | null>(null)
+    const [bestCombo, setBestCombo] = useState(0)
+    const [timeLeft, setTimeLeft] = useState(SESSION_TIME)
+    const [roundTimeLeft, setRoundTimeLeft] = useState(ROUND_TIME)
+    const [selected, setSelected] = useState<string | null>(null)
+    const [status, setStatus] = useState<string | null>(null)
 
-    const questionPool = useMemo(() => {
-        const artistNamePool = artists.map(artist => artist.name)
-        const questions: BlitzQuestion[] = []
-
-        songs
-            .filter(song => !!song.coverUrl)
-            .slice(0, 30)
-            .forEach(song => {
-                const options = uniqueOptions(shuffle([
-                    song.artistName,
-                    ...shuffle(artistNamePool.filter(name => name !== song.artistName)).slice(0, 3)
-                ]))
-                if (options.length === 4) {
-                    questions.push({
-                        key: `cover-${song.id}`,
-                        prompt: `Who owns the artwork for "${song.title}"?`,
-                        answer: song.artistName,
-                        options,
-                        label: 'Album image',
-                        mediaType: 'cover',
-                        mediaUrl: song.coverUrl,
-                        mediaAlt: song.title,
-                    })
-                }
-            })
-
-        artists
-            .filter(artist => !!artist.city)
-            .slice(0, 24)
-            .forEach(artist => {
-                const options = uniqueOptions(shuffle([
-                    artist.name,
-                    ...shuffle(artistNamePool.filter(name => name !== artist.name)).slice(0, 3)
-                ]))
-                if (options.length === 4) {
-                    questions.push({
-                        key: `city-${artist.id}`,
-                        prompt: `Which artist is most associated with ${artist.city}?`,
-                        answer: artist.name,
-                        options,
-                        label: 'City',
-                    })
-                }
-            })
-
-        songs
-            .filter(song => !!song.releaseDate)
-            .slice(0, 24)
-            .forEach(song => {
-                const year = song.releaseDate?.slice(0, 4)
-                if (!year) return
-                const options = uniqueOptions(shuffle([
-                    year,
-                    ...shuffle(songs
-                        .map(item => item.releaseDate?.slice(0, 4))
-                        .filter((item): item is string => !!item && item !== year))
-                        .slice(0, 3)
-                ]))
-                if (options.length === 4) {
-                    questions.push({
-                        key: `year-${song.id}`,
-                        prompt: `Which year did "${song.title}" release?`,
-                        answer: year,
-                        options,
-                        label: 'Release year',
-                    })
-                }
-            })
-
-        songs
-            .filter(song => song.albumType === 'APPEARS_ON')
-            .slice(0, 24)
-            .forEach(song => {
-                const options = uniqueOptions(shuffle([
-                    song.artistName,
-                    ...shuffle(artistNamePool.filter(name => name !== song.artistName)).slice(0, 3)
-                ]))
-                if (options.length === 4) {
-                    questions.push({
-                        key: `feature-${song.id}`,
-                        prompt: `Who is credited on the collaboration "${song.title}"?`,
-                        answer: song.artistName,
-                        options,
-                        label: 'Collaborator',
-                        mediaType: song.coverUrl ? 'cover' : undefined,
-                        mediaUrl: song.coverUrl,
-                        mediaAlt: song.title,
-                    })
-                }
-            })
-
-        songs
-            .slice(0, 24)
-            .forEach(song => {
-                const options = uniqueOptions(shuffle([
-                    song.artistName,
-                    ...shuffle(artistNamePool.filter(name => name !== song.artistName)).slice(0, 3)
-                ]))
-                if (options.length === 4) {
-                    questions.push({
-                        key: `title-${song.id}`,
-                        prompt: `Which artist recorded "${song.title}"?`,
-                        answer: song.artistName,
-                        options,
-                        label: 'Track title',
-                    })
-                }
-            })
-
-        return shuffle(questions)
-    }, [artists, songs])
+    const current: ArcadeArtistQuestion | undefined = questionPool[index]
+    const gameOver = started && (timeLeft <= 0 || !current)
 
     useEffect(() => {
-        if (questionPool.length > 0) {
-            setQueue(questionPool.slice(0, Math.min(45, questionPool.length)))
-        }
-    }, [questionPool])
-
-    const current = queue[index % Math.max(1, queue.length)]
-    const sessionOver = totalTimeLeft <= 0
-
-    useEffect(() => {
-        if (!sessionStarted || sessionOver) return
-        const timer = window.setInterval(() => {
-            setTotalTimeLeft(prev => Math.max(0, prev - 1))
-        }, 1000)
+        if (!started || gameOver) return
+        const timer = window.setInterval(() => setTimeLeft(prev => Math.max(0, prev - 1)), 1000)
         return () => window.clearInterval(timer)
-    }, [sessionOver, sessionStarted])
+    }, [gameOver, started])
 
     useEffect(() => {
-        if (!sessionStarted || sessionOver || selectedAnswer || !current) return
+        if (!started || gameOver || selected || !current) return
         setRoundTimeLeft(ROUND_TIME)
         const timer = window.setInterval(() => {
             setRoundTimeLeft(prev => {
                 if (prev <= 1) {
                     window.clearInterval(timer)
+                    setSelected('__timeout__')
                     setStatus(`Time up. Correct answer: ${current.answer}`)
-                    setSelectedAnswer('__timeout__')
                     setCombo(0)
-                    setPerfectMisses(prevMisses => prevMisses + 1)
                     return 0
                 }
                 return prev - 1
             })
         }, 1000)
         return () => window.clearInterval(timer)
-    }, [current, selectedAnswer, sessionOver, sessionStarted])
+    }, [current, gameOver, selected, started])
 
     useEffect(() => {
-        if (!selectedAnswer || sessionOver) return
+        if (!selected || gameOver) return
         const timeout = window.setTimeout(() => {
             setIndex(prev => prev + 1)
-            setSelectedAnswer(null)
+            setSelected(null)
             setStatus(null)
             setRoundTimeLeft(ROUND_TIME)
-            setScoreBurst(null)
-        }, ROUND_DELAY_MS)
+        }, 900)
         return () => window.clearTimeout(timeout)
-    }, [selectedAnswer, sessionOver])
+    }, [gameOver, selected])
 
-    const startSession = () => {
-        setSessionStarted(true)
-        setTotalTimeLeft(SESSION_TIME)
-        setScore(0)
+    const start = () => {
+        setStarted(true)
         setIndex(0)
-        setSelectedAnswer(null)
-        setStatus(null)
-        setCorrectCount(0)
-        setRoundTimeLeft(ROUND_TIME)
+        setScore(0)
         setCombo(0)
-        setPerfectMisses(0)
-        setScoreBurst(null)
-        setQueue(shuffle(questionPool).slice(0, Math.min(45, questionPool.length)))
+        setBestCombo(0)
+        setTimeLeft(SESSION_TIME)
+        setRoundTimeLeft(ROUND_TIME)
+        setSelected(null)
+        setStatus(null)
     }
 
-    const choose = (answer: string) => {
-        if (!current || selectedAnswer || !sessionStarted || sessionOver) return
-        setSelectedAnswer(answer)
-        if (answer === current.answer) {
-            const roundPoints = Math.round(100 + (roundTimeLeft * 12) + (combo * 20))
-            setScore(prev => prev + roundPoints)
-            setScoreBurst(roundPoints)
-            setCorrectCount(prev => prev + 1)
-            setCombo(prev => prev + 1)
-            setStatus('Correct pick.')
+    const choose = (option: string) => {
+        if (!current || selected || gameOver || !started) return
+        setSelected(option)
+        if (option === current.answer) {
+            const points = Math.round(110 + roundTimeLeft * 8 + combo * 22)
+            setScore(prev => prev + points)
+            setCombo(prev => {
+                const next = prev + 1
+                setBestCombo(currentBest => Math.max(currentBest, next))
+                return next
+            })
+            setStatus(`Correct. +${points}`)
         } else {
-            setStatus(`Wrong pick. Correct answer: ${current.answer}`)
             setCombo(0)
-            setPerfectMisses(prev => prev + 1)
+            setStatus(`Correct answer: ${current.answer}`)
         }
     }
-
-    const perfectBonus = sessionOver && correctCount > 0 && perfectMisses === 0 ? 400 : 0
 
     return (
         <PlayGameFrame
             title="Artist Blitz"
-            subtitle="One-minute recognition sprint across artwork, city cues, feature credits, release years, and title ownership."
+            subtitle="Fast sixty-second recognition mode across artists, artwork, years, facts, albums, and collaborators."
             onBack={onBack}
             stats={[
-                { label: 'Score', value: score + perfectBonus, tone: 'accent' },
-                { label: 'Master Timer', value: `${totalTimeLeft}s`, tone: totalTimeLeft <= 10 ? 'danger' : 'default' },
-                { label: 'Round', value: `${roundTimeLeft}s`, tone: roundTimeLeft <= 2 ? 'danger' : 'default' },
-                { label: 'Combo', value: `${combo}x` },
+                { label: 'Score', value: score.toLocaleString(), tone: 'accent' },
+                { label: 'Timer', value: `${timeLeft}s`, tone: timeLeft <= 10 ? 'danger' : 'default' },
+                { label: 'Round', value: `${roundTimeLeft}s`, tone: roundTimeLeft <= 3 ? 'danger' : 'default' },
+                { label: 'Streak', value: `${combo}x` },
+                { label: 'XP', value: Math.round(score * 0.4).toLocaleString() },
             ]}
+            hero={current ? (
+                <div className="arcade-game-hero arcade-game-hero--compact">
+                    {current.mediaUrl ? (
+                        <div className="arcade-game-hero__cover-shell arcade-game-hero__cover-shell--small">
+                            <img src={current.mediaUrl} alt={current.mediaAlt || current.prompt} className="arcade-game-cover" />
+                        </div>
+                    ) : null}
+                    <div className="arcade-game-hero__copy">
+                        <div className="arcade-game-chip-row">
+                            <span className="arcade-game-chip">{current.category}</span>
+                            <span className="arcade-game-chip">{catalog.artistCount.toLocaleString()} artists loaded</span>
+                        </div>
+                        <h3>{current.prompt}</h3>
+                        <p>Every round is generated from the shared HipHopHub arcade catalog.</p>
+                    </div>
+                </div>
+            ) : undefined}
             leaderboard={
-                <div className="game-placeholder card">
-                    <h3>Blitz Notes</h3>
-                    <p>{loading ? 'Loading verified artists...' : `${artistCount} verified artists are in rotation.`}</p>
-                    <p>{loading ? 'Loading track deck...' : `${songCount} playable tracks are available for the blitz deck.`}</p>
-                    <p>Question pool: artwork, city, collaborator, year, title.</p>
-                    <p>Correct picks: {correctCount}</p>
+                <div className="game-placeholder card leaderboard-card">
+                    <div className="leaderboard-card__header">
+                        <h3>Blitz Rules</h3>
+                    </div>
+                    <div className="arcade-board arcade-board--notes">
+                        <div className="arcade-board-row"><strong>Prompt pool</strong><span>{catalog.artistQuestions.length}</span></div>
+                        <div className="arcade-board-row"><strong>Artists loaded</strong><span>{catalog.artistCount.toLocaleString()}</span></div>
+                        <div className="arcade-board-row"><strong>Tracks loaded</strong><span>{catalog.songCount.toLocaleString()}</span></div>
+                        <div className="arcade-board-row"><strong>Best combo</strong><span>{bestCombo}x</span></div>
+                    </div>
                 </div>
             }
         >
-            {!current || loading ? (
-                <div className="game-placeholder card">
-                    <h3>Artist Blitz</h3>
-                    <p>{loading ? 'Artist Blitz is syncing its full verified pool.' : 'No artist-blitz questions are available right now.'}</p>
+            {loading && questionPool.length === 0 ? (
+                <div className="arcade-skeleton arcade-skeleton--body" />
+            ) : !started || gameOver ? (
+                <div className="arcade-result-card arcade-result-card--summary">
+                    <h4>{gameOver ? 'Artist Blitz complete' : 'Ready for Artist Blitz'}</h4>
+                    <p>{gameOver ? `Final score: ${score.toLocaleString()}` : 'A 60-second run built for rapid replay.'}</p>
+                    <div className="arcade-action-row">
+                        <button type="button" className="btn-next" onClick={start}>{gameOver ? 'Play again' : 'Start blitz'}</button>
+                    </div>
                 </div>
-            ) : !sessionStarted || sessionOver ? (
-                <div className="blitz-launch">
-                    {sessionOver && <p className="game-description">Session over. Final score: {score + perfectBonus}</p>}
-                    {sessionOver && perfectBonus > 0 && <p className="game-description">Perfect round bonus unlocked: +{perfectBonus}</p>}
-                    <button type="button" className="btn-next" onClick={startSession}>
-                        {sessionOver ? 'Play Again' : 'Start Artist Blitz'}
-                    </button>
-                </div>
-            ) : (
+            ) : current ? (
                 <>
-                    {current.mediaType === 'cover' && current.mediaUrl && (
-                        <div className="blitz-cover">
-                            <img src={current.mediaUrl} alt={current.mediaAlt || current.prompt} />
-                        </div>
-                    )}
-                    <div className="lyric-chip strong">{current.label}</div>
-                    <div className="blitz-title">{current.prompt}</div>
-                    {scoreBurst && <div className="points-earned">+{scoreBurst}</div>}
-                    <div className="blitz-options">
+                    <div className="blitz-options arcade-option-grid">
                         {current.options.map(option => (
                             <button
-                                key={`${current.key}-${option}`}
+                                key={`${current.id}-${option}`}
                                 type="button"
-                                className={`blitz-option ${selectedAnswer === option ? 'active' : ''}`}
+                                className={`blitz-option arcade-option-card ${selected === option ? 'active' : ''}`}
                                 onClick={() => choose(option)}
                             >
                                 {option}
@@ -296,7 +166,10 @@ export default function ArtistBlitzGame({ onBack }: { onBack: () => void }) {
                     </div>
                     {status && <p className="game-description">{status}</p>}
                 </>
-            )}
+            ) : null}
         </PlayGameFrame>
     )
 }
+
+export default memo(ArtistBlitzGameComponent)
+

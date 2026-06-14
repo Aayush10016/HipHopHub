@@ -2,119 +2,103 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ArcadeLeaderboard from './ArcadeLeaderboard'
 import GuessTrackLeaderboard from './GuessTrackLeaderboard'
 import PlayGameFrame from './PlayGameFrame'
-import { useGameCatalog } from '../hooks/useGameCatalog'
+import { useArcadeCatalog } from '../hooks/useArcadeCatalog'
+import type { ArcadePlayableTrack } from '../utils/gameCatalog'
 import './GameComponent.css'
 
 type Variant = 'guess' | 'rapid'
-type Difficulty = 'easy' | 'medium' | 'hardcore'
 
-interface GameSong {
-    songId: number
-    previewUrl: string
-    albumCover?: string
-    artistName?: string
-    youtubeUrl?: string
-    songTitle?: string
-}
-
-interface AuthUser {
+type AuthUser = {
     id: number
     username: string
-    email: string
 }
 
-const gameSongCache = new Map<string, GameSong>()
-const pendingGameSongRequests = new Map<string, Promise<GameSong | null>>()
-
-const DIFFICULTY_CONFIG: Record<Difficulty, {
-    previewLimit: number
-    roundTime: number
-    multiplier: number
-    markers: number[]
-    label: string
-}> = {
-    easy: {
-        previewLimit: 30,
-        roundTime: 35,
-        multiplier: 1,
-        markers: [3, 5, 10, 15, 30],
-        label: 'Full preview + more time',
-    },
-    medium: {
-        previewLimit: 15,
-        roundTime: 24,
-        multiplier: 1.35,
-        markers: [1, 3, 5, 10, 15],
-        label: 'Shorter preview + tighter clock',
-    },
-    hardcore: {
-        previewLimit: 5,
-        roundTime: 12,
-        multiplier: 2,
-        markers: [],
-        label: '5s only, no skipping',
-    },
-}
+const PREVIEW_MARKERS = [1, 3, 5, 10, 15, 30]
+const RAPID_LIMIT = 10
+const GUESS_LIMIT = 30
 
 const getStoredUser = (): AuthUser | null => {
     try {
         const raw = localStorage.getItem('hiphophub_user')
-        if (!raw) return null
-        return JSON.parse(raw) as AuthUser
+        return raw ? JSON.parse(raw) as AuthUser : null
     } catch {
         return null
     }
 }
 
-const saveArcadeScore = async (userId: number, mode: 'RAPID_FIRE', points: number, metaLabel: string) => {
+const shuffle = <T,>(items: T[]) => {
+    const copy = [...items]
+    for (let i = copy.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1))
+        ;[copy[i], copy[j]] = [copy[j], copy[i]]
+    }
+    return copy
+}
+
+const trimText = (value: string) => value.trim()
+
+const saveRapidScore = async (userId: number, points: number, streak: number, rounds: number) => {
     await fetch('/api/arcade/score', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, mode, points, metaLabel })
+        body: JSON.stringify({
+            userId,
+            mode: 'RAPID_FIRE',
+            points,
+            metaLabel: `Best streak ${streak} · Round ${rounds}`,
+        }),
     })
 }
 
-export default memo(function PlayGuessTrackGame({
-    variant,
-    onBack,
-}: {
-    variant: Variant
-    onBack: () => void
-}) {
-    const isRapidFire = variant === 'rapid'
-    const { artistCount, songCount, loading: catalogLoading } = useGameCatalog()
-    const [currentSong, setCurrentSong] = useState<GameSong | null>(null)
+function PlayGuessTrackGameComponent({ variant, onBack }: { variant: Variant; onBack: () => void }) {
+    const isRapid = variant === 'rapid'
+    const { loading, catalog } = useArcadeCatalog()
+    const user = useMemo(() => getStoredUser(), [])
+    const audioRef = useRef<HTMLAudioElement | null>(null)
+    const autoAdvanceRef = useRef<number | null>(null)
+    const savedScoreRef = useRef(false)
+
+    const previewLimit = isRapid ? RAPID_LIMIT : GUESS_LIMIT
+    const trackDeck = useMemo(
+        () => catalog.playableTracks.filter(track => !!track.previewUrl),
+        [catalog.playableTracks],
+    )
+
+    const [currentTrack, setCurrentTrack] = useState<ArcadePlayableTrack | null>(null)
+    const [recentTrackIds, setRecentTrackIds] = useState<number[]>([])
     const [guess, setGuess] = useState('')
-    const [result, setResult] = useState<any>(null)
-    const [isPlaying, setIsPlaying] = useState(false)
-    const [currentTime, setCurrentTime] = useState(0)
-    const [selectedMarker, setSelectedMarker] = useState<number | null>(null)
     const [score, setScore] = useState(0)
     const [xp, setXp] = useState(0)
-    const [loadingSong, setLoadingSong] = useState(false)
-    const [message, setMessage] = useState<string | null>(null)
-    const [user] = useState<AuthUser | null>(getStoredUser())
     const [streak, setStreak] = useState(0)
+    const [bestStreak, setBestStreak] = useState(0)
     const [lives, setLives] = useState(3)
     const [round, setRound] = useState(1)
-    const [timeLeft, setTimeLeft] = useState(isRapidFire ? 10 : DIFFICULTY_CONFIG.medium.roundTime)
-    const [sessionStarted, setSessionStarted] = useState(false)
-    const [roundActive, setRoundActive] = useState(false)
-    const [difficulty, setDifficulty] = useState<Difficulty>('medium')
-    const [scoreBurst, setScoreBurst] = useState<number | null>(null)
-    const [showConfetti, setShowConfetti] = useState(false)
-    const audioRef = useRef<HTMLAudioElement>(null)
-    const stopAtRef = useRef<number | null>(null)
-    const resultTimerRef = useRef<number | null>(null)
-    const arcadeSavedRef = useRef(false)
+    const [isPlaying, setIsPlaying] = useState(false)
+    const [currentTime, setCurrentTime] = useState(0)
+    const [timeLeft, setTimeLeft] = useState(previewLimit)
+    const [started, setStarted] = useState(false)
+    const [loadingRound, setLoadingRound] = useState(false)
+    const [roundResult, setRoundResult] = useState<null | {
+        correct: boolean
+        correctTitle: string
+        artistName: string
+        albumName: string
+        points: number
+    }>(null)
+    const [feedback, setFeedback] = useState<string | null>(null)
+    const [selectedMarker, setSelectedMarker] = useState<number | null>(null)
+    const [flashState, setFlashState] = useState<'correct' | 'wrong' | null>(null)
 
-    const difficultyConfig = DIFFICULTY_CONFIG[difficulty]
-    const previewLimit = isRapidFire ? 10 : difficultyConfig.previewLimit
-    const roundLimit = isRapidFire ? 10 : difficultyConfig.roundTime
-    const timeMarkers = isRapidFire ? [] : difficultyConfig.markers
-    const comboMultiplier = useMemo(() => 1 + Math.min(1.5, streak * 0.15), [streak])
     const gameOver = lives <= 0
-    const cacheKey = `${variant}-${difficulty}`
+
+    const pickNextTrack = useCallback(() => {
+        if (trackDeck.length === 0) return null
+
+        const recent = new Set(recentTrackIds.slice(-12))
+        const freshPool = trackDeck.filter(track => !recent.has(track.id))
+        const pool = freshPool.length > 0 ? freshPool : trackDeck
+        return shuffle(pool)[0] || null
+    }, [recentTrackIds, trackDeck])
 
     const resetAudio = useCallback(() => {
         if (!audioRef.current) return
@@ -122,476 +106,375 @@ export default memo(function PlayGuessTrackGame({
         audioRef.current.currentTime = 0
         setIsPlaying(false)
         setCurrentTime(0)
-        stopAtRef.current = null
-    }, [])
+        setTimeLeft(previewLimit)
+    }, [previewLimit])
 
-    const fetchGameSong = useCallback(async (key: string): Promise<GameSong | null> => {
-        if (gameSongCache.has(key)) {
-            const cached = gameSongCache.get(key) || null
-            gameSongCache.delete(key)
-            return cached
-        }
-
-        if (pendingGameSongRequests.has(key)) {
-            return pendingGameSongRequests.get(key) || null
-        }
-
-        const request = (async () => {
-            try {
-                const res = await fetch('/api/game/random-song')
-                if (!res.ok) return null
-                const data = await res.json()
-                return data?.previewUrl ? data as GameSong : null
-            } catch (err) {
-                console.error('Failed to load game track:', err)
-                return null
-            }
-        })().finally(() => {
-            pendingGameSongRequests.delete(key)
-        })
-
-        pendingGameSongRequests.set(key, request)
-        return request
-    }, [])
-
-    const prefetchNextSong = useCallback(() => {
-        if (gameSongCache.has(cacheKey) || pendingGameSongRequests.has(cacheKey)) return
-        void fetchGameSong(cacheKey).then(song => {
-            if (song) gameSongCache.set(cacheKey, song)
-        })
-    }, [cacheKey, fetchGameSong])
-
-    const loadNewSong = useCallback(async () => {
-        if (catalogLoading) return
-        if (songCount <= 0) {
-            setCurrentSong(null)
-            setMessage('Game catalog is still syncing. No playable tracks available yet.')
-            return
-        }
-
+    const beginRound = useCallback((track?: ArcadePlayableTrack | null) => {
+        const nextTrack = track || pickNextTrack()
         resetAudio()
+        setRoundResult(null)
         setGuess('')
-        setResult(null)
         setSelectedMarker(null)
-        setMessage(null)
-        setLoadingSong(true)
-        setRoundActive(false)
-        setTimeLeft(roundLimit)
-        if (resultTimerRef.current) {
-            window.clearTimeout(resultTimerRef.current)
-            resultTimerRef.current = null
-        }
+        setFeedback(null)
+        setFlashState(null)
+        setStarted(false)
+        setLoadingRound(false)
 
-        try {
-            const data = await fetchGameSong(cacheKey)
-            if (!data?.previewUrl) {
-                setCurrentSong(null)
-                setMessage('No playable tracks found right now.')
-                return
-            }
-
-            setCurrentSong(data)
-            if (audioRef.current) {
-                audioRef.current.src = data.previewUrl
-                audioRef.current.load()
-            }
-            prefetchNextSong()
-        } catch (err) {
-            console.error('Failed to load track:', err)
-            setCurrentSong(null)
-            setMessage('Could not load track. Try again.')
-        } finally {
-            setLoadingSong(false)
-        }
-    }, [cacheKey, catalogLoading, fetchGameSong, prefetchNextSong, resetAudio, roundLimit, songCount])
-
-    useEffect(() => {
-        if (!catalogLoading) {
-            void loadNewSong()
-        }
-        return () => {
-            resetAudio()
-            if (resultTimerRef.current) {
-                window.clearTimeout(resultTimerRef.current)
-            }
-        }
-    }, [catalogLoading, loadNewSong, resetAudio])
-
-    useEffect(() => {
-        if (!sessionStarted || !roundActive || !!result || loadingSong || gameOver || !currentSong) return
-        const timer = window.setInterval(() => {
-            setTimeLeft(prev => {
-                if (prev <= 1) {
-                    window.clearInterval(timer)
-                    setRoundActive(false)
-                    void submitGuess('', previewLimit)
-                    return 0
-                }
-                return prev - 1
-            })
-        }, 1000)
-        return () => window.clearInterval(timer)
-    }, [currentSong, gameOver, loadingSong, previewLimit, result, roundActive, sessionStarted])
-
-    useEffect(() => {
-        if (!isRapidFire || !gameOver || !user || arcadeSavedRef.current || score <= 0) return
-        arcadeSavedRef.current = true
-        void saveArcadeScore(user.id, 'RAPID_FIRE', score, `Round ${round}`)
-    }, [gameOver, isRapidFire, round, score, user])
-
-    const startSession = useCallback(() => {
-        arcadeSavedRef.current = false
-        setScore(0)
-        setXp(0)
-        setLives(3)
-        setRound(1)
-        setStreak(0)
-        setSessionStarted(true)
-        setRoundActive(false)
-        setScoreBurst(null)
-        void loadNewSong()
-    }, [loadNewSong])
-
-    const playAudio = useCallback(async () => {
-        if (!audioRef.current || !currentSong?.previewUrl || !!result || loadingSong || gameOver) return
-        stopAtRef.current = previewLimit
-        if (audioRef.current.currentTime >= previewLimit || currentTime >= previewLimit) {
-            audioRef.current.currentTime = 0
-            setCurrentTime(0)
-        }
-        try {
-            setSessionStarted(true)
-            setRoundActive(true)
-            setTimeLeft(prev => (prev > 0 && prev <= roundLimit ? prev : roundLimit))
-            await audioRef.current.play()
-            setIsPlaying(true)
-        } catch (err) {
-            console.error('Audio play failed:', err)
-            setMessage('Audio playback failed. Try another track.')
-        }
-    }, [currentSong?.previewUrl, currentTime, gameOver, loadingSong, previewLimit, result, roundLimit])
-
-    const pauseAudio = useCallback(() => {
-        if (!audioRef.current || !isPlaying || isRapidFire) return
-        audioRef.current.pause()
-        setIsPlaying(false)
-    }, [isPlaying, isRapidFire])
-
-    const jumpToMarker = useCallback(async (seconds: number) => {
-        if (!audioRef.current || !currentSong?.previewUrl || !!result || loadingSong || gameOver || difficulty === 'hardcore') {
+        if (!nextTrack) {
+            setCurrentTrack(null)
             return
         }
-        setSelectedMarker(seconds)
-        stopAtRef.current = seconds
-        audioRef.current.currentTime = 0
-        setCurrentTime(0)
-        setSessionStarted(true)
-        setRoundActive(true)
-        try {
-            await audioRef.current.play()
-            setIsPlaying(true)
-        } catch (err) {
-            console.error('Marker playback failed:', err)
-            setMessage('Could not play preview at this marker.')
+
+        setCurrentTrack(nextTrack)
+        setRecentTrackIds(prev => [...prev, nextTrack.id])
+        if (audioRef.current) {
+            audioRef.current.src = nextTrack.previewUrl || ''
+            audioRef.current.load()
         }
-    }, [currentSong?.previewUrl, difficulty, gameOver, loadingSong, result])
+    }, [pickNextTrack, resetAudio])
 
-    const submitGuess = useCallback(async (guessText: string = guess, timeInSeconds: number = currentTime) => {
-        if (!currentSong) return
+    useEffect(() => {
+        if (loading || trackDeck.length === 0 || currentTrack) return
+        beginRound(trackDeck[0])
+    }, [beginRound, currentTrack, loading, trackDeck])
+
+    useEffect(() => {
+        return () => {
+            if (autoAdvanceRef.current) {
+                window.clearTimeout(autoAdvanceRef.current)
+            }
+        }
+    }, [])
+
+    useEffect(() => {
+        if (!isRapid || !gameOver || !user || savedScoreRef.current || score <= 0) return
+        savedScoreRef.current = true
+        void saveRapidScore(user.id, score, bestStreak, round)
+    }, [bestStreak, gameOver, isRapid, round, score, user])
+
+    const queueNextRound = useCallback((delay = isRapid ? 1300 : 0) => {
+        if (autoAdvanceRef.current) {
+            window.clearTimeout(autoAdvanceRef.current)
+        }
+
+        autoAdvanceRef.current = window.setTimeout(() => {
+            setRound(prev => prev + 1)
+            beginRound()
+        }, delay)
+    }, [beginRound, isRapid])
+
+    const revealRound = useCallback(async (submittedGuess: string) => {
+        if (!currentTrack || roundResult) return
+        setLoadingRound(true)
+        resetAudio()
 
         try {
-            const res = await fetch('/api/game/submit-guess', {
+            const response = await fetch('/api/game/submit-guess', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    songId: currentSong.songId,
-                    guessedTitle: guessText,
-                    guessTimeSeconds: Math.ceil(timeInSeconds),
-                    userId: user?.id
-                })
+                    songId: currentTrack.id,
+                    guessedTitle: submittedGuess,
+                    guessTimeSeconds: Math.ceil(currentTime),
+                    userId: user?.id,
+                }),
             })
 
-            if (!res.ok) {
-                setMessage('Could not submit guess.')
+            if (!response.ok) {
+                setFeedback('Could not validate this round. Try the next track.')
                 return
             }
 
-            const data = await res.json()
-            const basePoints = Number(data.points || 0)
-            const multiplier = isRapidFire ? 1 + Math.min(1, streak * 0.18) : difficultyConfig.multiplier * comboMultiplier
-            const awardedPoints = data.correct ? Math.round(basePoints * multiplier) : 0
+            const payload = await response.json()
+            const bonus = isRapid ? Math.round((1 + streak * 0.2) * 40) : Math.round((1 + streak * 0.12) * 25)
+            const awarded = payload.correct ? Number(payload.points || 0) + bonus : 0
+            const nextBestStreak = payload.correct ? Math.max(bestStreak, streak + 1) : bestStreak
 
-            if (data.correct) {
-                setScore(prev => prev + awardedPoints)
-                setXp(prev => prev + Math.round(awardedPoints * 0.6))
+            if (payload.correct) {
+                setScore(prev => prev + awarded)
+                setXp(prev => prev + Math.max(35, Math.round(awarded * 0.45)))
                 setStreak(prev => prev + 1)
-                setScoreBurst(awardedPoints)
-                setShowConfetti(true)
-                window.setTimeout(() => {
-                    setShowConfetti(false)
-                    setScoreBurst(null)
-                }, 1000)
-                data.points = awardedPoints
+                setBestStreak(nextBestStreak)
+                setFlashState('correct')
             } else {
                 setLives(prev => Math.max(0, prev - 1))
                 setStreak(0)
+                setFlashState('wrong')
             }
 
-            setResult(data)
-            setRoundActive(false)
+            setRoundResult({
+                correct: !!payload.correct,
+                correctTitle: payload.correctTitle || currentTrack.title,
+                artistName: payload.artistName || currentTrack.artistName,
+                albumName: payload.albumName || currentTrack.albumTitle || 'Unknown release',
+                points: awarded,
+            })
 
-            resultTimerRef.current = window.setTimeout(() => {
-                if (lives <= 1 && !data.correct) return
-                setRound(prev => prev + 1)
-                void loadNewSong()
-            }, data.correct ? 1200 : 1500)
-        } catch (err) {
-            console.error('Submit guess failed:', err)
-            setMessage('Could not submit guess.')
+            if (isRapid && (payload.correct || lives > 1)) {
+                queueNextRound(1400)
+            }
+        } catch (error) {
+            console.error('Failed to submit guess', error)
+            setFeedback('Could not validate this round. Try the next track.')
         } finally {
-            pauseAudio()
+            setLoadingRound(false)
         }
-    }, [comboMultiplier, currentSong, currentTime, difficultyConfig.multiplier, guess, isRapidFire, lives, loadNewSong, pauseAudio, streak, user?.id])
+    }, [bestStreak, currentTime, currentTrack, isRapid, lives, queueNextRound, resetAudio, roundResult, streak, user?.id])
 
-    const handleTimeUpdate = useCallback(() => {
-        if (!audioRef.current) return
-        const nextTime = Math.min(audioRef.current.currentTime, previewLimit)
-        setCurrentTime(nextTime)
+    const startPlayback = useCallback(async () => {
+        if (!audioRef.current || !currentTrack?.previewUrl || roundResult || gameOver) return
 
-        if (stopAtRef.current !== null && nextTime >= stopAtRef.current) {
-            audioRef.current.pause()
-            setIsPlaying(false)
-            stopAtRef.current = null
+        if (audioRef.current.currentTime >= previewLimit || currentTime >= previewLimit) {
+            audioRef.current.currentTime = 0
+            setCurrentTime(0)
+            setTimeLeft(previewLimit)
         }
-    }, [previewLimit])
-
-    const handleAudioEnded = useCallback(() => {
-        setIsPlaying(false)
-        setCurrentTime(previewLimit)
-    }, [previewLimit])
-
-    const openDirectYouTube = useCallback(async () => {
-        if (!currentSong?.songId) return
+        setSelectedMarker(null)
 
         try {
-            const res = await fetch(`/api/youtube/song/${currentSong.songId}`)
-            if (res.ok) {
-                const payload = await res.json()
-                if (payload?.url?.startsWith('https://www.youtube.com/watch?v=')) {
-                    window.open(payload.url, '_blank', 'noopener,noreferrer')
-                }
-            }
-        } catch (err) {
-            console.error(`Failed to resolve direct YouTube URL for game song ${currentSong.songId}:`, err)
+            setStarted(true)
+            await audioRef.current.play()
+            setIsPlaying(true)
+        } catch (error) {
+            console.error('Playback failed', error)
+            setFeedback('Preview playback failed. Reload the round.')
         }
-    }, [currentSong?.songId])
+    }, [currentTime, currentTrack?.previewUrl, gameOver, previewLimit, roundResult])
 
-    const roundFinished = !!result
-    const revealedCover = roundFinished ? (result?.albumCover || currentSong?.albumCover) : null
+    const pausePlayback = useCallback(() => {
+        if (!audioRef.current || !isPlaying) return
+        audioRef.current.pause()
+        setIsPlaying(false)
+    }, [isPlaying])
+
+    const jumpToMarker = useCallback(async (seconds: number) => {
+        if (!audioRef.current || !currentTrack?.previewUrl || roundResult || gameOver || isRapid) return
+        audioRef.current.currentTime = 0
+        setCurrentTime(0)
+        setTimeLeft(seconds)
+        setSelectedMarker(seconds)
+        setSelectedMarker(null)
+
+        try {
+            setStarted(true)
+            await audioRef.current.play()
+            setIsPlaying(true)
+        } catch (error) {
+            console.error('Marker playback failed', error)
+        }
+    }, [currentTrack?.previewUrl, gameOver, isRapid, previewLimit, roundResult])
+
+    const handleSubmit = useCallback((event: React.FormEvent) => {
+        event.preventDefault()
+        if (!trimText(guess) || !currentTrack || roundResult) return
+        void revealRound(trimText(guess))
+    }, [currentTrack, guess, revealRound, roundResult])
+
+    const restartRun = useCallback(() => {
+        savedScoreRef.current = false
+        setScore(0)
+        setXp(0)
+        setStreak(0)
+        setBestStreak(0)
+        setLives(3)
+        setRound(1)
+        setRecentTrackIds([])
+        beginRound()
+    }, [beginRound])
+
+    const openYoutube = useCallback(() => {
+        if (!currentTrack?.youtubeUrl) return
+        window.open(currentTrack.youtubeUrl, '_blank', 'noopener,noreferrer')
+    }, [currentTrack?.youtubeUrl])
+
+    const revealedCover = roundResult ? currentTrack?.coverArtUrl : null
+
+    const hero = (
+        <div className={`arcade-game-hero ${flashState ? `is-${flashState}` : ''}`}>
+            <audio
+                ref={audioRef}
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+                onTimeUpdate={() => {
+                    if (!audioRef.current) return
+                    const effectiveLimit = isRapid ? previewLimit : (selectedMarker ?? previewLimit)
+                    const nextTime = Math.min(audioRef.current.currentTime, effectiveLimit)
+                    setCurrentTime(nextTime)
+                    setTimeLeft(Math.max(0, Math.ceil(effectiveLimit - nextTime)))
+
+                    if (nextTime >= effectiveLimit) {
+                        audioRef.current.pause()
+                        setIsPlaying(false)
+                        if (!roundResult && !loadingRound && isRapid) {
+                            void revealRound('')
+                        }
+                    }
+                }}
+                onEnded={() => {
+                    setIsPlaying(false)
+                    if (!roundResult && !loadingRound && isRapid) {
+                        void revealRound('')
+                    }
+                }}
+            />
+
+            <div className="arcade-game-hero__cover-shell">
+                {revealedCover ? (
+                    <img src={revealedCover} alt={currentTrack?.title || 'Album cover'} className="arcade-game-cover" />
+                ) : (
+                    <div className="arcade-game-cover arcade-game-cover--hidden">
+                        <span>?</span>
+                    </div>
+                )}
+            </div>
+
+            <div className="arcade-game-hero__copy">
+                <div className="arcade-game-chip-row">
+                    <span className="arcade-game-chip">Artist hint: {currentTrack?.artistName || 'Loading artist'}</span>
+                    <span className="arcade-game-chip">Round {round}</span>
+                    {isRapid && <span className="arcade-game-chip">10s auto-next</span>}
+                </div>
+
+                <h3>{roundResult ? roundResult.correctTitle : isRapid ? 'Name the track before the clock burns out.' : 'Listen, inspect the timeline, and lock the title.'}</h3>
+                <p>
+                    {loading
+                        ? 'Preparing the verified track deck...'
+                        : `Loaded artists: ${catalog.artistCount.toLocaleString()} | Loaded tracks: ${catalog.songCount.toLocaleString()}`}
+                </p>
+
+                <div className="arcade-timeline">
+                    <div className={`arcade-timeline__bar ${isPlaying ? 'is-playing' : ''}`}>
+                        <div className="arcade-timeline__fill" style={{ width: `${(currentTime / previewLimit) * 100}%` }} />
+                        {!isRapid && PREVIEW_MARKERS.map(marker => (
+                            <button
+                                key={marker}
+                                type="button"
+                                className={`arcade-timeline__marker ${selectedMarker === marker ? 'active' : ''}`}
+                                style={{ left: `${(marker / previewLimit) * 100}%` }}
+                                onClick={() => void jumpToMarker(marker)}
+                                disabled={marker > previewLimit || !!roundResult}
+                            >
+                                <span>{marker}s</span>
+                            </button>
+                        ))}
+                    </div>
+                    <div className="arcade-timeline__legend">
+                        <span>{currentTime.toFixed(1)}s</span>
+                        <span>{previewLimit}s preview window</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+
+    if (loading && trackDeck.length === 0) {
+        return (
+            <PlayGameFrame
+                title={isRapid ? 'Rapid Fire' : 'Guess The Track'}
+                subtitle={isRapid ? 'Ten-second bursts built for endless replay loops.' : 'Recognize songs from preview snippets and climb the DHH leaderboard.'}
+                stats={[
+                    { label: 'Score', value: '...' },
+                    { label: 'Timer', value: '...' },
+                    { label: 'Lives', value: '...' },
+                    { label: 'Streak', value: '...' },
+                    { label: 'XP', value: '...' },
+                ]}
+                onBack={onBack}
+                hero={<div className="arcade-skeleton arcade-skeleton--hero" />}
+                leaderboard={isRapid ? <ArcadeLeaderboard mode="RAPID_FIRE" title="Rapid Fire Leaderboard" /> : <GuessTrackLeaderboard />}
+            >
+                <div className="arcade-skeleton arcade-skeleton--body" />
+            </PlayGameFrame>
+        )
+    }
 
     return (
         <PlayGameFrame
-            title={isRapidFire ? 'Rapid Fire' : 'Guess The Track'}
-            subtitle={isRapidFire
-                ? 'Locked short-window rounds with lives, pressure, and score spikes.'
-                : 'Preview-based song recognition with difficulty ladders, streak XP, and a live global board.'}
-            onBack={onBack}
+            title={isRapid ? 'Rapid Fire' : 'Guess The Track'}
+            subtitle={isRapid ? 'Ten-second rounds, combo bonuses, and instant next-track pressure.' : 'Recognize songs from short previews and climb the DHH leaderboard.'}
             stats={[
-                { label: 'Score', value: score, tone: 'accent' },
-                { label: 'Clock', value: `${timeLeft}s`, tone: timeLeft <= 5 ? 'danger' : 'default' },
+                { label: 'Score', value: score.toLocaleString(), tone: 'accent' },
+                { label: 'Timer', value: `${timeLeft}s`, tone: timeLeft <= 5 ? 'danger' : 'default' },
                 { label: 'Lives', value: lives, tone: lives <= 1 ? 'danger' : 'default' },
                 { label: 'Streak', value: `${streak}x` },
-                { label: 'XP', value: xp },
+                { label: 'XP', value: xp.toLocaleString() },
             ]}
-            hero={
-                <div className={`arcade-guess-hero ${timeLeft <= 5 && roundActive ? 'is-urgent' : ''}`}>
-                    <audio
-                        ref={audioRef}
-                        onTimeUpdate={handleTimeUpdate}
-                        onPause={() => setIsPlaying(false)}
-                        onPlay={() => setIsPlaying(true)}
-                        onEnded={handleAudioEnded}
-                    />
-
-                    <div className="arcade-guess-mode-row">
-                        {!isRapidFire && (
-                            <div className="arcade-difficulty-toggle">
-                                {(Object.keys(DIFFICULTY_CONFIG) as Difficulty[]).map(mode => (
-                                    <button
-                                        key={mode}
-                                        type="button"
-                                        className={`arcade-difficulty-btn ${difficulty === mode ? 'active' : ''}`}
-                                        onClick={() => {
-                                            setDifficulty(mode)
-                                            setSessionStarted(false)
-                                            setRound(1)
-                                            setLives(3)
-                                            setStreak(0)
-                                            setScore(0)
-                                            setXp(0)
-                                            setTimeLeft(DIFFICULTY_CONFIG[mode].roundTime)
-                                            void loadNewSong()
-                                        }}
-                                    >
-                                        {mode}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                        <span className="lyric-chip">{isRapidFire ? '10s lock run' : difficultyConfig.label}</span>
-                    </div>
-
-                    <p className="game-description arcade-guess-description">
-                        {catalogLoading
-                            ? 'Loading the verified arcade pool...'
-                            : isRapidFire
-                                ? `Loaded artists: ${artistCount} | Loaded tracks: ${songCount} | Round ${round}`
-                                : `Loaded artists: ${artistCount} | Loaded tracks: ${songCount}`}
-                    </p>
-
-                    <h3 className="arcade-guess-heading">
-                        {message || (currentSong?.artistName ? `Artist: ${currentSong.artistName}` : 'Loading track...')}
-                    </h3>
-
-                    <div className="album-cover-section">
-                        {revealedCover ? (
-                            <div className="album-cover revealed arcade-guess-cover-shell">
-                            <img className="arcade-guess-cover" src={revealedCover} alt={currentSong?.songTitle || 'Album cover'} />
-                            {showConfetti && <div className="confetti-burst">+{scoreBurst}</div>}
-                            </div>
-                        ) : (
-                            <div className="album-cover hidden">
-                                <div className="mystery-icon">?</div>
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="progress-bar-container">
-                        <div className={`progress-bar ${timeLeft <= 5 && roundActive ? 'is-urgent' : ''} ${isPlaying ? 'is-playing' : ''}`}>
-                            <div
-                                className="progress-fill"
-                                style={{ width: `${(currentTime / previewLimit) * 100}%` }}
-                            />
-                            {timeMarkers.map(marker => (
-                                <div
-                                    key={marker}
-                                    className={`time-marker ${selectedMarker === marker ? 'selected' : ''}`}
-                                    style={{ left: `${(marker / previewLimit) * 100}%` }}
-                                    onClick={() => !roundFinished && !loadingSong && jumpToMarker(marker)}
-                                >
-                                    <div className="marker-label">{marker}s</div>
-                                    <div className="marker-dot" />
-                                </div>
-                            ))}
-                        </div>
-                        <div className="time-display">{currentTime.toFixed(1)}s / {previewLimit}s</div>
+            onBack={onBack}
+            hero={hero}
+            footer={!user ? (
+                <div className="auth-gate auth-gate--inline">
+                    <p>Log in or sign up to save your run on the leaderboard.</p>
+                    <div className="auth-gate-actions">
+                        <a className="btn btn-small btn-secondary" href="/login">Log In</a>
+                        <a className="btn btn-small btn-primary" href="/signup">Sign Up</a>
                     </div>
                 </div>
-            }
-            leaderboard={isRapidFire
-                ? <ArcadeLeaderboard mode="RAPID_FIRE" title="Rapid Fire Leaderboard" />
-                : <GuessTrackLeaderboard />}
-            footer={
-                !user ? (
-                    <div className="auth-gate">
-                        <p className="game-description">Log in or sign up to save scores to the leaderboard.</p>
-                        <div className="auth-gate-actions">
-                            <a className="btn btn-small btn-secondary" href="/login">Log In</a>
-                            <a className="btn btn-small btn-primary" href="/signup">Sign Up</a>
-                        </div>
-                    </div>
-                ) : null
-            }
+            ) : null}
+            leaderboard={isRapid ? <ArcadeLeaderboard mode="RAPID_FIRE" title="Rapid Fire Leaderboard" /> : <GuessTrackLeaderboard />}
         >
             {gameOver ? (
-                <div className="result-section">
-                    <div className="result incorrect">
-                        <h3>{isRapidFire ? 'Rapid Fire Over' : 'Run Over'}</h3>
-                        <p className="artist-name">Final score: {score}</p>
-                        <p className="album-name">XP earned: {xp}</p>
+                <div className="arcade-result-card arcade-result-card--summary">
+                    <h4>{isRapid ? 'Rapid Fire finished' : 'Run finished'}</h4>
+                    <p>Final score: {score.toLocaleString()}</p>
+                    <p>Best streak: {bestStreak}x</p>
+                    <div className="arcade-action-row">
+                        <button type="button" className="btn-next" onClick={restartRun}>Play again</button>
                     </div>
-                    <button className="btn-next" onClick={startSession}>
-                        Restart Run
-                    </button>
                 </div>
             ) : (
                 <>
-                    <div className="playback-controls">
+                    <div className="arcade-action-row arcade-action-row--top">
                         {!isPlaying ? (
-                            <button
-                                className="btn-control"
-                                onClick={playAudio}
-                                disabled={roundFinished || loadingSong || !currentSong?.previewUrl}
-                            >
-                                {loadingSong ? 'Loading...' : sessionStarted ? (isRapidFire ? 'Blast Next Round' : 'Replay Preview') : (isRapidFire ? 'Start Blast' : 'Start Round')}
-                            </button>
-                        ) : !isRapidFire ? (
-                            <button className="btn-control" onClick={pauseAudio}>
-                                Pause
+                            <button type="button" className="btn-control" onClick={() => void startPlayback()} disabled={!currentTrack || loadingRound}>
+                                {started ? (isRapid ? 'Replay 10s blast' : 'Replay preview') : (isRapid ? 'Start round' : 'Play preview')}
                             </button>
                         ) : (
-                            <button className="btn-control" disabled>
-                                Locked 10s Run
+                            <button type="button" className="btn-control btn-control--secondary" onClick={pausePlayback}>
+                                Pause
                             </button>
                         )}
-                        {roundFinished && currentSong?.youtubeUrl && (
-                            <button type="button" onClick={openDirectYouTube} className="game-yt-btn">
-                                Play on YouTube
-                            </button>
+                        {roundResult && currentTrack?.youtubeUrl && (
+                            <button type="button" className="game-yt-btn" onClick={openYoutube}>Play on YouTube</button>
                         )}
                     </div>
 
-                    {!roundFinished ? (
-                        <form onSubmit={(e) => {
-                            e.preventDefault()
-                            if (!guess.trim()) return
-                            void submitGuess()
-                        }} className="guess-form">
+                    {!roundResult ? (
+                        <form className="guess-form" onSubmit={handleSubmit}>
                             <input
                                 type="text"
-                                value={guess}
-                                onChange={(e) => setGuess(e.target.value)}
-                                placeholder={isRapidFire ? 'Name it fast...' : 'Guess the song title...'}
                                 className="guess-input"
+                                value={guess}
+                                onChange={event => setGuess(event.target.value)}
+                                placeholder={isRapid ? 'Type the song fast...' : 'Guess the song title...'}
                             />
-                            <button
-                                type="submit"
-                                className="btn-submit"
-                                disabled={!guess.trim() || loadingSong || !currentSong}
-                            >
-                                Lock In
+                            <button type="submit" className="btn-submit" disabled={!trimText(guess) || loadingRound || !currentTrack}>
+                                Submit guess
                             </button>
                         </form>
                     ) : (
-                        <div className="result-section">
-                            {result.correct ? (
-                                <div className="result correct">
-                                    <h3>Correct</h3>
-                                    {revealedCover && <img className="result-cover" src={revealedCover} alt={result.correctTitle} />}
-                                    <p className="song-title">{result.correctTitle}</p>
-                                    <p className="artist-name">{result.artistName}</p>
-                                    <p className="album-name">{result.albumName}</p>
-                                    <p className="points-earned">+{result.points} points</p>
-                                </div>
-                            ) : (
-                                <div className="result incorrect">
-                                    <h3>Wrong or Time Up</h3>
-                                    {revealedCover && <img className="result-cover" src={revealedCover} alt={result.correctTitle} />}
-                                    <p className="song-title">{result.correctTitle}</p>
-                                    <p className="artist-name">{result.artistName}</p>
-                                    <p className="album-name">{result.albumName}</p>
+                        <div className={`arcade-result-card ${roundResult.correct ? 'is-correct' : 'is-wrong'}`}>
+                            <h4>{roundResult.correct ? 'Correct' : 'Not this one'}</h4>
+                            <p className="song-title">{roundResult.correctTitle}</p>
+                            <p className="artist-name">{roundResult.artistName}</p>
+                            <p className="album-name">{roundResult.albumName}</p>
+                            {roundResult.correct ? <p className="points-earned">+{roundResult.points} points</p> : <p className="album-name">Life lost. Combo reset.</p>}
+                            {!isRapid && (
+                                <div className="arcade-action-row">
+                                    <button type="button" className="btn-next" onClick={() => queueNextRound(0)}>Next track</button>
                                 </div>
                             )}
-                            <button className="btn-next" onClick={() => {
-                                setRound(prev => prev + 1)
-                                void loadNewSong()
-                            }}>
-                                Next Track
-                            </button>
                         </div>
                     )}
+
+                    {feedback && <p className="game-description">{feedback}</p>}
                 </>
             )}
         </PlayGameFrame>
     )
-})
+}
+
+export default memo(PlayGuessTrackGameComponent)
+
+
+
+

@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 interface Entry {
     userId: number
     username: string
     totalPoints: number
+    streak?: string | null
 }
 
 type Scope = 'global' | 'weekly' | 'friends'
@@ -13,14 +14,14 @@ export default function GuessTrackLeaderboard() {
     const [entries, setEntries] = useState<Entry[]>([])
     const [loading, setLoading] = useState(true)
 
-    const userId = (() => {
+    const userId = useMemo(() => {
         try {
             const raw = localStorage.getItem('hiphophub_user')
             return raw ? JSON.parse(raw)?.id : null
         } catch {
             return null
         }
-    })()
+    }, [])
 
     useEffect(() => {
         let cancelled = false
@@ -44,6 +45,7 @@ export default function GuessTrackLeaderboard() {
                     setLoading(false)
                 }
             })
+
         return () => {
             cancelled = true
         }
@@ -52,7 +54,7 @@ export default function GuessTrackLeaderboard() {
     return (
         <div className="game-placeholder card leaderboard-card">
             <div className="leaderboard-card__header">
-                <h3>Guess The Track</h3>
+                <h3>Guess The Track Leaderboard</h3>
                 <div className="leaderboard-card__tabs">
                     {(['global', 'weekly', 'friends'] as Scope[]).map(tab => (
                         <button
@@ -67,19 +69,20 @@ export default function GuessTrackLeaderboard() {
                 </div>
             </div>
             {loading ? (
-                <p>Loading leaderboard...</p>
+                <div className="arcade-skeleton arcade-skeleton--body" />
             ) : entries.length > 0 ? (
                 <div className="arcade-board">
                     {entries.slice(0, 10).map((entry, index) => (
                         <div key={`guess-${entry.userId}`} className="arcade-board-row">
-                            <span>#{index + 1}</span>
-                            <strong>{entry.username}</strong>
-                            <span>{entry.totalPoints}</span>
+                            <span className="arcade-board-rank">#{index + 1}</span>
+                            <strong className="arcade-board-name">{index === 0 ? <><span className="arcade-board-crown">? </span>{entry.username}</> : entry.username}</strong>
+                            <span className="arcade-board-score">{entry.totalPoints}</span>
+                            <span className="arcade-board-streak">{entry.streak || '—'}</span>
                         </div>
                     ))}
                 </div>
             ) : scope === 'friends' ? (
-                <p>{userId ? 'Play a run to populate your circle view.' : 'Log in to compare your own run history here.'}</p>
+                <p>{userId ? 'Play a run to populate your personal comparison view.' : 'Log in to compare your own run history here.'}</p>
             ) : (
                 <p>No scores yet. Start the first streak.</p>
             )}
