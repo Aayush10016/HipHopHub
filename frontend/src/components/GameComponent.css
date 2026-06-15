@@ -293,6 +293,7 @@
 .progress-bar-container {
     width: 100%;
     margin: 0;
+    padding-top: 28px;
 }
 
 .progress-bar {
@@ -301,22 +302,39 @@
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.08);
     overflow: visible;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
 }
 
 .progress-bar--with-markers {
-    margin-top: 2px;
+    margin-top: 0;
 }
 
 .progress-marker {
     position: absolute;
     top: 50%;
     transform: translate(-50%, -50%);
-    width: 0;
-    height: 0;
+    width: 44px;
+    height: 54px;
     padding: 0;
     border: 0;
     background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: visible;
+}
+
+.progress-marker__label {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: var(--text-muted);
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+    pointer-events: none;
 }
 
 .progress-marker__dot {
@@ -341,37 +359,6 @@
     color: var(--text-muted);
     font-size: 0.84rem;
     font-weight: 700;
-}
-
-.preview-timeline {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-bottom: 16px;
-}
-
-.game-shell .preview-timeline {
-    gap: 6px;
-    margin-bottom: 10px;
-}
-
-.preview-timeline__labels,
-.preview-timeline__rail {
-    display: grid;
-    gap: 8px;
-}
-
-.game-shell .preview-timeline__label {
-    font-size: 0.68rem;
-}
-
-.preview-timeline__label {
-    text-align: center;
-    color: var(--text-muted);
-    font-size: 0.74rem;
-    font-weight: 700;
-    line-height: 1;
-    white-space: nowrap;
 }
 
 .playback-controls,
@@ -786,7 +773,7 @@
 }
 
 .game-shell .album-cover {
-    width: clamp(175px, 20vw, 290px);
+    width: clamp(210px, 22vw, 320px);
 }
 
 .album-cover.hidden {
@@ -928,11 +915,6 @@
     .btn-submit,
     .game-yt-btn {
         width: 100%;
-    }
-
-    .preview-timeline__labels,
-    .preview-timeline__rail {
-        gap: 4px;
     }
 
     .progress-bar-container {

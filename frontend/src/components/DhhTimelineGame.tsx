@@ -40,6 +40,7 @@ const buildFallbackTimelineEvents = (releases: GameCatalogRelease[]) => releases
 
 function DhhTimelineGameComponent({ onBack }: { onBack: () => void }) {
     const { loading, releases, catalog } = useArcadeCatalog()
+    const totalReleases = catalog.releaseCount || releases.length
     const eventPool = useMemo(
         () => (catalog.timelineEvents.length > 0 ? catalog.timelineEvents : buildFallbackTimelineEvents(releases)),
         [catalog.timelineEvents, releases],
@@ -162,7 +163,7 @@ function DhhTimelineGameComponent({ onBack }: { onBack: () => void }) {
                     </div>
                     <div className="arcade-board arcade-board--notes">
                         <div className="arcade-board-row"><strong>Dated events</strong><span>{catalog.timelineEvents.length.toLocaleString()}</span></div>
-                        <div className="arcade-board-row"><strong>Official releases</strong><span>{catalog.releaseCount.toLocaleString()}</span></div>
+                        <div className="arcade-board-row"><strong>Official releases</strong><span>{totalReleases.toLocaleString()}</span></div>
                         <div className="arcade-board-row"><strong>Lives</strong><span>{lives}</span></div>
                         <div className="arcade-board-row"><strong>Best combo</strong><span>{combo}x</span></div>
                     </div>

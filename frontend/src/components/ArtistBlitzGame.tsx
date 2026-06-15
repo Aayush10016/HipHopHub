@@ -121,6 +121,8 @@ const buildFallbackBlitzQuestions = (artists: GameCatalogArtist[], songs: GameCa
 
 function ArtistBlitzGameComponent({ onBack }: { onBack: () => void }) {
     const { loading, artists, songs, releases, catalog } = useArcadeCatalog()
+    const totalArtists = catalog.artistCount || artists.length
+    const totalSongs = catalog.songCount || songs.length
     const questionPool = useMemo(() => {
         const source = catalog.blitzQuestions.length > 0
             ? catalog.blitzQuestions
@@ -228,7 +230,7 @@ function ArtistBlitzGameComponent({ onBack }: { onBack: () => void }) {
                     <div className="arcade-game-hero__copy">
                         <div className="arcade-game-chip-row">
                             <span className="arcade-game-chip">{current.category}</span>
-                            <span className="arcade-game-chip">{catalog.artistCount.toLocaleString()} artists loaded</span>
+                            <span className="arcade-game-chip">{totalArtists.toLocaleString()} artists loaded</span>
                         </div>
                         <h3>{current.prompt}</h3>
                         <p>Every round is generated from the shared HipHopHub arcade catalog.</p>
@@ -242,8 +244,8 @@ function ArtistBlitzGameComponent({ onBack }: { onBack: () => void }) {
                     </div>
                     <div className="arcade-board arcade-board--notes">
                         <div className="arcade-board-row"><strong>Prompt pool</strong><span>{catalog.blitzQuestions.length}</span></div>
-                        <div className="arcade-board-row"><strong>Artists loaded</strong><span>{catalog.artistCount.toLocaleString()}</span></div>
-                        <div className="arcade-board-row"><strong>Tracks loaded</strong><span>{catalog.songCount.toLocaleString()}</span></div>
+                        <div className="arcade-board-row"><strong>Artists loaded</strong><span>{totalArtists.toLocaleString()}</span></div>
+                        <div className="arcade-board-row"><strong>Tracks loaded</strong><span>{totalSongs.toLocaleString()}</span></div>
                         <div className="arcade-board-row"><strong>Best combo</strong><span>{bestCombo}x</span></div>
                     </div>
                 </div>

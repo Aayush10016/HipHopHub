@@ -100,6 +100,8 @@ const buildFallbackSceneQuestions = (artists: GameCatalogArtist[], releases: Gam
 
 function SceneDecoderGameComponent({ onBack }: { onBack: () => void }) {
     const { loading, artists, releases, catalog } = useArcadeCatalog()
+    const totalArtists = catalog.artistCount || artists.length
+    const totalReleases = catalog.releaseCount || releases.length
     const questionDeck = useMemo(() => {
         const source = catalog.sceneQuestions.length > 0
             ? catalog.sceneQuestions
@@ -215,8 +217,8 @@ function SceneDecoderGameComponent({ onBack }: { onBack: () => void }) {
                     </div>
                     <div className="arcade-board arcade-board--notes">
                         <div className="arcade-board-row"><strong>Question deck</strong><span>{catalog.sceneQuestions.length}</span></div>
-                        <div className="arcade-board-row"><strong>Artists loaded</strong><span>{catalog.artistCount.toLocaleString()}</span></div>
-                        <div className="arcade-board-row"><strong>Releases loaded</strong><span>{catalog.releaseCount.toLocaleString()}</span></div>
+                        <div className="arcade-board-row"><strong>Artists loaded</strong><span>{totalArtists.toLocaleString()}</span></div>
+                        <div className="arcade-board-row"><strong>Releases loaded</strong><span>{totalReleases.toLocaleString()}</span></div>
                         <div className="arcade-board-row"><strong>Categories</strong><span>6</span></div>
                     </div>
                 </div>
