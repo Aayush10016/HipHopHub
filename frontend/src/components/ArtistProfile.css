@@ -610,17 +610,35 @@
 }
 
 .game-section {
-    width: 92vw;
-    max-width: 1200px;
+    width: min(1400px, 95vw);
+    max-width: 1400px;
     margin: 0 auto;
-    padding: 20px;
+    padding: 24px;
     box-sizing: border-box;
+    overflow-x: hidden;
 }
 
 .game-section .game-component {
     width: 100%;
-    max-width: 1200px;
+    max-width: 1400px;
     margin: 0 auto;
+}
+
+@media (min-width: 1200px) {
+    .game-section .game-component {
+        zoom: 0.84;
+    }
+}
+
+@supports not (zoom: 1) {
+    @media (min-width: 1200px) {
+        .game-section .game-component {
+            transform: scale(0.84);
+            transform-origin: top center;
+            width: calc(100% / 0.84);
+            margin-bottom: -180px;
+        }
+    }
 }
 
 /* ── Loading / Error ───────────────────────────────────────────── */

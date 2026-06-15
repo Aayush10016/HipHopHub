@@ -411,7 +411,7 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
     }, [currentSong, loadingSong, mode, rapidGameOver, variant])
 
     return (
-        <div className={`game-component game-shell ${isRapidFire ? 'rapid-fire' : ''}`}>
+        <div className={`game-component ${isRapidFire ? 'rapid-fire' : ''}`}>
             <audio
                 ref={audioRef}
                 onTimeUpdate={handleTimeUpdate}
@@ -449,10 +449,9 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
                 <p className="game-description">Artist hint: {currentSong.artistName}</p>
             )}
 
-            <div className="question-card-section">
-                <div className="question-card" aria-label="Mystery track card">
-                    <div className="question-card__glow" />
-                    <div className="question-card__mark">?</div>
+            <div className="album-cover-section">
+                <div className="album-cover hidden" aria-label="Mystery track card">
+                    <div className="mystery-icon">?</div>
                     {result && showConfetti && <div className="confetti-burst">Celebration</div>}
                 </div>
             </div>
@@ -470,11 +469,12 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
                                 key={marker}
                                 type="button"
                                 className={`preview-timeline__point ${selectedMarker === marker ? 'selected' : ''}`}
-                                onClick={() => marker > 0 && !result && !loadingSong && void jumpToMarker(marker)}
-                                disabled={marker === 0 || !!result || loadingSong}
-                            >
-                                <span className="preview-timeline__dot" />
-                            </button>
+                            onClick={() => marker > 0 && !result && !loadingSong && void jumpToMarker(marker)}
+                            disabled={marker === 0 || !!result || loadingSong}
+                        >
+                            <span className="preview-timeline__stem" />
+                            <span className="preview-timeline__dot" />
+                        </button>
                         ))}
                     </div>
                 </div>

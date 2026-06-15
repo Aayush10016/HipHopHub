@@ -9,6 +9,8 @@ function PlayGuessTrackGameComponent({ variant, onBack }: { variant: Variant; on
     const { loading, artistCount, songCount, catalog } = useArcadeCatalog()
     const availableTracks = catalog.playableTracks.length
     const availableArtists = catalog.playableArtists.length
+    const displayArtistCount = artistCount || catalog.artistCount || availableArtists || 0
+    const displaySongCount = songCount || catalog.songCount || availableTracks || 0
 
     useEffect(() => {
         console.log('catalog', catalog)
@@ -39,8 +41,8 @@ function PlayGuessTrackGameComponent({ variant, onBack }: { variant: Variant; on
                     <h2>{variant === 'rapid' ? 'Rapid Fire' : 'Guess The Track'}</h2>
                     <p>
                         {variant === 'rapid'
-                            ? `${Math.max(songCount, availableTracks).toLocaleString()} verified tracks ready for rapid rounds.`
-                            : `${Math.max(songCount, availableTracks).toLocaleString()} verified tracks loaded across ${Math.max(artistCount, availableArtists).toLocaleString()} artists.`}
+                            ? `${displaySongCount.toLocaleString()} verified tracks ready for rapid rounds.`
+                            : `${displaySongCount.toLocaleString()} verified tracks loaded across ${displayArtistCount.toLocaleString()} artists.`}
                     </p>
                 </div>
             </div>
