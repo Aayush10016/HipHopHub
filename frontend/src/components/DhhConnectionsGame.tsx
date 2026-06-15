@@ -1,11 +1,84 @@
 import { memo, useMemo, useState } from 'react'
 import PlayGameFrame from './PlayGameFrame'
 import { useArcadeCatalog } from '../hooks/useArcadeCatalog'
-import type { ArcadeConnectionPuzzle } from '../lib/gameCatalog'
+import type { ArcadeConnectionGroup, ArcadeConnectionPuzzle, GameCatalogArtist } from '../lib/gameCatalog'
+
+const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '')
+const unique = (items: string[]) => Array.from(new Set(items.filter(Boolean)))
+
+const buildFallbackConnections = (artists: GameCatalogArtist[]): ArcadeConnectionPuzzle | undefined => {
+    const groups: ArcadeConnectionGroup[] = []
+    const buckets = new Map<string, { category: string; label: string; artists: string[] }>()
+
+    artists.forEach(artist => {
+        if (artist.city) {
+            const key = `city:${normalize(artist.city)}`
+            const bucket = buckets.get(key) || { category: 'City', label: artist.city, artists: [] }
+            bucket.artists.push(artist.name)
+            buckets.set(key, bucket)
+        }
+
+        ;(artist.labels || []).forEach(label => {
+            const key = `label:${normalize(label)}`
+            const bucket = buckets.get(key) || { category: 'Label', label, artists: [] }
+            bucket.artists.push(artist.name)
+            buckets.set(key, bucket)
+        })
+
+        ;(artist.collectives || []).forEach(collective => {
+            const key = `collective:${normalize(collective)}`
+            const bucket = buckets.get(key) || { category: 'Collective', label: collective, artists: [] }
+            bucket.artists.push(artist.name)
+            buckets.set(key, bucket)
+        })
+
+        const firstYear = artist.releaseYears?.[0]
+        if (firstYear) {
+            const era = firstYear <= 2015 ? 'Pioneer Era' : firstYear <= 2018 ? 'Breakout Era' : firstYear <= 2021 ? 'New Guard' : 'Current Wave'
+            const key = `era:${normalize(era)}`
+            const bucket = buckets.get(key) || { category: 'Era', label: era, artists: [] }
+            bucket.artists.push(artist.name)
+            buckets.set(key, bucket)
+        }
+    })
+
+    buckets.forEach((bucket, key) => {
+        const names = unique(bucket.artists)
+        if (names.length >= 4) {
+            groups.push({
+                id: key,
+                category: bucket.category,
+                label: bucket.label,
+                clue: `${bucket.category} · ${bucket.label}`,
+                artistNames: names.slice(0, 4),
+            })
+        }
+    })
+
+    const selected: ArcadeConnectionGroup[] = []
+    const used = new Set<string>()
+    for (const group of groups) {
+        if (group.artistNames.some(name => used.has(normalize(name)))) continue
+        selected.push(group)
+        group.artistNames.forEach(name => used.add(normalize(name)))
+        if (selected.length === 4) break
+    }
+
+    if (selected.length < 4) return undefined
+
+    return {
+        id: 'fallback-connections-1',
+        groups: selected,
+        items: selected.flatMap(group => group.artistNames).sort(() => Math.random() - 0.5),
+    }
+}
 
 function DhhConnectionsGameComponent({ onBack }: { onBack: () => void }) {
-    const { loading, catalog } = useArcadeCatalog()
-    const puzzle = useMemo<ArcadeConnectionPuzzle | undefined>(() => catalog.connectionPuzzles[0], [catalog.connectionPuzzles])
+    const { loading, artists, catalog } = useArcadeCatalog()
+    const puzzle = useMemo<ArcadeConnectionPuzzle | undefined>(
+        () => catalog.connectionPuzzles[0] || buildFallbackConnections(artists),
+        [artists, catalog.connectionPuzzles],
+    )
 
     const [selected, setSelected] = useState<string[]>([])
     const [solvedGroups, setSolvedGroups] = useState<string[]>([])
@@ -115,15 +188,10 @@ function DhhConnectionsGameComponent({ onBack }: { onBack: () => void }) {
         >
             {loading && !puzzle ? (
                 <div className="arcade-skeleton arcade-skeleton--body" />
-            ) : !puzzle ? (
-                <div className="arcade-result-card arcade-result-card--summary">
-                    <h4>Connections deck unavailable</h4>
-                    <p>The current artist pool does not yet expose enough non-overlapping connection groups.</p>
-                </div>
             ) : gameOver ? (
                 <div className="arcade-result-card arcade-result-card--summary">
-                    <h4>{solvedGroups.length === puzzle.groups.length ? 'Board cleared' : 'Run over'}</h4>
-                    <p>{solvedGroups.length === puzzle.groups.length ? `Perfect solve. Final score: ${score.toLocaleString()}` : `Final score: ${score.toLocaleString()}`}</p>
+                    <h4>{solvedGroups.length === puzzle?.groups.length ? 'Board cleared' : 'Run over'}</h4>
+                    <p>Final score: {score.toLocaleString()}</p>
                     <div className="arcade-action-row">
                         <button type="button" className="btn-next" onClick={reset}>Play again</button>
                     </div>

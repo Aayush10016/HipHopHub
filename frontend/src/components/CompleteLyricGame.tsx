@@ -3,6 +3,7 @@ import ArcadeLeaderboard from './ArcadeLeaderboard'
 import PlayGameFrame from './PlayGameFrame'
 import { useArcadeCatalog } from '../hooks/useArcadeCatalog'
 import type { ArcadeLyricCard } from '../lib/gameCatalog'
+import { lyricChallenges } from '../data/lyricChallenges'
 import './CompleteLyricGame.css'
 
 const TOTAL_ROUNDS = 8
@@ -41,10 +42,28 @@ const getChoices = (card: ArcadeLyricCard, pool: ArcadeLyricCard[]) => {
     return shuffle([answer, ...shuffle(distractors).slice(0, 3)])
 }
 
+const buildFallbackLyricDeck = () => lyricChallenges
+    .filter(challenge => challenge.answers.length > 0)
+    .map((challenge, index) => ({
+        id: `fallback-lyric-${index}`,
+        artistName: challenge.artistName,
+        songTitle: challenge.songTitle,
+        albumTitle: undefined,
+        prompt: challenge.prompt,
+        maskedPrompt: challenge.prompt,
+        answers: challenge.answers,
+        difficulty: challenge.difficulty,
+        coverUrl: undefined,
+    } satisfies ArcadeLyricCard))
+
 function CompleteLyricGameComponent({ onBack }: { onBack: () => void }) {
     const { loading, catalog } = useArcadeCatalog()
     const user = useMemo(() => getStoredUser(), [])
-    const deck = useMemo(() => shuffle(catalog.playableLyrics).slice(0, TOTAL_ROUNDS), [catalog.playableLyrics])
+    const lyricPool = useMemo(
+        () => (catalog.playableLyrics.length > 0 ? catalog.playableLyrics : buildFallbackLyricDeck()),
+        [catalog.playableLyrics],
+    )
+    const deck = useMemo(() => shuffle(lyricPool).slice(0, TOTAL_ROUNDS), [lyricPool])
 
     const [index, setIndex] = useState(0)
     const [score, setScore] = useState(0)
@@ -137,7 +156,7 @@ function CompleteLyricGameComponent({ onBack }: { onBack: () => void }) {
         setRoundResult({ correct, points: awarded })
     }
 
-    if (loading && catalog.playableLyrics.length === 0) {
+    if (loading && lyricPool.length === 0) {
         return (
             <PlayGameFrame
                 title="Guess The Lyric"
@@ -176,7 +195,7 @@ function CompleteLyricGameComponent({ onBack }: { onBack: () => void }) {
                         <div className="lyric-chip-row">
                             <span className="lyric-chip">{current.difficulty}</span>
                             <span className="lyric-chip">Round {Math.min(index + 1, TOTAL_ROUNDS)}/{TOTAL_ROUNDS}</span>
-                            <span className="lyric-chip">{catalog.playableLyrics.length} lyric cards</span>
+                            <span className="lyric-chip">{lyricPool.length} lyric cards</span>
                         </div>
                         <h3>{roundResult ? current.songTitle : 'Fill the missing lyric'}</h3>
                         <p>
@@ -192,12 +211,7 @@ function CompleteLyricGameComponent({ onBack }: { onBack: () => void }) {
             ) : undefined}
             leaderboard={<ArcadeLeaderboard mode="COMPLETE_THE_LYRIC" title="Lyric Mode Leaderboard" />}
         >
-            {catalog.playableLyrics.length === 0 ? (
-                <div className="arcade-result-card arcade-result-card--summary">
-                    <h4>No lyric rounds ready</h4>
-                    <p>The shared arcade catalog does not have playable lyric prompts yet.</p>
-                </div>
-            ) : gameOver ? (
+            {gameOver ? (
                 <div className="arcade-result-card arcade-result-card--summary">
                     <h4>Session complete</h4>
                     <p>Final score: {score.toLocaleString()}</p>

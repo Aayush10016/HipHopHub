@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useState } from 'react'
 import PlayGameFrame from './PlayGameFrame'
 import { useArcadeCatalog } from '../hooks/useArcadeCatalog'
-import type { ArcadeArtistQuestion } from '../lib/gameCatalog'
+import type { ArcadeArtistQuestion, GameCatalogArtist, GameCatalogRelease, GameCatalogSong } from '../lib/gameCatalog'
 
 const SESSION_TIME = 60
 const ROUND_TIME = 10
@@ -15,9 +15,118 @@ const shuffle = <T,>(items: T[]) => {
     return copy
 }
 
+const unique = (items: string[]) => Array.from(new Set(items.filter(Boolean)))
+
+const buildOptions = (answer: string, pool: string[], size = 4) => {
+    const options = unique(pool).filter(item => item.toLowerCase() !== answer.toLowerCase())
+    return shuffle([answer, ...shuffle(options).slice(0, Math.max(0, size - 1))])
+}
+
+const buildFallbackBlitzQuestions = (artists: GameCatalogArtist[], songs: GameCatalogSong[], releases: GameCatalogRelease[]) => {
+    const artistNames = artists.map(artist => artist.name)
+    const cities = unique(artists.map(artist => artist.city || ''))
+    const labels = unique(artists.flatMap(artist => artist.labels || []))
+    const years = unique(releases.map(release => (release.releaseDate || '').slice(0, 4)).filter(Boolean))
+
+    const questions: ArcadeArtistQuestion[] = []
+
+    artists.forEach(artist => {
+        if (artist.city) {
+            questions.push({
+                id: `fallback-city-${artist.id}`,
+                category: 'city',
+                prompt: `Which artist belongs to the ${artist.city} scene?`,
+                answer: artist.name,
+                options: buildOptions(artist.name, artistNames),
+                accent: artist.city,
+            })
+        }
+
+        if ((artist.labels || []).length > 0) {
+            const label = artist.labels?.[0]
+            if (label) {
+                questions.push({
+                    id: `fallback-label-${artist.id}`,
+                    category: 'fact',
+                    prompt: `Which artist is linked with ${label}?`,
+                    answer: artist.name,
+                    options: buildOptions(artist.name, artistNames),
+                    accent: label,
+                })
+            }
+        }
+
+        if (artist.facts.length > 0) {
+            questions.push({
+                id: `fallback-fact-${artist.id}`,
+                category: 'fact',
+                prompt: `Who matches this clue? ${artist.facts[0]}`,
+                answer: artist.name,
+                options: buildOptions(artist.name, artistNames),
+            })
+        }
+    })
+
+    releases.slice(0, 180).forEach(release => {
+        const year = (release.releaseDate || '').slice(0, 4)
+        if (year) {
+            questions.push({
+                id: `fallback-year-${release.id}`,
+                category: 'year',
+                prompt: `Pick the release year for "${release.title}".`,
+                answer: year,
+                options: buildOptions(year, years),
+                mediaUrl: release.coverUrl,
+                mediaAlt: release.title,
+            })
+        }
+
+        questions.push({
+            id: `fallback-release-${release.id}`,
+            category: 'album',
+            prompt: `Who owns the release "${release.title}"?`,
+            answer: release.artistName,
+            options: buildOptions(release.artistName, artistNames),
+            mediaUrl: release.coverUrl,
+            mediaAlt: release.title,
+        })
+    })
+
+    songs.slice(0, 220).forEach(song => {
+        questions.push({
+            id: `fallback-track-${song.id}`,
+            category: 'artist',
+            prompt: `Who recorded "${song.title}"?`,
+            answer: song.artistName,
+            options: buildOptions(song.artistName, artistNames),
+            mediaUrl: song.coverUrl,
+            mediaAlt: song.title,
+        })
+
+        if (song.albumTitle) {
+            questions.push({
+                id: `fallback-collab-${song.id}`,
+                category: 'collaborator',
+                prompt: `"${song.title}" belongs to which release?`,
+                answer: song.albumTitle,
+                options: buildOptions(song.albumTitle, releases.map(release => release.title)),
+                mediaUrl: song.coverUrl,
+                mediaAlt: song.title,
+            })
+        }
+    })
+
+    return questions
+}
+
 function ArtistBlitzGameComponent({ onBack }: { onBack: () => void }) {
-    const { loading, catalog } = useArcadeCatalog()
-    const questionPool = useMemo(() => shuffle(catalog.blitzQuestions).slice(0, 60), [catalog.blitzQuestions])
+    const { loading, artists, songs, releases, catalog } = useArcadeCatalog()
+    const questionPool = useMemo(() => {
+        const source = catalog.blitzQuestions.length > 0
+            ? catalog.blitzQuestions
+            : buildFallbackBlitzQuestions(artists, songs, releases)
+        return shuffle(source).slice(0, 60)
+    }, [artists, catalog.blitzQuestions, releases, songs])
 
     const [started, setStarted] = useState(false)
     const [index, setIndex] = useState(0)
@@ -142,11 +251,6 @@ function ArtistBlitzGameComponent({ onBack }: { onBack: () => void }) {
         >
             {loading && questionPool.length === 0 ? (
                 <div className="arcade-skeleton arcade-skeleton--body" />
-            ) : questionPool.length === 0 ? (
-                <div className="arcade-result-card arcade-result-card--summary">
-                    <h4>Artist Blitz deck unavailable</h4>
-                    <p>Check the arcade catalog logs. The shared blitz question deck is empty.</p>
-                </div>
             ) : !started || gameOver ? (
                 <div className="arcade-result-card arcade-result-card--summary">
                     <h4>{gameOver ? 'Artist Blitz complete' : 'Ready for Artist Blitz'}</h4>

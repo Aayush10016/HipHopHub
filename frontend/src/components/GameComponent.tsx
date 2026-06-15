@@ -22,8 +22,18 @@ interface AuthUser {
     email: string
 }
 
+type GuessResult = {
+    correct: boolean
+    correctTitle: string
+    artistName: string
+    albumName: string
+    albumCover?: string
+    points: number
+}
+
 const gameSongCache = new Map<string, GameSong>()
 const pendingGameSongRequests = new Map<string, Promise<GameSong | null>>()
+const GUESS_TIMELINE_MARKERS = [0, 1, 3, 5, 10, 15, 20, 25, 30]
 
 const getStoredUser = (): AuthUser | null => {
     try {
@@ -35,18 +45,29 @@ const getStoredUser = (): AuthUser | null => {
     }
 }
 
+const scoreForGuessTime = (seconds: number) => {
+    if (seconds <= 1) return 1000
+    if (seconds <= 3) return 900
+    if (seconds <= 5) return 800
+    if (seconds <= 10) return 650
+    if (seconds <= 15) return 500
+    if (seconds <= 20) return 350
+    if (seconds <= 25) return 200
+    return 100
+}
+
 const saveArcadeScore = async (userId: number, mode: 'RAPID_FIRE', points: number, metaLabel: string) => {
     await fetch('/api/arcade/score', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, mode, points, metaLabel })
+        body: JSON.stringify({ userId, mode, points, metaLabel }),
     })
 }
 
 export default function GameComponent({ mode, artistId, variant = 'guess' }: GameComponentProps) {
     const [currentSong, setCurrentSong] = useState<GameSong | null>(null)
     const [guess, setGuess] = useState('')
-    const [result, setResult] = useState<any>(null)
+    const [result, setResult] = useState<GuessResult | null>(null)
     const [isPlaying, setIsPlaying] = useState(false)
     const [currentTime, setCurrentTime] = useState(0)
     const [selectedMarker, setSelectedMarker] = useState<number | null>(null)
@@ -54,18 +75,16 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
     const [showConfetti, setShowConfetti] = useState(false)
     const [loadingSong, setLoadingSong] = useState(false)
     const [message, setMessage] = useState<string | null>(null)
-    const [user, setUser] = useState<AuthUser | null>(getStoredUser())
+    const [user] = useState<AuthUser | null>(getStoredUser())
     const [streak, setStreak] = useState(0)
     const [rapidLives, setRapidLives] = useState(3)
     const [rapidRound, setRapidRound] = useState(1)
     const [rapidTimeLeft, setRapidTimeLeft] = useState(10)
-    const [rapidStarted, setRapidStarted] = useState(false)
     const [rapidRoundActive, setRapidRoundActive] = useState(false)
     const audioRef = useRef<HTMLAudioElement>(null)
     const stopAtRef = useRef<number | null>(null)
     const resultTimerRef = useRef<number | null>(null)
     const arcadeSavedRef = useRef(false)
-    const startRapidPlaybackRef = useRef<() => Promise<void>>(() => Promise.resolve())
     const mountedRef = useRef(false)
 
     const cacheKey = mode === 'global' ? 'global' : `artist-${artistId ?? 'unknown'}`
@@ -73,7 +92,7 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
     const isRapidFire = variant === 'rapid'
     const rapidGameOver = isRapidFire && rapidLives <= 0
     const previewLimit = isRapidFire ? 10 : 30
-    const timeMarkers = isRapidFire ? [] : [0, 1, 3, 5, 10, 15, 30]
+    const timeMarkers = isRapidFire ? [] : GUESS_TIMELINE_MARKERS
 
     const resetAudio = useCallback(() => {
         if (!audioRef.current) return
@@ -108,6 +127,7 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
                     const res = await fetch(url)
                     if (!res.ok) return null
                     const data = await res.json()
+                    console.log('API:', data)
                     if (!data?.previewUrl) return null
 
                     const gameSong = data as GameSong
@@ -127,46 +147,20 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
             }
 
             return null
-        })()
-            .finally(() => {
-                pendingGameSongRequests.delete(key)
-            })
+        })().finally(() => {
+            pendingGameSongRequests.delete(key)
+        })
 
         pendingGameSongRequests.set(key, request)
         return request
-    }, [artistId, mode])
+    }, [artistId, mode, recentArtistKey])
 
     const prefetchNextSong = useCallback(() => {
-        if (gameSongCache.has(cacheKey) || pendingGameSongRequests.has(cacheKey)) {
-            return
-        }
+        if (gameSongCache.has(cacheKey) || pendingGameSongRequests.has(cacheKey)) return
         void fetchGameSong(cacheKey).then(song => {
-            if (song) {
-                gameSongCache.set(cacheKey, song)
-            }
+            if (song) gameSongCache.set(cacheKey, song)
         })
     }, [cacheKey, fetchGameSong])
-
-    const startRapidPlayback = useCallback(async () => {
-        if (!audioRef.current || !audioRef.current.src || rapidGameOver || loadingSong) return
-        try {
-            audioRef.current.currentTime = 0
-            stopAtRef.current = previewLimit
-            setCurrentTime(0)
-            setRapidStarted(true)
-            setRapidRoundActive(true)
-            setRapidTimeLeft(previewLimit)
-            await audioRef.current.play()
-            setIsPlaying(true)
-        } catch (err) {
-            console.error('Rapid playback failed:', err)
-            setRapidRoundActive(false)
-            setMessage('Audio playback failed. Try another track.')
-        }
-    }, [loadingSong, previewLimit, rapidGameOver])
-
-    // Keep the ref in sync so loadNewSong can call it without a dependency
-    startRapidPlaybackRef.current = startRapidPlayback
 
     const loadNewSong = useCallback(async (autoStartRapid = false) => {
         resetAudio()
@@ -189,14 +183,11 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
             const data = await fetchGameSong(cacheKey)
             if (!data?.previewUrl) {
                 setCurrentSong(null)
-                setMessage(mode === 'artist'
-                    ? 'No playable preview tracks found for this artist yet.'
-                    : 'No playable tracks found right now.')
+                setMessage('Round load failed.')
                 return
             }
 
-            setCurrentSong(data as GameSong)
-
+            setCurrentSong(data)
             if (audioRef.current) {
                 audioRef.current.src = data.previewUrl
                 audioRef.current.load()
@@ -204,30 +195,30 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
             prefetchNextSong()
             if (isRapidFire && autoStartRapid) {
                 window.setTimeout(() => {
-                    void startRapidPlaybackRef.current()
+                    void playAudio(true)
                 }, 120)
             }
         } catch (err) {
             console.error('Failed to load game track:', err)
             setCurrentSong(null)
-            setMessage('Could not load track. Check backend/API and try again.')
+            setMessage('Round load failed.')
         } finally {
             setLoadingSong(false)
         }
-    }, [cacheKey, fetchGameSong, isRapidFire, mode, prefetchNextSong, resetAudio])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [cacheKey, fetchGameSong, isRapidFire, prefetchNextSong, resetAudio])
 
-    // Initial load — runs only once on mount
     useEffect(() => {
         if (mountedRef.current) return
         mountedRef.current = true
-        loadNewSong()
+        void loadNewSong()
         return () => {
             resetAudio()
             if (resultTimerRef.current) {
                 window.clearTimeout(resultTimerRef.current)
             }
         }
-    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    }, [loadNewSong, resetAudio])
 
     useEffect(() => {
         prefetchNextSong()
@@ -241,7 +232,7 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
                 if (prev <= 1) {
                     window.clearInterval(timer)
                     setRapidRoundActive(false)
-                    submitGuess('', 10)
+                    void submitGuess('', 10)
                     return 0
                 }
                 return prev - 1
@@ -257,18 +248,6 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
         void saveArcadeScore(user.id, 'RAPID_FIRE', score, `Round ${rapidRound}`)
     }, [rapidGameOver, rapidRound, score, user])
 
-    useEffect(() => {
-        console.log('GameComponent state:', {
-            mode,
-            variant,
-            hasSong: !!currentSong,
-            songId: currentSong?.songId ?? null,
-            artistHint: currentSong?.artistName ?? null,
-            loadingSong,
-            rapidGameOver,
-        })
-    }, [currentSong, loadingSong, mode, rapidGameOver, variant])
-
     const resetRapidSession = () => {
         arcadeSavedRef.current = false
         setRapidLives(3)
@@ -277,39 +256,37 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
         setScore(0)
         setStreak(0)
         setResult(null)
-        setRapidStarted(false)
         setRapidRoundActive(false)
         void loadNewSong()
     }
 
-    const playAudio = async () => {
+    const playAudio = async (forceRestart = false) => {
         if (!audioRef.current || !currentSong?.previewUrl || !!result || loadingSong || rapidGameOver) return
-        if (isRapidFire) {
-            await startRapidPlayback()
-            return
+
+        if (forceRestart || isRapidFire || audioRef.current.currentTime >= previewLimit || currentTime >= previewLimit) {
+            audioRef.current.currentTime = 0
+            setCurrentTime(0)
         }
-        stopAtRef.current = null
+
+        if (isRapidFire) {
+            stopAtRef.current = previewLimit
+            setRapidRoundActive(true)
+            setRapidTimeLeft(previewLimit)
+        } else {
+            stopAtRef.current = selectedMarker && selectedMarker > 0 ? selectedMarker : null
+        }
+
         try {
-            if (audioRef.current.currentTime >= previewLimit || currentTime >= previewLimit) {
-                audioRef.current.currentTime = 0
-                setCurrentTime(0)
-            }
             await audioRef.current.play()
             setIsPlaying(true)
         } catch (err) {
             console.error('Audio play failed:', err)
-            setMessage('Audio playback failed. Try another track.')
+            setMessage('Audio playback failed.')
         }
     }
 
-    const pauseAudio = () => {
-        if (!audioRef.current || !isPlaying || isRapidFire) return
-        audioRef.current.pause()
-        setIsPlaying(false)
-    }
-
     const jumpToMarker = async (seconds: number) => {
-        if (!audioRef.current || !currentSong?.previewUrl || !!result || loadingSong || rapidGameOver) return
+        if (!audioRef.current || !currentSong?.previewUrl || !!result || loadingSong || rapidGameOver || isRapidFire) return
         setSelectedMarker(seconds)
         stopAtRef.current = seconds
         audioRef.current.currentTime = 0
@@ -320,13 +297,13 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
             setIsPlaying(true)
         } catch (err) {
             console.error('Marker playback failed:', err)
-            setMessage('Could not play preview at this marker.')
+            setMessage('Preview jump failed.')
         }
     }
 
     const submitGuess = async (
         guessText: string = guess,
-        timeInSeconds: number = currentTime
+        timeInSeconds: number = currentTime,
     ) => {
         if (!currentSong) return
 
@@ -338,28 +315,40 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
                     songId: currentSong.songId,
                     guessedTitle: guessText,
                     guessTimeSeconds: Math.ceil(timeInSeconds),
-                    userId: user?.id
-                })
+                    userId: user?.id,
+                }),
             })
 
             if (!res.ok) {
-                setMessage('Could not submit guess. Try another song.')
+                setMessage('Guess submission failed.')
                 return
             }
 
             const data = await res.json()
-            setResult(data)
+            const timeScore = scoreForGuessTime(Math.ceil(Math.max(0, timeInSeconds)))
+            const awardedPoints = data.correct
+                ? (isRapidFire ? Math.max(180, timeScore) + (streak * 25) : timeScore)
+                : 0
+
+            const nextResult: GuessResult = {
+                correct: !!data.correct,
+                correctTitle: data.correctTitle || '',
+                artistName: data.artistName || currentSong.artistName || '',
+                albumName: data.albumName || '',
+                albumCover: data.albumCover || currentSong.albumCover,
+                points: awardedPoints,
+            }
+
+            setResult(nextResult)
 
             if (data.correct) {
-                const awardedPoints = isRapidFire ? data.points + (streak * 25) : data.points
                 setScore(prev => prev + awardedPoints)
                 setStreak(prev => prev + 1)
                 setShowConfetti(true)
-                setTimeout(() => setShowConfetti(false), 3000)
+                window.setTimeout(() => setShowConfetti(false), 3000)
                 if (!user) {
-                    setMessage('Log in to save your score on the leaderboard.')
+                    setMessage('Log in or sign up to save scores.')
                 }
-                data.points = awardedPoints
             } else {
                 setStreak(0)
                 if (isRapidFire) {
@@ -367,39 +356,29 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
                 }
             }
 
-            if (isRapidFire) {
-                setRapidRoundActive(false)
-                resultTimerRef.current = window.setTimeout(() => {
+            resultTimerRef.current = window.setTimeout(() => {
+                if (isRapidFire) {
                     setRapidRound(prev => prev + 1)
                     void loadNewSong(true)
-                }, 1600)
-            }
+                } else {
+                    void loadNewSong(false)
+                }
+            }, 1800)
         } catch (err) {
             console.error('Submit guess failed:', err)
-            setMessage('Could not submit guess. Check your backend and retry.')
+            setMessage('Guess submission failed.')
         } finally {
-            pauseAudio()
+            if (audioRef.current) {
+                audioRef.current.pause()
+            }
+            setIsPlaying(false)
         }
     }
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault()
+    const handleSubmit = (event: React.FormEvent) => {
+        event.preventDefault()
         if (!guess.trim()) return
-        submitGuess()
-    }
-
-    const skipSong = () => {
-        if (rapidGameOver || loadingSong) return
-        if (resultTimerRef.current) {
-            window.clearTimeout(resultTimerRef.current)
-            resultTimerRef.current = null
-        }
-        if (isRapidFire) {
-            setRapidRound(prev => prev + 1)
-            void loadNewSong(true)
-            return
-        }
-        void loadNewSong()
+        void submitGuess()
     }
 
     const handleTimeUpdate = () => {
@@ -420,26 +399,22 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
     const handleAudioEnded = () => {
         setIsPlaying(false)
         setCurrentTime(previewLimit)
-        if (!result && !isRapidFire) {
-            submitGuess('', 30)
+        if (!result && isRapidFire) {
+            setRapidRoundActive(false)
         }
     }
 
-    const openDirectYouTube = async () => {
-        if (!currentSong?.songId) return
-
-        try {
-            const res = await fetch(`/api/youtube/song/${currentSong.songId}`)
-            if (res.ok) {
-                const payload = await res.json()
-                if (payload?.url?.startsWith('https://www.youtube.com/watch?v=')) {
-                    window.open(payload.url, '_blank', 'noopener,noreferrer')
-                }
-            }
-        } catch (err) {
-            console.error(`Failed to resolve direct YouTube URL for game song ${currentSong.songId}:`, err)
-        }
-    }
+    useEffect(() => {
+        console.log('GameComponent state:', {
+            mode,
+            variant,
+            hasSong: !!currentSong,
+            songId: currentSong?.songId ?? null,
+            artistHint: currentSong?.artistName ?? null,
+            loadingSong,
+            rapidGameOver,
+        })
+    }, [currentSong, loadingSong, mode, rapidGameOver, variant])
 
     return (
         <div className={`game-component ${isRapidFire ? 'rapid-fire' : ''}`}>
@@ -458,7 +433,7 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
 
             {isRapidFire && (
                 <div className="rapid-fire-strip">
-                    <span>Rapid Fire mode</span>
+                    <span>Rapid Fire</span>
                     <span>Round: {rapidRound}</span>
                     <span>Lives: {rapidLives}</span>
                     <span>Streak: {streak}</span>
@@ -477,13 +452,17 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
                 </div>
             )}
             {currentSong?.artistName && !result && (
-                <p className="game-description">
-                    {isRapidFire ? `Rapid clue: ${currentSong.artistName}` : `Artist hint: ${currentSong.artistName}`}
-                </p>
+                <p className="game-description">Artist hint: {currentSong.artistName}</p>
             )}
 
             <div className="album-cover-section">
-                {result ? (
+                {currentSong?.albumCover ? (
+                    <div className={`album-cover ${result ? 'revealed' : 'hidden-blur'}`}>
+                        <img src={result?.albumCover || currentSong.albumCover} alt="Album" />
+                        {!result && <div className="album-cover-overlay">?</div>}
+                        {result && showConfetti && <div className="confetti-burst">Celebration</div>}
+                    </div>
+                ) : result ? (
                     <div className="album-cover revealed">
                         <img src={result.albumCover || currentSong?.albumCover} alt="Album" />
                         {showConfetti && <div className="confetti-burst">Celebration</div>}
@@ -495,64 +474,39 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
                 )}
             </div>
 
+            {!isRapidFire && (
+                <div className="preview-timeline-grid" style={{ gridTemplateColumns: `repeat(${timeMarkers.length}, minmax(0, 1fr))` }}>
+                    {timeMarkers.map(marker => (
+                        <button
+                            key={marker}
+                            type="button"
+                            className={`preview-timeline-marker ${selectedMarker === marker ? 'selected' : ''}`}
+                            onClick={() => marker > 0 && !result && !loadingSong && void jumpToMarker(marker)}
+                            disabled={marker === 0 || !!result || loadingSong}
+                        >
+                            <span className="preview-timeline-marker__label">{marker}s</span>
+                            <span className="preview-timeline-marker__dot" />
+                        </button>
+                    ))}
+                </div>
+            )}
+
             <div className="progress-bar-container">
                 <div className="progress-bar">
-                    <div
-                        className="progress-fill"
-                        style={{ width: `${(currentTime / previewLimit) * 100}%` }}
-                    />
-                    {timeMarkers.map(marker => (
-                        <div
-                            key={marker}
-                            className={`time-marker ${selectedMarker === marker ? 'selected' : ''} ${marker === 0 ? 'is-origin' : ''} ${marker === previewLimit ? 'is-end' : ''}`}
-                            style={{ left: `${(marker / 30) * 100}%` }}
-                            onClick={() => marker > 0 && !result && !loadingSong && jumpToMarker(marker)}
-                        >
-                            <div className="marker-label">{marker}s</div>
-                            <div className="marker-dot" />
-                        </div>
-                    ))}
+                    <div className="progress-fill" style={{ width: `${(currentTime / previewLimit) * 100}%` }} />
                 </div>
                 <div className="time-display">{currentTime.toFixed(1)}s / {previewLimit}s</div>
             </div>
 
             <div className="playback-controls">
-                {!isPlaying ? (
-                    <button
-                        className="btn-control"
-                        onClick={playAudio}
-                        disabled={!!result || loadingSong || !currentSong?.previewUrl || rapidGameOver}
-                    >
-                        {loadingSong ? 'Loading...' : isRapidFire ? 'Blast' : 'Play'}
-                    </button>
-                ) : !isRapidFire ? (
-                    <button className="btn-control" onClick={pauseAudio}>
-                        Pause
-                    </button>
-                ) : (
-                    <button className="btn-control" disabled>
-                        Locked 10s Run
-                    </button>
-                )}
-                {!result && (
-                    <button
-                        type="button"
-                        className="btn-control btn-control--secondary"
-                        onClick={skipSong}
-                        disabled={loadingSong || rapidGameOver}
-                    >
-                        Skip
-                    </button>
-                )}
+                <button
+                    className="btn-control"
+                    onClick={() => void playAudio(true)}
+                    disabled={!!result || loadingSong || !currentSong?.previewUrl || rapidGameOver}
+                >
+                    Play Preview
+                </button>
             </div>
-
-            {currentSong?.songId && currentSong?.youtubeUrl && (
-                <div className="game-yt-wrap">
-                    <button type="button" onClick={openDirectYouTube} className="game-yt-btn">
-                        ▶ Play on YouTube
-                    </button>
-                </div>
-            )}
 
             {rapidGameOver ? (
                 <div className="result-section">
@@ -570,8 +524,8 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
                     <input
                         type="text"
                         value={guess}
-                        onChange={(e) => setGuess(e.target.value)}
-                        placeholder={isRapidFire ? 'Name it fast...' : 'Guess the song title...'}
+                        onChange={(event) => setGuess(event.target.value)}
+                        placeholder={isRapidFire ? 'Guess the track title...' : 'Guess the song title...'}
                         className="guess-input"
                     />
                     <button
@@ -591,18 +545,17 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
                             <p className="artist-name">{result.artistName}</p>
                             <p className="album-name">{result.albumName}</p>
                             <p className="points-earned">+{result.points} points</p>
-                            {isRapidFire && <p className="album-name">Current streak: {streak}</p>}
                         </div>
                     ) : (
                         <div className="result incorrect">
-                            <h3>Wrong or Time's Up</h3>
+                            <h3>Wrong or Time&apos;s Up</h3>
                             <p className="song-title">Correct Answer: {result.correctTitle}</p>
                             <p className="artist-name">{result.artistName}</p>
                             <p className="album-name">{result.albumName}</p>
                         </div>
                     )}
-                    <button className="btn-next" onClick={loadNewSong}>
-                        Next Song
+                    <button className="btn-next" onClick={() => void loadNewSong(isRapidFire)}>
+                        Next Round
                     </button>
                 </div>
             )}

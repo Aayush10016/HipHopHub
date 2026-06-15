@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useState } from 'react'
 import PlayGameFrame from './PlayGameFrame'
 import { useArcadeCatalog } from '../hooks/useArcadeCatalog'
-import type { ArcadeSceneQuestion } from '../lib/gameCatalog'
+import type { ArcadeSceneQuestion, GameCatalogArtist, GameCatalogRelease } from '../lib/gameCatalog'
 
 const SESSION_TIME = 60
 const ROUND_TIME = 10
@@ -15,9 +15,97 @@ const shuffle = <T,>(items: T[]) => {
     return copy
 }
 
+const unique = (items: string[]) => Array.from(new Set(items.filter(Boolean)))
+
+const buildOptions = (answer: string, pool: string[], size = 4) => {
+    const options = unique(pool).filter(item => item.toLowerCase() !== answer.toLowerCase())
+    return shuffle([answer, ...shuffle(options).slice(0, Math.max(0, size - 1))])
+}
+
+const buildFallbackSceneQuestions = (artists: GameCatalogArtist[], releases: GameCatalogRelease[]) => {
+    const questions: ArcadeSceneQuestion[] = []
+    const artistNames = artists.map(artist => artist.name)
+    const cities = unique(artists.map(artist => artist.city || ''))
+    const labels = unique(artists.flatMap(artist => artist.labels || []))
+    const collectives = unique(artists.flatMap(artist => artist.collectives || []))
+    const years = unique(releases.map(release => (release.releaseDate || '').slice(0, 4)).filter(Boolean))
+
+    artists.forEach(artist => {
+        if (artist.city) {
+            questions.push({
+                id: `scene-city-${artist.id}`,
+                category: 'city',
+                prompt: `Which city is ${artist.name} most associated with?`,
+                answer: artist.city,
+                options: buildOptions(artist.city, cities),
+                explanation: `${artist.name} is tied to the ${artist.city} lane in the HipHopHub catalog.`,
+            })
+        }
+
+        if (artist.facts.length > 0) {
+            questions.push({
+                id: `scene-fact-${artist.id}`,
+                category: 'fact',
+                prompt: `Which artist matches this fact? ${artist.facts[0]}`,
+                answer: artist.name,
+                options: buildOptions(artist.name, artistNames),
+                explanation: `This clue comes directly from ${artist.name}'s verified profile.`,
+            })
+        }
+
+        if ((artist.collectives || []).length > 0) {
+            const collective = artist.collectives?.[0]
+            if (collective) {
+                questions.push({
+                    id: `scene-collective-${artist.id}`,
+                    category: 'collaborator',
+                    prompt: `Which collective is linked with ${artist.name}?`,
+                    answer: collective,
+                    options: buildOptions(collective, collectives),
+                    explanation: `${artist.name} is mapped to ${collective} in the verified catalog.`,
+                })
+            }
+        }
+
+        if ((artist.labels || []).length > 0) {
+            const label = artist.labels?.[0]
+            if (label) {
+                questions.push({
+                    id: `scene-label-${artist.id}`,
+                    category: 'album',
+                    prompt: `Which label is connected to ${artist.name}?`,
+                    answer: label,
+                    options: buildOptions(label, labels),
+                    explanation: `${artist.name} is associated with ${label} in the verified catalog.`,
+                })
+            }
+        }
+    })
+
+    releases.slice(0, 180).forEach(release => {
+        const year = (release.releaseDate || '').slice(0, 4)
+        if (!year) return
+        questions.push({
+            id: `scene-year-${release.id}`,
+            category: 'year',
+            prompt: `Which year did "${release.title}" release?`,
+            answer: year,
+            options: buildOptions(year, years),
+            explanation: `${release.title} is stored with a ${year} release date in the verified catalog.`,
+        })
+    })
+
+    return questions
+}
+
 function SceneDecoderGameComponent({ onBack }: { onBack: () => void }) {
-    const { loading, catalog } = useArcadeCatalog()
-    const questionDeck = useMemo(() => shuffle(catalog.sceneQuestions).slice(0, 48), [catalog.sceneQuestions])
+    const { loading, artists, releases, catalog } = useArcadeCatalog()
+    const questionDeck = useMemo(() => {
+        const source = catalog.sceneQuestions.length > 0
+            ? catalog.sceneQuestions
+            : buildFallbackSceneQuestions(artists, releases)
+        return shuffle(source).slice(0, 48)
+    }, [artists, catalog.sceneQuestions, releases])
 
     const [started, setStarted] = useState(false)
     const [index, setIndex] = useState(0)
@@ -136,11 +224,6 @@ function SceneDecoderGameComponent({ onBack }: { onBack: () => void }) {
         >
             {loading && questionDeck.length === 0 ? (
                 <div className="arcade-skeleton arcade-skeleton--body" />
-            ) : questionDeck.length === 0 ? (
-                <div className="arcade-result-card arcade-result-card--summary">
-                    <h4>Scene Decoder deck unavailable</h4>
-                    <p>Check the arcade catalog logs. The shared scene question deck is empty.</p>
-                </div>
             ) : !started || gameOver ? (
                 <div className="arcade-result-card arcade-result-card--summary">
                     <h4>{gameOver ? 'Scene Decoder complete' : 'Ready for Scene Decoder'}</h4>

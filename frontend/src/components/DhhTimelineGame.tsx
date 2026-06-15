@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useState } from 'react'
 import PlayGameFrame from './PlayGameFrame'
 import { useArcadeCatalog } from '../hooks/useArcadeCatalog'
-import type { ArcadeTimelineEvent } from '../lib/gameCatalog'
+import type { ArcadeTimelineEvent, GameCatalogRelease } from '../lib/gameCatalog'
 
 const TOTAL_ROUNDS = 6
 const LIVES = 3
@@ -30,9 +30,20 @@ const buildRound = (events: ArcadeTimelineEvent[]): TimelineRound | null => {
     }
 }
 
+const buildFallbackTimelineEvents = (releases: GameCatalogRelease[]) => releases
+    .filter(release => !!release.releaseDate)
+    .map(release => ({
+        ...release,
+        year: Number((release.releaseDate || '').slice(0, 4)),
+    }))
+    .filter(release => Number.isFinite(release.year) && release.year > 0)
+
 function DhhTimelineGameComponent({ onBack }: { onBack: () => void }) {
-    const { loading, catalog } = useArcadeCatalog()
-    const eventPool = useMemo(() => catalog.timelineEvents, [catalog.timelineEvents])
+    const { loading, releases, catalog } = useArcadeCatalog()
+    const eventPool = useMemo(
+        () => (catalog.timelineEvents.length > 0 ? catalog.timelineEvents : buildFallbackTimelineEvents(releases)),
+        [catalog.timelineEvents, releases],
+    )
 
     const [started, setStarted] = useState(false)
     const [rounds, setRounds] = useState<TimelineRound[]>([])
@@ -160,11 +171,6 @@ function DhhTimelineGameComponent({ onBack }: { onBack: () => void }) {
         >
             {loading && eventPool.length === 0 ? (
                 <div className="arcade-skeleton arcade-skeleton--body" />
-            ) : eventPool.length === 0 ? (
-                <div className="arcade-result-card arcade-result-card--summary">
-                    <h4>Timeline deck unavailable</h4>
-                    <p>Check the arcade catalog logs. No timeline events were generated.</p>
-                </div>
             ) : !started || gameOver ? (
                 <div className="arcade-result-card arcade-result-card--summary">
                     <h4>{gameOver ? 'Timeline run complete' : 'Ready for DHH Timeline'}</h4>

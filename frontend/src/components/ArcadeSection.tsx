@@ -6,7 +6,6 @@ import DhhTimelineGame from './DhhTimelineGame'
 import PlayGuessTrackGame from './PlayGuessTrackGame'
 import SceneDecoderGame from './SceneDecoderGame'
 import { useArcadeCatalog } from '../hooks/useArcadeCatalog'
-import { buildCatalogSummary } from '../lib/gameCatalog'
 import './ArcadeSection.css'
 
 type GameMode = 'guess' | 'rapid' | 'lyric' | 'blitz' | 'decoder' | 'timeline' | 'connections'
@@ -59,8 +58,7 @@ const MODE_COPY: Record<GameMode, { kicker: string; title: string; description: 
 function ArcadeSectionComponent() {
     const [selectedGame, setSelectedGame] = useState<GameMode>('guess')
     const [gameView, setGameView] = useState<'hub' | 'active'>('hub')
-    const { loading, error, catalog } = useArcadeCatalog()
-    const summary = useMemo(() => buildCatalogSummary(catalog), [catalog])
+    const { artistCount, songCount, releaseCount, catalog } = useArcadeCatalog()
 
     const stats = [
         { label: 'Artists', value: summary.artistText },
@@ -95,9 +93,7 @@ function ArcadeSectionComponent() {
                     <span className="section-kicker">Arcade</span>
                     <h2 className="section-title">Play</h2>
                     <p className="game-description arcade-section__description">
-                        {loading
-                            ? 'Preparing the verified DHH arcade deck...'
-                            : `The flagship HipHopHub experience now runs on ${summary.artistText} artists, ${summary.songText} playable tracks, ${summary.lyricText} lyric rounds, and ${summary.releaseText} official releases.${error ? ' Some live calls may still be recovering.' : ''}`}
+                        {`The flagship HipHopHub arcade runs on ${Math.max(artistCount, catalog.playableArtists.length).toLocaleString()} artists, ${Math.max(songCount, catalog.playableTracks.length).toLocaleString()} tracks, ${Math.max(releaseCount, catalog.releaseCount).toLocaleString()} releases, and ${catalog.playableLyrics.length.toLocaleString()} lyric rounds.`}
                     </p>
                 </div>
                 <div className="arcade-section__stats" aria-label="Arcade catalog stats">
