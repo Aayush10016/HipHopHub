@@ -17,6 +17,58 @@ const emptyCatalog: GameCatalogResponse = {
 const RETRY_DELAYS_MS = [800, 1500, 2500, 4000]
 
 const coerceArray = <T,>(value: unknown) => Array.isArray(value) ? value as T[] : []
+const coerceString = (value: unknown) => typeof value === 'string' ? value : value == null ? '' : String(value)
+const coerceNumber = (value: unknown, fallback = 0) => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+    if (typeof value === 'string' && value.trim()) {
+        const parsed = Number(value)
+        if (Number.isFinite(parsed)) return parsed
+    }
+    return fallback
+}
+const coerceNumberArray = (value: unknown) => coerceArray<unknown>(value)
+    .map(item => coerceNumber(item, NaN))
+    .filter(item => Number.isFinite(item))
+
+const normalizeArtist = (raw: any): GameCatalogArtist => ({
+    id: coerceNumber(raw?.id),
+    name: coerceString(raw?.name || raw?.artistName || raw?.artist || raw?.title),
+    genre: coerceString(raw?.genre) || undefined,
+    bio: coerceString(raw?.bio || raw?.description) || undefined,
+    imageUrl: coerceString(raw?.imageUrl || raw?.image_url || raw?.image) || undefined,
+    city: coerceString(raw?.city || raw?.location) || undefined,
+    facts: coerceArray<unknown>(raw?.facts || raw?.artistFacts).map(item => coerceString(item)).filter(Boolean),
+    releaseYears: coerceNumberArray(raw?.releaseYears || raw?.years || raw?.release_years),
+    releaseCount: coerceNumber(raw?.releaseCount || raw?.release_count),
+    songCount: coerceNumber(raw?.songCount || raw?.trackCount || raw?.song_count),
+    collectives: coerceArray<unknown>(raw?.collectives || raw?.collective || raw?.groups).map(item => coerceString(item)).filter(Boolean),
+    labels: coerceArray<unknown>(raw?.labels || raw?.label).map(item => coerceString(item)).filter(Boolean),
+})
+
+const normalizeSong = (raw: any): GameCatalogSong => ({
+    id: coerceNumber(raw?.id),
+    title: coerceString(raw?.title || raw?.songTitle || raw?.song || raw?.songName || raw?.name),
+    artistId: coerceNumber(raw?.artistId || raw?.artist_id),
+    artistName: coerceString(raw?.artistName || raw?.artist || raw?.name),
+    previewUrl: coerceString(raw?.previewUrl || raw?.preview_url || raw?.audioPreview || raw?.audio || raw?.preview) || undefined,
+    audio: coerceString(raw?.audio || raw?.previewUrl || raw?.preview_url || raw?.audioPreview || raw?.preview) || undefined,
+    coverUrl: coerceString(raw?.coverUrl || raw?.cover_url || raw?.cover || raw?.albumCover || raw?.imageUrl) || undefined,
+    youtubeUrl: coerceString(raw?.youtubeUrl || raw?.youtube_url || raw?.youtube) || undefined,
+    releaseDate: coerceString(raw?.releaseDate || raw?.release_date || raw?.date) || undefined,
+    albumTitle: coerceString(raw?.albumTitle || raw?.album || raw?.album_name || raw?.releaseTitle) || undefined,
+    albumType: coerceString(raw?.albumType || raw?.album_type || raw?.type) || undefined,
+})
+
+const normalizeRelease = (raw: any): GameCatalogRelease => ({
+    id: coerceNumber(raw?.id),
+    title: coerceString(raw?.title || raw?.releaseTitle || raw?.albumTitle || raw?.name),
+    artistId: coerceNumber(raw?.artistId || raw?.artist_id),
+    artistName: coerceString(raw?.artistName || raw?.artist || raw?.name),
+    releaseDate: coerceString(raw?.releaseDate || raw?.release_date || raw?.date) || undefined,
+    type: coerceString(raw?.type || raw?.albumType || raw?.album_type) || undefined,
+    coverUrl: coerceString(raw?.coverUrl || raw?.cover_url || raw?.cover || raw?.imageUrl) || undefined,
+    youtubeUrl: coerceString(raw?.youtubeUrl || raw?.youtube_url || raw?.youtube) || undefined,
+})
 
 const isCatalogReady = (payload: GameCatalogResponse) => {
     if (payload.catalogReady === false) return false
@@ -30,9 +82,9 @@ const fetchCatalog = async (): Promise<GameCatalogResponse> => {
     }
 
     const payload = await response.json()
-    const artists = coerceArray<GameCatalogArtist>(payload?.artists)
-    const songs = coerceArray<GameCatalogSong>(payload?.songs)
-    const releases = coerceArray<GameCatalogRelease>(payload?.releases)
+    const artists = coerceArray<any>(payload?.artists).map(normalizeArtist).filter(artist => artist.id > 0 && artist.name)
+    const songs = coerceArray<any>(payload?.songs).map(normalizeSong).filter(song => song.id > 0 && song.title && song.artistName)
+    const releases = coerceArray<any>(payload?.releases).map(normalizeRelease).filter(release => release.id > 0 && release.title && release.artistName)
 
     return {
         artists,
@@ -88,11 +140,21 @@ export function useGameCatalog() {
                 console.info(`Loaded artists: ${payload.artistCount}`)
                 console.info(`Loaded tracks: ${payload.songCount}`)
                 console.log({
-                    artists: payload.artistCount,
-                    tracks: payload.songCount,
-                    releases: payload.releaseCount,
+                    totalArtists: payload.artistCount,
+                    totalSongs: payload.songCount,
+                    totalReleases: payload.releaseCount,
                     ready: payload.catalogReady,
                 })
+
+                if (payload.artistCount === 0) {
+                    console.error('Arcade catalog error: Total artists is 0.')
+                }
+                if (payload.songCount === 0) {
+                    console.error('Arcade catalog error: Total songs is 0.')
+                }
+                if (payload.releaseCount === 0) {
+                    console.error('Arcade catalog error: Total releases is 0.')
+                }
 
                 setData(payload)
 

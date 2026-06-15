@@ -206,7 +206,9 @@ export interface ArcadeCatalog {
     playableTracks: ArcadePlayableTrack[]
     playableLyrics: ArcadeLyricCard[]
     timelineEvents: ArcadeTimelineEvent[]
+    sceneQuestions: ArcadeSceneQuestion[]
     sceneFacts: ArcadeSceneQuestion[]
+    blitzQuestions: ArcadeArtistQuestion[]
     artistQuestions: ArcadeArtistQuestion[]
     connectionGroups: ArcadeConnectionGroup[]
     connectionPuzzles: ArcadeConnectionPuzzle[]
@@ -624,7 +626,9 @@ export function buildArcadeCatalog(input: GameCatalogResponse): ArcadeCatalog {
         playableTracks,
         playableLyrics: shuffle(playableLyrics),
         timelineEvents: shuffle(timelineEvents).slice(0, Math.max(100, Math.min(timelineEvents.length, 180))),
+        sceneQuestions: shuffle(sceneFacts),
         sceneFacts: shuffle(sceneFacts),
+        blitzQuestions: shuffle(artistQuestions),
         artistQuestions: shuffle(artistQuestions),
         connectionGroups,
         connectionPuzzles,
@@ -641,3 +645,5 @@ export const buildCatalogSummary = (catalog: ArcadeCatalog) => ({
 })
 
 export const prettyCategoryLabel = (value: string) => titleCase(value.replace(/-/g, ' '))
+
+

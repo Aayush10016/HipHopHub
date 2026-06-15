@@ -17,7 +17,7 @@ const shuffle = <T,>(items: T[]) => {
 
 function ArtistBlitzGameComponent({ onBack }: { onBack: () => void }) {
     const { loading, catalog } = useArcadeCatalog()
-    const questionPool = useMemo(() => shuffle(catalog.artistQuestions).slice(0, 60), [catalog.artistQuestions])
+    const questionPool = useMemo(() => shuffle(catalog.blitzQuestions).slice(0, 60), [catalog.blitzQuestions])
 
     const [started, setStarted] = useState(false)
     const [index, setIndex] = useState(0)
@@ -132,7 +132,7 @@ function ArtistBlitzGameComponent({ onBack }: { onBack: () => void }) {
                         <h3>Blitz Rules</h3>
                     </div>
                     <div className="arcade-board arcade-board--notes">
-                        <div className="arcade-board-row"><strong>Prompt pool</strong><span>{catalog.artistQuestions.length}</span></div>
+                        <div className="arcade-board-row"><strong>Prompt pool</strong><span>{catalog.blitzQuestions.length}</span></div>
                         <div className="arcade-board-row"><strong>Artists loaded</strong><span>{catalog.artistCount.toLocaleString()}</span></div>
                         <div className="arcade-board-row"><strong>Tracks loaded</strong><span>{catalog.songCount.toLocaleString()}</span></div>
                         <div className="arcade-board-row"><strong>Best combo</strong><span>{bestCombo}x</span></div>
@@ -142,6 +142,11 @@ function ArtistBlitzGameComponent({ onBack }: { onBack: () => void }) {
         >
             {loading && questionPool.length === 0 ? (
                 <div className="arcade-skeleton arcade-skeleton--body" />
+            ) : questionPool.length === 0 ? (
+                <div className="arcade-result-card arcade-result-card--summary">
+                    <h4>Artist Blitz deck unavailable</h4>
+                    <p>Check the arcade catalog logs. The shared blitz question deck is empty.</p>
+                </div>
             ) : !started || gameOver ? (
                 <div className="arcade-result-card arcade-result-card--summary">
                     <h4>{gameOver ? 'Artist Blitz complete' : 'Ready for Artist Blitz'}</h4>

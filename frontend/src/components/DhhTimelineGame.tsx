@@ -160,6 +160,11 @@ function DhhTimelineGameComponent({ onBack }: { onBack: () => void }) {
         >
             {loading && eventPool.length === 0 ? (
                 <div className="arcade-skeleton arcade-skeleton--body" />
+            ) : eventPool.length === 0 ? (
+                <div className="arcade-result-card arcade-result-card--summary">
+                    <h4>Timeline deck unavailable</h4>
+                    <p>Check the arcade catalog logs. No timeline events were generated.</p>
+                </div>
             ) : !started || gameOver ? (
                 <div className="arcade-result-card arcade-result-card--summary">
                     <h4>{gameOver ? 'Timeline run complete' : 'Ready for DHH Timeline'}</h4>

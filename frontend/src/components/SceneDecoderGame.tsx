@@ -17,7 +17,7 @@ const shuffle = <T,>(items: T[]) => {
 
 function SceneDecoderGameComponent({ onBack }: { onBack: () => void }) {
     const { loading, catalog } = useArcadeCatalog()
-    const questionDeck = useMemo(() => shuffle(catalog.sceneFacts).slice(0, 48), [catalog.sceneFacts])
+    const questionDeck = useMemo(() => shuffle(catalog.sceneQuestions).slice(0, 48), [catalog.sceneQuestions])
 
     const [started, setStarted] = useState(false)
     const [index, setIndex] = useState(0)
@@ -126,7 +126,7 @@ function SceneDecoderGameComponent({ onBack }: { onBack: () => void }) {
                         <h3>Decoder Pool</h3>
                     </div>
                     <div className="arcade-board arcade-board--notes">
-                        <div className="arcade-board-row"><strong>Question deck</strong><span>{catalog.sceneFacts.length}</span></div>
+                        <div className="arcade-board-row"><strong>Question deck</strong><span>{catalog.sceneQuestions.length}</span></div>
                         <div className="arcade-board-row"><strong>Artists loaded</strong><span>{catalog.artistCount.toLocaleString()}</span></div>
                         <div className="arcade-board-row"><strong>Releases loaded</strong><span>{catalog.releaseCount.toLocaleString()}</span></div>
                         <div className="arcade-board-row"><strong>Categories</strong><span>6</span></div>
@@ -136,6 +136,11 @@ function SceneDecoderGameComponent({ onBack }: { onBack: () => void }) {
         >
             {loading && questionDeck.length === 0 ? (
                 <div className="arcade-skeleton arcade-skeleton--body" />
+            ) : questionDeck.length === 0 ? (
+                <div className="arcade-result-card arcade-result-card--summary">
+                    <h4>Scene Decoder deck unavailable</h4>
+                    <p>Check the arcade catalog logs. The shared scene question deck is empty.</p>
+                </div>
             ) : !started || gameOver ? (
                 <div className="arcade-result-card arcade-result-card--summary">
                     <h4>{gameOver ? 'Scene Decoder complete' : 'Ready for Scene Decoder'}</h4>

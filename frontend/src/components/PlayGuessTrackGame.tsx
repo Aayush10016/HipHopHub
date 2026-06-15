@@ -36,8 +36,6 @@ const shuffle = <T,>(items: T[]) => {
 }
 
 const trimText = (value: string) => value.trim()
-const difficultyLabel = (round: number) => (round <= 3 ? 'Easy' : round <= 7 ? 'Medium' : 'Hard')
-
 const saveRapidScore = async (userId: number, points: number, streak: number, rounds: number) => {
     await fetch('/api/arcade/score', {
         method: 'POST',
@@ -287,6 +285,22 @@ function PlayGuessTrackGameComponent({ variant, onBack }: { variant: Variant; on
         window.open(currentTrack.youtubeUrl, '_blank', 'noopener,noreferrer')
     }, [currentTrack?.youtubeUrl])
 
+    const skipRound = useCallback(() => {
+        resetAudio()
+        setGuess('')
+        setFeedback(null)
+        setRoundResult(null)
+        setSelectedMarker(null)
+        setFlashState(null)
+        setStreak(0)
+        if (isRapid) {
+            queueNextRound(0)
+            return
+        }
+        setRound(prev => prev + 1)
+        beginRound()
+    }, [beginRound, isRapid, queueNextRound, resetAudio])
+
     const revealedCover = roundResult ? currentTrack?.coverArtUrl : null
     const previewProgress = Math.max(0, Math.min(100, (currentTime / previewLimit) * 100))
 
@@ -326,8 +340,7 @@ function PlayGuessTrackGameComponent({ variant, onBack }: { variant: Variant; on
                     <div className="arcade-game-cover arcade-game-cover--placeholder" aria-hidden="true">
                         <div className="arcade-game-cover__placeholder-card">
                             <span>Artist hint</span>
-                            <strong>{currentTrack?.artistName || 'Loading artist'}</strong>
-                            <small>{difficultyLabel(round)} difficulty</small>
+                            <strong>{currentTrack?.artistName || ' '}</strong>
                             <small>Round {round}</small>
                         </div>
                     </div>
@@ -336,9 +349,8 @@ function PlayGuessTrackGameComponent({ variant, onBack }: { variant: Variant; on
 
             <div className="arcade-game-hero__copy">
                 <div className="arcade-game-chip-row">
-                    <span className="arcade-game-chip">Artist hint: {currentTrack?.artistName || 'Loading artist'}</span>
+                    {currentTrack?.artistName ? <span className="arcade-game-chip">Artist hint: {currentTrack.artistName}</span> : null}
                     <span className="arcade-game-chip">Round {round}</span>
-                    <span className="arcade-game-chip">{difficultyLabel(round)} difficulty</span>
                     {isRapid && <span className="arcade-game-chip">10s auto-next</span>}
                 </div>
 
@@ -427,8 +439,8 @@ function PlayGuessTrackGameComponent({ variant, onBack }: { variant: Variant; on
         >
             {trackDeck.length === 0 ? (
                 <div className="arcade-result-card arcade-result-card--summary">
-                    <h4>No playable tracks yet</h4>
-                    <p>The arcade is waiting for preview-enabled tracks from the live catalog.</p>
+                    <h4>Track deck unavailable</h4>
+                    <p>Check the arcade catalog logs. No playable tracks were generated.</p>
                 </div>
             ) : gameOver ? (
                 <div className="arcade-result-card arcade-result-card--summary">
@@ -454,35 +466,37 @@ function PlayGuessTrackGameComponent({ variant, onBack }: { variant: Variant; on
                         {roundResult && currentTrack?.youtubeUrl && (
                             <button type="button" className="game-yt-btn" onClick={openYoutube}>Play on YouTube</button>
                         )}
+                        <button type="button" className="btn-control btn-control--secondary" onClick={skipRound} disabled={!currentTrack || loadingRound}>
+                            Skip
+                        </button>
+                        <button type="button" className="btn-next" onClick={() => queueNextRound(0)} disabled={!roundResult}>
+                            Next round
+                        </button>
                     </div>
 
-                    {!roundResult ? (
-                        <form className="guess-form" onSubmit={handleSubmit}>
-                            <input
-                                type="text"
-                                className="guess-input"
-                                value={guess}
-                                onChange={event => setGuess(event.target.value)}
-                                placeholder={isRapid ? 'Type the song fast...' : 'Guess the song title...'}
-                            />
-                            <button type="submit" className="btn-submit" disabled={!trimText(guess) || loadingRound || !currentTrack}>
-                                Submit guess
-                            </button>
-                        </form>
-                    ) : (
+                    <form className="guess-form" onSubmit={handleSubmit}>
+                        <input
+                            type="text"
+                            className="guess-input"
+                            value={guess}
+                            onChange={event => setGuess(event.target.value)}
+                            placeholder={isRapid ? 'Type the song fast...' : 'Guess the song title...'}
+                            disabled={!!roundResult}
+                        />
+                        <button type="submit" className="btn-submit" disabled={!trimText(guess) || loadingRound || !currentTrack || !!roundResult}>
+                            Submit guess
+                        </button>
+                    </form>
+
+                    {roundResult ? (
                         <div className={`arcade-result-card ${roundResult.correct ? 'is-correct' : 'is-wrong'}`}>
                             <h4>{roundResult.correct ? 'Correct' : 'Not this one'}</h4>
                             <p className="song-title">{roundResult.correctTitle}</p>
                             <p className="artist-name">{roundResult.artistName}</p>
                             <p className="album-name">{roundResult.albumName}</p>
                             {roundResult.correct ? <p className="points-earned">+{roundResult.points} points</p> : <p className="album-name">Life lost. Combo reset.</p>}
-                            {!isRapid && (
-                                <div className="arcade-action-row">
-                                    <button type="button" className="btn-next" onClick={() => queueNextRound(0)}>Next track</button>
-                                </div>
-                            )}
                         </div>
-                    )}
+                    ) : null}
 
                     {feedback && <p className="game-description">{feedback}</p>}
                 </>
