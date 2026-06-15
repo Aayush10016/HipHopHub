@@ -304,6 +304,38 @@
     margin-bottom: 12px;
 }
 
+.progress-bar--with-markers {
+    margin-top: 2px;
+}
+
+.progress-marker {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 0;
+    height: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+.progress-marker__dot {
+    display: block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.75);
+    box-shadow: 0 0 8px rgba(142, 163, 181, 0.3);
+}
+
+.progress-marker.selected .progress-marker__dot {
+    background: rgba(232, 220, 199, 0.95);
+}
+
+.progress-marker:disabled {
+    cursor: default;
+}
+
 .time-display {
     text-align: right;
     color: var(--text-muted);
@@ -329,22 +361,8 @@
     gap: 8px;
 }
 
-.game-shell .preview-timeline__labels,
-.game-shell .preview-timeline__rail {
-    gap: 6px;
-}
-
 .game-shell .preview-timeline__label {
     font-size: 0.68rem;
-}
-
-.game-shell .preview-timeline__point {
-    min-height: 24px;
-    gap: 1px;
-}
-
-.game-shell .preview-timeline__stem {
-    height: 6px;
 }
 
 .preview-timeline__label {
@@ -354,58 +372,6 @@
     font-weight: 700;
     line-height: 1;
     white-space: nowrap;
-}
-
-.preview-timeline__rail {
-    align-items: center;
-    min-height: 28px;
-    background: linear-gradient(
-        to bottom,
-        transparent 0,
-        transparent calc(50% - 1px),
-        rgba(255, 255, 255, 0.12) calc(50% - 1px),
-        rgba(255, 255, 255, 0.12) calc(50% + 1px),
-        transparent calc(50% + 1px),
-        transparent 100%
-    );
-}
-
-.preview-timeline__point {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    padding: 0;
-    min-height: 28px;
-    background: transparent;
-    border: 0;
-    color: var(--text-muted);
-}
-
-.preview-timeline__stem {
-    width: 2px;
-    height: 8px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.2);
-}
-
-.preview-timeline__dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.75);
-    box-shadow: 0 0 8px rgba(142, 163, 181, 0.3);
-}
-
-.preview-timeline__point.selected .preview-timeline__stem,
-.preview-timeline__point.selected .preview-timeline__dot {
-    background: rgba(232, 220, 199, 0.95);
-}
-
-.preview-timeline__point:disabled {
-    cursor: default;
-    opacity: 1;
 }
 
 .playback-controls,
@@ -820,7 +786,7 @@
 }
 
 .game-shell .album-cover {
-    width: clamp(145px, 17vw, 240px);
+    width: clamp(175px, 20vw, 290px);
 }
 
 .album-cover.hidden {
@@ -867,6 +833,11 @@
 
 .game-shell .result {
     padding: 16px;
+}
+
+.game-shell .score-display,
+.game-shell .rapid-fire-strip {
+    margin-bottom: 6px;
 }
 
 .marker-dot {

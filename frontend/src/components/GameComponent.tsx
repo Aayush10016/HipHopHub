@@ -469,26 +469,24 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
                             <span key={`label-${marker}`} className="preview-timeline__label">{marker}s</span>
                         ))}
                     </div>
-                    <div className="preview-timeline__rail" style={{ gridTemplateColumns: `repeat(${timeMarkers.length}, minmax(0, 1fr))` }}>
-                        {timeMarkers.map(marker => (
-                            <button
-                                key={marker}
-                                type="button"
-                                className={`preview-timeline__point ${selectedMarker === marker ? 'selected' : ''}`}
-                            onClick={() => marker > 0 && !result && !loadingSong && void jumpToMarker(marker)}
-                            disabled={marker === 0 || !!result || loadingSong}
-                        >
-                            <span className="preview-timeline__stem" />
-                            <span className="preview-timeline__dot" />
-                        </button>
-                        ))}
-                    </div>
                 </div>
             )}
 
             <div className="progress-bar-container">
-                <div className="progress-bar">
+                <div className={`progress-bar ${!isRapidFire ? 'progress-bar--with-markers' : ''}`}>
                     <div className="progress-fill" style={{ width: `${(currentTime / previewLimit) * 100}%` }} />
+                    {!isRapidFire && timeMarkers.map((marker, index) => (
+                        <button
+                            key={`progress-marker-${marker}`}
+                            type="button"
+                            className={`progress-marker ${selectedMarker === marker ? 'selected' : ''}`}
+                            style={{ left: `${(index / Math.max(1, timeMarkers.length - 1)) * 100}%` }}
+                            onClick={() => marker > 0 && !result && !loadingSong && void jumpToMarker(marker)}
+                            disabled={marker === 0 || !!result || loadingSong}
+                        >
+                            <span className="progress-marker__dot" />
+                        </button>
+                    ))}
                 </div>
                 <div className="time-display">{currentTime.toFixed(1)}s / {previewLimit}s</div>
             </div>

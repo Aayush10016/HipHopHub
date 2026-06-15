@@ -83,6 +83,10 @@ public class GameController {
     private static final int MIN_READY_ARTIST_COUNT = 8;
     private static final int MIN_READY_SONG_COUNT = 20;
     private static final int MIN_READY_RELEASE_COUNT = 12;
+    private static final int MAX_GAME_CATALOG_SONGS = 720;
+    private static final int MAX_GAME_CATALOG_RELEASES = 480;
+    private static final int MAX_GAME_CATALOG_SONGS_PER_ARTIST = 10;
+    private static final int MAX_GAME_CATALOG_RELEASES_PER_ARTIST = 8;
 
     /**
      * GET /api/game/random-song
@@ -316,6 +320,13 @@ public class GameController {
                     })
                     .toList();
 
+            int totalArtistCount = artists.size();
+            int totalSongCount = songs.size();
+            int totalReleaseCount = releases.size();
+
+            List<Album> catalogReleases = trimGameCatalogReleases(releases);
+            List<Song> catalogSongs = trimGameCatalogSongs(songs);
+
             Map<Long, List<Song>> songsByArtist = songs.stream()
                     .collect(Collectors.groupingBy(song -> song.getAlbum().getArtist().getId()));
 
@@ -349,7 +360,7 @@ public class GameController {
                     })
                     .toList();
 
-            List<Map<String, Object>> releasePayload = releases.stream()
+            List<Map<String, Object>> releasePayload = catalogReleases.stream()
                     .map(album -> {
                         Map<String, Object> item = new HashMap<>();
                         item.put("id", album.getId());
@@ -364,7 +375,7 @@ public class GameController {
                     })
                     .toList();
 
-            List<Map<String, Object>> songPayload = songs.stream()
+            List<Map<String, Object>> songPayload = catalogSongs.stream()
                     .map(song -> {
                         Album album = song.getAlbum();
                         Artist artist = album.getArtist();
@@ -387,13 +398,13 @@ public class GameController {
             payload.put("artists", artistPayload);
             payload.put("songs", songPayload);
             payload.put("releases", releasePayload);
-            payload.put("artistCount", artistPayload.size());
-            payload.put("songCount", songPayload.size());
-            payload.put("releaseCount", releasePayload.size());
-            boolean ready = isReadyCatalog(artistPayload.size(), songPayload.size(), releasePayload.size());
+            payload.put("artistCount", totalArtistCount);
+            payload.put("songCount", totalSongCount);
+            payload.put("releaseCount", totalReleaseCount);
+            boolean ready = isReadyCatalog(totalArtistCount, totalSongCount, totalReleaseCount);
             payload.put("catalogReady", ready);
-            log.info("Game catalog built: artists={}, playableSongs={}, releases={}",
-                    artistPayload.size(), songPayload.size(), releasePayload.size());
+            log.info("Game catalog built: artists={} (payload {}), playableSongs={} (payload {}), releases={} (payload {})",
+                    totalArtistCount, artistPayload.size(), totalSongCount, songPayload.size(), totalReleaseCount, releasePayload.size());
 
             if (ready) {
                 cachedGameCatalog = payload;
@@ -402,10 +413,58 @@ public class GameController {
                 cachedGameCatalog = Map.of();
                 cachedGameCatalogAt = null;
                 log.warn("Game catalog is still provisional. It will not be cached yet. artists={}, songs={}, releases={}",
-                        artistPayload.size(), songPayload.size(), releasePayload.size());
+                        totalArtistCount, totalSongCount, totalReleaseCount);
             }
             return payload;
         }
+    }
+
+    private List<Song> trimGameCatalogSongs(List<Song> songs) {
+        Map<Long, Integer> perArtist = new HashMap<>();
+        List<Song> trimmed = new ArrayList<>();
+
+        for (Song song : songs) {
+            Artist artist = song.getAlbum() != null ? song.getAlbum().getArtist() : null;
+            if (artist == null) {
+                continue;
+            }
+            long artistId = artist.getId();
+            int currentCount = perArtist.getOrDefault(artistId, 0);
+            if (currentCount >= MAX_GAME_CATALOG_SONGS_PER_ARTIST) {
+                continue;
+            }
+            trimmed.add(song);
+            perArtist.put(artistId, currentCount + 1);
+            if (trimmed.size() >= MAX_GAME_CATALOG_SONGS) {
+                break;
+            }
+        }
+
+        return trimmed;
+    }
+
+    private List<Album> trimGameCatalogReleases(List<Album> releases) {
+        Map<Long, Integer> perArtist = new HashMap<>();
+        List<Album> trimmed = new ArrayList<>();
+
+        for (Album album : releases) {
+            Artist artist = album.getArtist();
+            if (artist == null) {
+                continue;
+            }
+            long artistId = artist.getId();
+            int currentCount = perArtist.getOrDefault(artistId, 0);
+            if (currentCount >= MAX_GAME_CATALOG_RELEASES_PER_ARTIST) {
+                continue;
+            }
+            trimmed.add(album);
+            perArtist.put(artistId, currentCount + 1);
+            if (trimmed.size() >= MAX_GAME_CATALOG_RELEASES) {
+                break;
+            }
+        }
+
+        return trimmed;
     }
 
     private boolean isReadyCatalog(Map<String, Object> payload) {

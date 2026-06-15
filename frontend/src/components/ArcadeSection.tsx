@@ -64,10 +64,14 @@ function ArcadeSectionComponent() {
         return <div className="arcade-section fade-in section-shell">Loading...</div>
     }
 
+    const totalArtists = catalog.artistCount || artistCount || catalog.playableArtists.length
+    const totalTracks = catalog.songCount || songCount || catalog.playableTracks.length
+    const totalReleases = catalog.releaseCount || releaseCount || catalog.releases.length
+
     const stats = [
-        { label: 'Artists', value: Math.max(artistCount, catalog.playableArtists.length).toLocaleString() },
-        { label: 'Tracks', value: Math.max(songCount, catalog.playableTracks.length).toLocaleString() },
-        { label: 'Releases', value: Math.max(releaseCount, catalog.releaseCount).toLocaleString() },
+        { label: 'Artists', value: totalArtists.toLocaleString() },
+        { label: 'Tracks', value: totalTracks.toLocaleString() },
+        { label: 'Releases', value: totalReleases.toLocaleString() },
         { label: 'Lyrics', value: catalog.playableLyrics.length.toLocaleString() },
     ]
 
@@ -97,7 +101,7 @@ function ArcadeSectionComponent() {
                     <span className="section-kicker">Arcade</span>
                     <h2 className="section-title">Play</h2>
                     <p className="game-description arcade-section__description">
-                        {`The flagship HipHopHub arcade runs on ${Math.max(artistCount, catalog.playableArtists.length).toLocaleString()} artists, ${Math.max(songCount, catalog.playableTracks.length).toLocaleString()} tracks, ${Math.max(releaseCount, catalog.releaseCount).toLocaleString()} releases, and ${catalog.playableLyrics.length.toLocaleString()} lyric rounds.`}
+                        {`The flagship HipHopHub arcade runs on ${totalArtists.toLocaleString()} artists, ${totalTracks.toLocaleString()} tracks, ${totalReleases.toLocaleString()} releases, and ${catalog.playableLyrics.length.toLocaleString()} lyric rounds.`}
                     </p>
                 </div>
                 <div className="arcade-section__stats" aria-label="Arcade catalog stats">

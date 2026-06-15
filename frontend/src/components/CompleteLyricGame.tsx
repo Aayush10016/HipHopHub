@@ -77,7 +77,7 @@ function CompleteLyricGameComponent({ onBack }: { onBack: () => void }) {
 
     const current = deck[index]
     const gameOver = !current || lives <= 0 || index >= deck.length
-    const choices = useMemo(() => current ? getChoices(current, catalog.playableLyrics) : [], [catalog.playableLyrics, current])
+    const choices = useMemo(() => current ? getChoices(current, lyricPool) : [], [current, lyricPool])
 
     useEffect(() => {
         if (!current || roundResult || gameOver) return

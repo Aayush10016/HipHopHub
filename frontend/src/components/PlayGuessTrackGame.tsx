@@ -9,8 +9,8 @@ function PlayGuessTrackGameComponent({ variant, onBack }: { variant: Variant; on
     const { loading, artistCount, songCount, catalog } = useArcadeCatalog()
     const availableTracks = catalog.playableTracks.length
     const availableArtists = catalog.playableArtists.length
-    const displayArtistCount = artistCount || catalog.artistCount || availableArtists || 0
-    const displaySongCount = songCount || catalog.songCount || availableTracks || 0
+    const displayArtistCount = catalog.artistCount || artistCount || availableArtists || 0
+    const displaySongCount = catalog.songCount || songCount || availableTracks || 0
 
     useEffect(() => {
         console.log('catalog', catalog)
