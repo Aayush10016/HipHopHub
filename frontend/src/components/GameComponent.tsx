@@ -411,7 +411,7 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
     }, [currentSong, loadingSong, mode, rapidGameOver, variant])
 
     return (
-        <div className={`game-component ${isRapidFire ? 'rapid-fire' : ''}`}>
+        <div className={`game-component game-shell ${isRapidFire ? 'rapid-fire' : ''}`}>
             <audio
                 ref={audioRef}
                 onTimeUpdate={handleTimeUpdate}
@@ -450,10 +450,16 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
             )}
 
             <div className="album-cover-section">
-                <div className="album-cover hidden" aria-label="Mystery track card">
-                    <div className="mystery-icon">?</div>
-                    {result && showConfetti && <div className="confetti-burst">Celebration</div>}
-                </div>
+                {result && (result.albumCover || currentSong?.albumCover) ? (
+                    <div className="album-cover revealed" aria-label="Album cover revealed">
+                        <img src={result.albumCover || currentSong?.albumCover} alt={result.correctTitle || 'Album cover'} />
+                        {showConfetti && <div className="confetti-burst">Celebration</div>}
+                    </div>
+                ) : (
+                    <div className="album-cover hidden" aria-label="Mystery track card">
+                        <div className="mystery-icon">?</div>
+                    </div>
+                )}
             </div>
 
             {!isRapidFire && (

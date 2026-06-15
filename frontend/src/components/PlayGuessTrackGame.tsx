@@ -14,6 +14,8 @@ function PlayGuessTrackGameComponent({ variant, onBack }: { variant: Variant; on
 
     useEffect(() => {
         console.log('catalog', catalog)
+        console.log('songCount', songCount)
+        console.log('artistCount', artistCount)
         console.log('artistCount', catalog.artistCount)
         console.log('songCount', catalog.songCount)
         console.log('playableTracks', catalog.playableTracks.length)

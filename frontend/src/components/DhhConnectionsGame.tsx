@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react'
+ï»¿import { memo, useMemo, useState } from 'react'
 import PlayGameFrame from './PlayGameFrame'
 import { useArcadeCatalog } from '../hooks/useArcadeCatalog'
 import type { ArcadeConnectionGroup, ArcadeConnectionPuzzle, GameCatalogArtist } from '../lib/gameCatalog'
@@ -40,6 +40,13 @@ const buildFallbackConnections = (artists: GameCatalogArtist[]): ArcadeConnectio
             bucket.artists.push(artist.name)
             buckets.set(key, bucket)
         }
+
+        if (artist.genre) {
+            const key = `genre:${normalize(artist.genre)}`
+            const bucket = buckets.get(key) || { category: 'Genre', label: artist.genre, artists: [] }
+            bucket.artists.push(artist.name)
+            buckets.set(key, bucket)
+        }
     })
 
     buckets.forEach((bucket, key) => {
@@ -49,7 +56,7 @@ const buildFallbackConnections = (artists: GameCatalogArtist[]): ArcadeConnectio
                 id: key,
                 category: bucket.category,
                 label: bucket.label,
-                clue: `${bucket.category} · ${bucket.label}`,
+                clue: `${bucket.category} Â· ${bucket.label}`,
                 artistNames: names.slice(0, 4),
             })
         }
@@ -62,6 +69,24 @@ const buildFallbackConnections = (artists: GameCatalogArtist[]): ArcadeConnectio
         selected.push(group)
         group.artistNames.forEach(name => used.add(normalize(name)))
         if (selected.length === 4) break
+    }
+
+    if (selected.length < 4 && artists.length >= 16) {
+        const remaining = artists
+            .map(artist => artist.name)
+            .filter(name => !used.has(normalize(name)))
+            .slice(0, (4 - selected.length) * 4)
+
+        while (selected.length < 4 && remaining.length >= 4) {
+            const chunk = remaining.splice(0, 4)
+            selected.push({
+                id: `fallback-roster-${selected.length + 1}`,
+                category: 'Roster',
+                label: `Roster ${selected.length + 1}`,
+                clue: 'Verified artists grouped from the live HipHopHub catalog.',
+                artistNames: chunk,
+            })
+        }
     }
 
     if (selected.length < 4) return undefined
@@ -126,7 +151,7 @@ function DhhConnectionsGameComponent({ onBack }: { onBack: () => void }) {
         if (matched) {
             setSolvedGroups(prev => [...prev, matched.id])
             setScore(prev => prev + 250)
-            setMessage(`${matched.label} solved · ${matched.clue}`)
+            setMessage(`${matched.label} solved Â· ${matched.clue}`)
         } else {
             setAttemptsLeft(prev => Math.max(0, prev - 1))
             setMessage('That group does not share the same connection.')

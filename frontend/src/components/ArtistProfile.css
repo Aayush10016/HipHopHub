@@ -626,17 +626,17 @@
 
 @media (min-width: 1200px) {
     .game-section .game-component {
-        zoom: 0.84;
+        zoom: 0.8;
     }
 }
 
 @supports not (zoom: 1) {
     @media (min-width: 1200px) {
         .game-section .game-component {
-            transform: scale(0.84);
+            transform: scale(0.8);
             transform-origin: top center;
-            width: calc(100% / 0.84);
-            margin-bottom: -180px;
+            width: calc(100% / 0.8);
+            margin-bottom: -220px;
         }
     }
 }

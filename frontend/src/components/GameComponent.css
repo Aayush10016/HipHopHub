@@ -13,6 +13,12 @@
     box-shadow: 0 18px 40px rgba(8, 14, 24, 0.34);
 }
 
+.game-shell {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 16px;
+}
+
 .arcade-game-page {
     width: min(1400px, 95vw);
     max-width: 1400px;
@@ -55,6 +61,10 @@
     border-radius: 20px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     background: rgba(255, 255, 255, 0.03);
+}
+
+.game-shell .auth-gate {
+    padding: 12px;
 }
 
 .auth-gate p {
@@ -308,10 +318,33 @@
     margin-bottom: 16px;
 }
 
+.game-shell .preview-timeline {
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
 .preview-timeline__labels,
 .preview-timeline__rail {
     display: grid;
     gap: 8px;
+}
+
+.game-shell .preview-timeline__labels,
+.game-shell .preview-timeline__rail {
+    gap: 6px;
+}
+
+.game-shell .preview-timeline__label {
+    font-size: 0.68rem;
+}
+
+.game-shell .preview-timeline__point {
+    min-height: 24px;
+    gap: 1px;
+}
+
+.game-shell .preview-timeline__stem {
+    height: 6px;
 }
 
 .preview-timeline__label {
@@ -441,6 +474,10 @@
     align-items: stretch;
 }
 
+.game-shell .guess-form {
+    gap: 12px;
+}
+
 .guess-input,
 .lyric-input {
     width: 100%;
@@ -453,10 +490,22 @@
     font-size: 1rem;
 }
 
+.game-shell .guess-input,
+.game-shell .lyric-input {
+    min-height: 48px;
+}
+
 .btn-submit {
     background: linear-gradient(135deg, #c8ab79, #8ea3b5);
     color: var(--accent-ink);
     min-width: 180px;
+}
+
+.game-shell .btn-control,
+.game-shell .btn-next,
+.game-shell .btn-submit {
+    min-height: 44px;
+    padding: 0 18px;
 }
 
 .arcade-result-card,
@@ -770,11 +819,21 @@
     box-shadow: 0 10px 24px rgba(8, 14, 24, 0.34);
 }
 
+.game-shell .album-cover {
+    width: clamp(145px, 17vw, 240px);
+}
+
 .album-cover.hidden {
     display: flex;
     align-items: center;
     justify-content: center;
     background: linear-gradient(135deg, #162235 0%, #0d1727 100%);
+}
+
+.album-cover.revealed img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .mystery-icon {
@@ -783,15 +842,31 @@
     font-weight: 800;
 }
 
+.game-shell .mystery-icon {
+    font-size: 3.75rem;
+}
+
 .game-yt-wrap,
 .playback-controls {
     justify-content: center;
+}
+
+.game-shell .playback-controls {
+    gap: 12px;
 }
 
 .result-section {
     display: flex;
     flex-direction: column;
     gap: 16px;
+}
+
+.game-shell .result-section {
+    gap: 12px;
+}
+
+.game-shell .result {
+    padding: 16px;
 }
 
 .marker-dot {
@@ -814,6 +889,20 @@
 .mystery-icon,
 .marker-dot {
     /* preserved legacy hooks for artist-page game component */
+}
+
+.game-shell .game-description {
+    margin-bottom: 10px;
+    font-size: 0.94rem;
+}
+
+.game-shell .progress-bar {
+    height: 10px;
+    margin-bottom: 8px;
+}
+
+.game-shell .time-display {
+    font-size: 0.8rem;
 }
 
 @media (max-width: 1100px) {
@@ -890,17 +979,17 @@
 
 @media (min-width: 1200px) {
     .arcade-game-page > .game-component {
-        zoom: 0.84;
+        zoom: 0.8;
     }
 }
 
 @supports not (zoom: 1) {
     @media (min-width: 1200px) {
         .arcade-game-page > .game-component {
-            transform: scale(0.84);
+            transform: scale(0.8);
             transform-origin: top center;
-            width: calc(100% / 0.84);
-            margin-bottom: -180px;
+            width: calc(100% / 0.8);
+            margin-bottom: -220px;
         }
     }
 }
