@@ -18,6 +18,10 @@ export function useArcadeCatalog() {
     useEffect(() => {
         if (raw.loading) return
 
+        console.log('catalog', catalog)
+        console.log('artistCount', catalog.artistCount)
+        console.log('songCount', catalog.songCount)
+        console.log('playableTracks', catalog.playableTracks.length)
         console.log({
             totalSongs: raw.songCount,
             totalArtists: raw.artistCount,

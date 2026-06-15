@@ -11,6 +11,10 @@ function PlayGuessTrackGameComponent({ variant, onBack }: { variant: Variant; on
     const availableArtists = catalog.playableArtists.length
 
     useEffect(() => {
+        console.log('catalog', catalog)
+        console.log('artistCount', catalog.artistCount)
+        console.log('songCount', catalog.songCount)
+        console.log('playableTracks', catalog.playableTracks.length)
         console.log('PlayGuessTrackGame catalog:', {
             loading,
             artistCount,
@@ -18,9 +22,9 @@ function PlayGuessTrackGameComponent({ variant, onBack }: { variant: Variant; on
             playableArtists: availableArtists,
             playableTracks: availableTracks,
         })
-    }, [artistCount, availableArtists, availableTracks, loading, songCount])
+    }, [artistCount, availableArtists, availableTracks, catalog, loading, songCount])
 
-    if (!catalog) {
+    if (loading && artistCount === 0 && songCount === 0 && availableArtists === 0 && availableTracks === 0) {
         return <div className="arcade-game-page">Loading...</div>
     }
 

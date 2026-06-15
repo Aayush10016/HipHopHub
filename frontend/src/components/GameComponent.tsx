@@ -258,6 +258,15 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
         void loadNewSong()
     }
 
+    const pauseAudio = useCallback(() => {
+        if (!audioRef.current) return
+        audioRef.current.pause()
+        setIsPlaying(false)
+        if (isRapidFire) {
+            setRapidRoundActive(false)
+        }
+    }, [isRapidFire])
+
     const playAudio = async (forceRestart = false) => {
         if (!audioRef.current || !currentSong?.previewUrl || !!result || loadingSong || rapidGameOver) return
 
@@ -269,7 +278,7 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
         if (isRapidFire) {
             stopAtRef.current = previewLimit
             setRapidRoundActive(true)
-            setRapidTimeLeft(previewLimit)
+            setRapidTimeLeft(forceRestart || currentTime <= 0 ? previewLimit : Math.max(0, Math.ceil(previewLimit - audioRef.current.currentTime)))
         } else {
             stopAtRef.current = selectedMarker && selectedMarker > 0 ? selectedMarker : null
         }
@@ -350,15 +359,6 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
                     setRapidLives(prev => Math.max(0, prev - 1))
                 }
             }
-
-            resultTimerRef.current = window.setTimeout(() => {
-                if (isRapidFire) {
-                    setRapidRound(prev => prev + 1)
-                    void loadNewSong(true)
-                } else {
-                    void loadNewSong(false)
-                }
-            }, 1800)
         } catch (err) {
             console.error('Submit guess failed:', err)
         } finally {
@@ -411,7 +411,7 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
     }, [currentSong, loadingSong, mode, rapidGameOver, variant])
 
     return (
-        <div className={`game-component ${isRapidFire ? 'rapid-fire' : ''}`}>
+        <div className={`game-component game-shell ${isRapidFire ? 'rapid-fire' : ''}`}>
             <audio
                 ref={audioRef}
                 onTimeUpdate={handleTimeUpdate}
@@ -449,23 +449,12 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
                 <p className="game-description">Artist hint: {currentSong.artistName}</p>
             )}
 
-            <div className="album-cover-section">
-                {currentSong?.albumCover ? (
-                    <div className={`album-cover ${result ? 'revealed' : 'hidden-blur'}`}>
-                        <img src={result?.albumCover || currentSong.albumCover} alt="Album" />
-                        {!result && <div className="album-cover-overlay">?</div>}
-                        {result && showConfetti && <div className="confetti-burst">Celebration</div>}
-                    </div>
-                ) : result ? (
-                    <div className="album-cover revealed">
-                        <img src={result.albumCover || currentSong?.albumCover} alt="Album" />
-                        {showConfetti && <div className="confetti-burst">Celebration</div>}
-                    </div>
-                ) : (
-                    <div className="album-cover hidden">
-                        <div className="mystery-icon">?</div>
-                    </div>
-                )}
+            <div className="question-card-section">
+                <div className="question-card" aria-label="Mystery track card">
+                    <div className="question-card__glow" />
+                    <div className="question-card__mark">?</div>
+                    {result && showConfetti && <div className="confetti-burst">Celebration</div>}
+                </div>
             </div>
 
             {!isRapidFire && (
@@ -484,7 +473,6 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
                                 onClick={() => marker > 0 && !result && !loadingSong && void jumpToMarker(marker)}
                                 disabled={marker === 0 || !!result || loadingSong}
                             >
-                                <span className="preview-timeline__stem" />
                                 <span className="preview-timeline__dot" />
                             </button>
                         ))}
@@ -502,10 +490,16 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
             <div className="playback-controls">
                 <button
                     className="btn-control"
-                    onClick={() => void playAudio(true)}
+                    onClick={() => {
+                        if (isPlaying) {
+                            pauseAudio()
+                            return
+                        }
+                        void playAudio(currentTime <= 0)
+                    }}
                     disabled={!!result || loadingSong || !currentSong?.previewUrl || rapidGameOver}
                 >
-                    Play Preview
+                    {isPlaying ? 'Pause Preview' : 'Play Preview'}
                 </button>
             </div>
 
@@ -555,7 +549,15 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
                             <p className="album-name">{result.albumName}</p>
                         </div>
                     )}
-                    <button className="btn-next" onClick={() => void loadNewSong(isRapidFire)}>
+                    <button
+                        className="btn-next"
+                        onClick={() => {
+                            if (isRapidFire) {
+                                setRapidRound(prev => prev + 1)
+                            }
+                            void loadNewSong(false)
+                        }}
+                    >
                         Next Round
                     </button>
                 </div>

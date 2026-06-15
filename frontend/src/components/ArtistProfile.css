@@ -610,16 +610,16 @@
 }
 
 .game-section {
-    width: min(1400px, 95vw);
-    max-width: 1400px;
+    width: 92vw;
+    max-width: 1200px;
     margin: 0 auto;
-    padding: 24px;
+    padding: 20px;
     box-sizing: border-box;
 }
 
 .game-section .game-component {
     width: 100%;
-    max-width: 1400px;
+    max-width: 1200px;
     margin: 0 auto;
 }
 
