@@ -73,7 +73,7 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
     const isRapidFire = variant === 'rapid'
     const rapidGameOver = isRapidFire && rapidLives <= 0
     const previewLimit = isRapidFire ? 10 : 30
-    const timeMarkers = isRapidFire ? [] : [1, 3, 5, 10, 15, 30]
+    const timeMarkers = isRapidFire ? [] : [0, 1, 3, 5, 10, 15, 30]
 
     const resetAudio = useCallback(() => {
         if (!audioRef.current) return
@@ -257,6 +257,18 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
         void saveArcadeScore(user.id, 'RAPID_FIRE', score, `Round ${rapidRound}`)
     }, [rapidGameOver, rapidRound, score, user])
 
+    useEffect(() => {
+        console.log('GameComponent state:', {
+            mode,
+            variant,
+            hasSong: !!currentSong,
+            songId: currentSong?.songId ?? null,
+            artistHint: currentSong?.artistName ?? null,
+            loadingSong,
+            rapidGameOver,
+        })
+    }, [currentSong, loadingSong, mode, rapidGameOver, variant])
+
     const resetRapidSession = () => {
         arcadeSavedRef.current = false
         setRapidLives(3)
@@ -376,6 +388,20 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
         submitGuess()
     }
 
+    const skipSong = () => {
+        if (rapidGameOver || loadingSong) return
+        if (resultTimerRef.current) {
+            window.clearTimeout(resultTimerRef.current)
+            resultTimerRef.current = null
+        }
+        if (isRapidFire) {
+            setRapidRound(prev => prev + 1)
+            void loadNewSong(true)
+            return
+        }
+        void loadNewSong()
+    }
+
     const handleTimeUpdate = () => {
         if (!audioRef.current) return
         const nextTime = Math.min(audioRef.current.currentTime, previewLimit)
@@ -452,7 +478,7 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
             )}
             {currentSong?.artistName && !result && (
                 <p className="game-description">
-                    {isRapidFire ? `Rapid clue: ${currentSong.artistName}` : `Artist: ${currentSong.artistName}`}
+                    {isRapidFire ? `Rapid clue: ${currentSong.artistName}` : `Artist hint: ${currentSong.artistName}`}
                 </p>
             )}
 
@@ -478,9 +504,9 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
                     {timeMarkers.map(marker => (
                         <div
                             key={marker}
-                            className={`time-marker ${selectedMarker === marker ? 'selected' : ''}`}
+                            className={`time-marker ${selectedMarker === marker ? 'selected' : ''} ${marker === 0 ? 'is-origin' : ''} ${marker === previewLimit ? 'is-end' : ''}`}
                             style={{ left: `${(marker / 30) * 100}%` }}
-                            onClick={() => !result && !loadingSong && jumpToMarker(marker)}
+                            onClick={() => marker > 0 && !result && !loadingSong && jumpToMarker(marker)}
                         >
                             <div className="marker-label">{marker}s</div>
                             <div className="marker-dot" />
@@ -506,6 +532,16 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
                 ) : (
                     <button className="btn-control" disabled>
                         Locked 10s Run
+                    </button>
+                )}
+                {!result && (
+                    <button
+                        type="button"
+                        className="btn-control btn-control--secondary"
+                        onClick={skipSong}
+                        disabled={loadingSong || rapidGameOver}
+                    >
+                        Skip
                     </button>
                 )}
             </div>

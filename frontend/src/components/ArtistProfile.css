@@ -609,6 +609,18 @@
     margin-bottom: var(--space-lg);
 }
 
+.game-section {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.game-section .game-component {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
 /* ── Loading / Error ───────────────────────────────────────────── */
 
 .loading-profile,

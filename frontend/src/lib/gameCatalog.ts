@@ -638,12 +638,13 @@ export function buildArcadeCatalog(input: GameCatalogResponse): ArcadeCatalog {
 export const formatCatalogNumber = (value: number, fallback: string) => (value > 0 ? value.toLocaleString() : fallback)
 
 export const buildCatalogSummary = (catalog: ArcadeCatalog) => ({
-    artistText: formatCatalogNumber(catalog.playableArtists.length, 'artist deck offline'),
-    songText: formatCatalogNumber(catalog.playableTracks.length, 'track pool offline'),
+    artistText: formatCatalogNumber(catalog.artistCount, 'artist deck offline'),
+    songText: formatCatalogNumber(catalog.songCount, 'track pool offline'),
     releaseText: formatCatalogNumber(catalog.releaseCount, 'release archive offline'),
     lyricText: formatCatalogNumber(catalog.playableLyrics.length, 'lyric deck offline'),
 })
 
 export const prettyCategoryLabel = (value: string) => titleCase(value.replace(/-/g, ' '))
+
 
 
