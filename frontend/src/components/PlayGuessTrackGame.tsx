@@ -20,6 +20,10 @@ function PlayGuessTrackGameComponent({ variant, onBack }: { variant: Variant; on
         })
     }, [artistCount, availableArtists, availableTracks, loading, songCount])
 
+    if (!catalog) {
+        return <div className="arcade-game-page">Loading...</div>
+    }
+
     return (
         <section className="arcade-game-page">
             <div className="arcade-game-page__toolbar">

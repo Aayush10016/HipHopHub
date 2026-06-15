@@ -1,8 +1,9 @@
 .game-component {
-    width: 100%;
+    width: min(1400px, 95vw);
     max-width: 1400px;
     margin: 0 auto;
     padding: 24px;
+    box-sizing: border-box;
     background:
         radial-gradient(circle at top right, rgba(200, 171, 121, 0.12), transparent 28%),
         radial-gradient(circle at left center, rgba(142, 163, 181, 0.12), transparent 24%),
@@ -13,12 +14,13 @@
 }
 
 .arcade-game-page {
-    width: 100%;
+    width: min(1400px, 95vw);
     max-width: 1400px;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
     gap: 20px;
+    box-sizing: border-box;
 }
 
 .arcade-game-page__toolbar {
@@ -298,33 +300,63 @@
     font-weight: 700;
 }
 
-.preview-timeline-grid {
-    display: grid;
+.preview-timeline {
+    display: flex;
+    flex-direction: column;
     gap: 8px;
-    align-items: end;
     margin-bottom: 16px;
 }
 
-.preview-timeline-marker {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+.preview-timeline__labels,
+.preview-timeline__rail {
+    display: grid;
     gap: 8px;
-    padding: 0;
-    background: transparent;
-    border: 0;
-    color: var(--text-muted);
-    min-height: 44px;
 }
 
-.preview-timeline-marker__label {
+.preview-timeline__label {
+    text-align: center;
+    color: var(--text-muted);
     font-size: 0.74rem;
     font-weight: 700;
     line-height: 1;
     white-space: nowrap;
 }
 
-.preview-timeline-marker__dot {
+.preview-timeline__rail {
+    align-items: center;
+    min-height: 28px;
+    background: linear-gradient(
+        to bottom,
+        transparent 0,
+        transparent calc(50% - 1px),
+        rgba(255, 255, 255, 0.12) calc(50% - 1px),
+        rgba(255, 255, 255, 0.12) calc(50% + 1px),
+        transparent calc(50% + 1px),
+        transparent 100%
+    );
+}
+
+.preview-timeline__point {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 0;
+    min-height: 28px;
+    background: transparent;
+    border: 0;
+    color: var(--text-muted);
+}
+
+.preview-timeline__stem {
+    width: 2px;
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.preview-timeline__dot {
     width: 12px;
     height: 12px;
     border-radius: 50%;
@@ -332,37 +364,14 @@
     box-shadow: 0 0 8px rgba(142, 163, 181, 0.3);
 }
 
-.preview-timeline-marker.selected .preview-timeline-marker__label,
-.preview-timeline-marker.selected .preview-timeline-marker__dot {
-    color: var(--text-primary);
+.preview-timeline__point.selected .preview-timeline__stem,
+.preview-timeline__point.selected .preview-timeline__dot {
     background: rgba(232, 220, 199, 0.95);
 }
 
-.preview-timeline-marker:disabled {
+.preview-timeline__point:disabled {
     cursor: default;
     opacity: 1;
-}
-
-.marker-label {
-    position: absolute;
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    white-space: nowrap;
-    color: var(--text-muted);
-    font-size: 0.74rem;
-    font-weight: 700;
-    line-height: 1;
-}
-
-.time-marker.is-origin .marker-label {
-    left: 0;
-    transform: translateX(0);
-}
-
-.time-marker.is-end .marker-label {
-    left: 0;
-    transform: translateX(-100%);
 }
 
 .playback-controls,
@@ -751,7 +760,8 @@
 }
 
 .album-cover {
-    width: min(100%, 232px);
+    width: clamp(220px, 28vw, 420px);
+    max-width: 100%;
     aspect-ratio: 1;
     border-radius: 20px;
     overflow: hidden;
@@ -883,6 +893,11 @@
     .btn-submit,
     .game-yt-btn {
         width: 100%;
+    }
+
+    .preview-timeline__labels,
+    .preview-timeline__rail {
+        gap: 4px;
     }
 
     .progress-bar-container {

@@ -60,11 +60,15 @@ function ArcadeSectionComponent() {
     const [gameView, setGameView] = useState<'hub' | 'active'>('hub')
     const { artistCount, songCount, releaseCount, catalog } = useArcadeCatalog()
 
+    if (!catalog) {
+        return <div className="arcade-section fade-in section-shell">Loading...</div>
+    }
+
     const stats = [
-        { label: 'Artists', value: summary.artistText },
-        { label: 'Tracks', value: summary.songText },
-        { label: 'Releases', value: summary.releaseText },
-        { label: 'Lyrics', value: summary.lyricText },
+        { label: 'Artists', value: Math.max(artistCount, catalog.playableArtists.length).toLocaleString() },
+        { label: 'Tracks', value: Math.max(songCount, catalog.playableTracks.length).toLocaleString() },
+        { label: 'Releases', value: Math.max(releaseCount, catalog.releaseCount).toLocaleString() },
+        { label: 'Lyrics', value: catalog.playableLyrics.length.toLocaleString() },
     ]
 
     if (gameView === 'active') {

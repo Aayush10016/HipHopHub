@@ -183,7 +183,6 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
             const data = await fetchGameSong(cacheKey)
             if (!data?.previewUrl) {
                 setCurrentSong(null)
-                setMessage('Round load failed.')
                 return
             }
 
@@ -201,7 +200,6 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
         } catch (err) {
             console.error('Failed to load game track:', err)
             setCurrentSong(null)
-            setMessage('Round load failed.')
         } finally {
             setLoadingSong(false)
         }
@@ -281,7 +279,6 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
             setIsPlaying(true)
         } catch (err) {
             console.error('Audio play failed:', err)
-            setMessage('Audio playback failed.')
         }
     }
 
@@ -297,7 +294,6 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
             setIsPlaying(true)
         } catch (err) {
             console.error('Marker playback failed:', err)
-            setMessage('Preview jump failed.')
         }
     }
 
@@ -320,7 +316,6 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
             })
 
             if (!res.ok) {
-                setMessage('Guess submission failed.')
                 return
             }
 
@@ -366,7 +361,6 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
             }, 1800)
         } catch (err) {
             console.error('Submit guess failed:', err)
-            setMessage('Guess submission failed.')
         } finally {
             if (audioRef.current) {
                 audioRef.current.pause()
@@ -441,7 +435,7 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
                 </div>
             )}
 
-            {message && <p className="empty-message">{message}</p>}
+            {message ? <p className="empty-message">{message}</p> : null}
             {!user && (
                 <div className="auth-gate">
                     <p className="game-description">Log in or sign up to save scores to the leaderboard.</p>
@@ -475,19 +469,26 @@ export default function GameComponent({ mode, artistId, variant = 'guess' }: Gam
             </div>
 
             {!isRapidFire && (
-                <div className="preview-timeline-grid" style={{ gridTemplateColumns: `repeat(${timeMarkers.length}, minmax(0, 1fr))` }}>
-                    {timeMarkers.map(marker => (
-                        <button
-                            key={marker}
-                            type="button"
-                            className={`preview-timeline-marker ${selectedMarker === marker ? 'selected' : ''}`}
-                            onClick={() => marker > 0 && !result && !loadingSong && void jumpToMarker(marker)}
-                            disabled={marker === 0 || !!result || loadingSong}
-                        >
-                            <span className="preview-timeline-marker__label">{marker}s</span>
-                            <span className="preview-timeline-marker__dot" />
-                        </button>
-                    ))}
+                <div className="preview-timeline">
+                    <div className="preview-timeline__labels" style={{ gridTemplateColumns: `repeat(${timeMarkers.length}, minmax(0, 1fr))` }}>
+                        {timeMarkers.map(marker => (
+                            <span key={`label-${marker}`} className="preview-timeline__label">{marker}s</span>
+                        ))}
+                    </div>
+                    <div className="preview-timeline__rail" style={{ gridTemplateColumns: `repeat(${timeMarkers.length}, minmax(0, 1fr))` }}>
+                        {timeMarkers.map(marker => (
+                            <button
+                                key={marker}
+                                type="button"
+                                className={`preview-timeline__point ${selectedMarker === marker ? 'selected' : ''}`}
+                                onClick={() => marker > 0 && !result && !loadingSong && void jumpToMarker(marker)}
+                                disabled={marker === 0 || !!result || loadingSong}
+                            >
+                                <span className="preview-timeline__stem" />
+                                <span className="preview-timeline__dot" />
+                            </button>
+                        ))}
+                    </div>
                 </div>
             )}
 
