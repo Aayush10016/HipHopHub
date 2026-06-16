@@ -19,6 +19,8 @@ Access the website here - https://hip-hop-hub.vercel.app/
 - Chaar Diwari
 - Tsumayoki
 - King
+- Divine
+  And many more.....
 
 ## 🚀 Tech Stack
 
