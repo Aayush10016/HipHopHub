@@ -89,4 +89,20 @@ public interface SongRepository extends JpaRepository<Song, Long> {
             ORDER BY a.releaseDate DESC, s.id DESC
             """)
     List<Song> findLatestPlayableSongs(Pageable pageable);
+
+    @Query("""
+            SELECT s FROM Song s
+            JOIN FETCH s.album a
+            JOIN FETCH a.artist ar
+            WHERE s.previewUrl IS NOT NULL
+              AND ar.id IN :artistIds
+            """)
+    List<Song> findPlayableSongsByArtistIds(List<Long> artistIds);
+
+    @Query("SELECT COUNT(s) FROM Song s WHERE s.previewUrl IS NOT NULL")
+    long countPlayableSongs();
+
+    @Query(value = "SELECT s FROM Song s JOIN FETCH s.album a JOIN FETCH a.artist ar WHERE s.previewUrl IS NOT NULL ORDER BY s.id ASC",
+           countQuery = "SELECT COUNT(s) FROM Song s WHERE s.previewUrl IS NOT NULL")
+    org.springframework.data.domain.Page<Song> findPlayableSongPage(org.springframework.data.domain.Pageable pageable);
 }

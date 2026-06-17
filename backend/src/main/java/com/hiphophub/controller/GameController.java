@@ -238,7 +238,13 @@ public class GameController {
                 return cachedGlobalGameSongs;
             }
 
-            List<Song> refreshed = new ArrayList<>(songRepository.findAll().stream()
+            List<Artist> artists = artistRepository.findAll().stream()
+                    .map(musicImportService::enrichArtistForDisplay)
+                    .filter(musicImportService::shouldFeatureArtistInDhhCatalog)
+                    .toList();
+            List<Long> artistIds = artists.stream().map(Artist::getId).toList();
+            List<Song> refreshed = artistIds.isEmpty() ? new ArrayList<>() : new ArrayList<>(
+                    songRepository.findPlayableSongsByArtistIds(artistIds).stream()
                     .filter(this::isPlayableSong)
                     .filter(this::isDhhSong)
                     .toList());
@@ -293,7 +299,9 @@ public class GameController {
             Map<Long, Artist> artistsById = artists.stream()
                     .collect(Collectors.toMap(Artist::getId, artist -> artist));
 
-            List<Album> releases = albumRepository.findAll().stream()
+            List<Long> artistIds = artists.stream().map(Artist::getId).toList();
+
+            List<Album> releases = artistIds.isEmpty() ? List.of() : albumRepository.findAlbumsByArtistIds(artistIds).stream()
                     .filter(album -> album != null
                             && album.getArtist() != null
                             && artistsById.containsKey(album.getArtist().getId()))
@@ -305,7 +313,7 @@ public class GameController {
                     })
                     .toList();
 
-            List<Song> songs = songRepository.findAll().stream()
+            List<Song> songs = artistIds.isEmpty() ? List.of() : songRepository.findPlayableSongsByArtistIds(artistIds).stream()
                     .filter(this::isPlayableSong)
                     .filter(this::isDhhSong)
                     .filter(song -> song.getAlbum() != null

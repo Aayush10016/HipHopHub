@@ -52,4 +52,11 @@ public interface AlbumRepository extends JpaRepository<Album, Long> {
      * Check if album exists by external ID
      */
     boolean existsByExternalId(String externalId);
+
+    @Query("""
+            SELECT a FROM Album a
+            JOIN FETCH a.artist ar
+            WHERE ar.id IN :artistIds
+            """)
+    List<Album> findAlbumsByArtistIds(List<Long> artistIds);
 }

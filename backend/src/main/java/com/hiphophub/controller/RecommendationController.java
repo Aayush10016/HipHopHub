@@ -66,17 +66,20 @@ public class RecommendationController {
     }
 
     private Optional<Song> pickFallbackSongOfDay() {
-        List<Song> playableSongs = new ArrayList<>(songRepository.findAll().stream()
-                .filter(this::isPlayableSong)
-                .toList());
-        if (playableSongs.isEmpty()) {
+        long count = songRepository.countPlayableSongs();
+        if (count == 0) {
             return Optional.empty();
         }
 
-        playableSongs.sort(Comparator.comparing(Song::getId));
         int daySeed = Math.abs(LocalDate.now().toString().hashCode());
-        int randomIndex = daySeed % playableSongs.size();
-        return Optional.of(playableSongs.get(randomIndex));
+        int randomIndex = (int) (daySeed % count);
+
+        org.springframework.data.domain.Page<Song> page = songRepository.findPlayableSongPage(
+                org.springframework.data.domain.PageRequest.of(randomIndex, 1));
+        if (page.hasContent()) {
+            return Optional.of(page.getContent().get(0));
+        }
+        return Optional.empty();
     }
 
     private boolean isPlayableSong(Song song) {

@@ -458,11 +458,6 @@ public class MusicImportService {
             return false;
         }
 
-        String bio = safe(artist.getBio(), "").trim();
-        if (bio.isBlank() || isGenericBio(bio)) {
-            return false;
-        }
-
         return hasStoredCatalogSongs(artist.getId()) || hasCatalogFallback(artist.getName());
     }
 
@@ -956,6 +951,8 @@ public class MusicImportService {
         }
 
         cleanupArtistCatalog(artist, incomingTrackKeys);
+        this.cachedArtistIdsWithSongs = Set.of();
+        this.cachedArtistIdsWithSongsAt = null;
     }
 
     private boolean isBlacklistedTrack(Artist artist, ITunesTrackDTO track) {

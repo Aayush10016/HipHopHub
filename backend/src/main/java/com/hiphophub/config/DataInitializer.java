@@ -130,9 +130,10 @@ public class DataInitializer {
         long artistCount = artistRepo.count();
         long songCount = songRepository.count();
         boolean belowTargets = artistCount < TARGET_ARTIST_COUNT || songCount < TARGET_SONG_COUNT;
+        boolean catalogProvisional = artistRepo.count() < 8 || songRepository.count() < 20;
         if (belowTargets
                 && !existingArtists.isEmpty()
-                && isStale(state.getProperty("lastCatalogRefreshAt"), CATALOG_REFRESH_INTERVAL)) {
+                && (catalogProvisional || isStale(state.getProperty("lastCatalogRefreshAt"), CATALOG_REFRESH_INTERVAL))) {
             System.out.println("Refreshing thin artist catalogs in background...");
             for (Artist artist : existingArtists) {
                 try {
@@ -177,36 +178,39 @@ public class DataInitializer {
             saveState(state);
         }
 
-        if (!isStale(state.getProperty("lastSeedSweepAt"), SEED_SWEEP_INTERVAL)) {
-            return;
-        }
+        if (catalogProvisional || isStale(state.getProperty("lastSeedSweepAt"), SEED_SWEEP_INTERVAL)) {
+            System.out.println("Seeding missing artists via Last.fm + iTunes...");
+            int imported = 0;
+            int failed = 0;
 
-        System.out.println("Seeding missing artists via Last.fm + iTunes...");
-        int imported = 0;
-        int failed = 0;
-
-        for (String artistName : DEFAULT_SEED_ARTISTS) {
-            if (artistRepo.findByNameIgnoreCase(artistName).isPresent()) {
-                continue;
+            for (String artistName : DEFAULT_SEED_ARTISTS) {
+                java.util.Optional<Artist> optArtist = artistRepo.findByNameIgnoreCase(artistName);
+                if (optArtist.isPresent()) {
+                    Artist artist = optArtist.get();
+                    long artistSongCount = songRepository.countByAlbumArtistId(artist.getId());
+                    if (artistSongCount > 0) {
+                        continue;
+                    }
+                }
+                try {
+                    musicImportService.importArtist(artistName);
+                    imported++;
+                    pauseBetweenImports();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    System.out.println("Seed import interrupted.");
+                    return;
+                } catch (Exception e) {
+                    failed++;
+                    System.out.println("Failed to import " + artistName + ": " + e.getMessage());
+                }
             }
-            try {
-                musicImportService.importArtist(artistName);
-                imported++;
-                pauseBetweenImports();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                System.out.println("Seed import interrupted.");
-                return;
-            } catch (Exception e) {
-                failed++;
-                System.out.println("Failed to import " + artistName + ": " + e.getMessage());
-            }
-        }
 
-        state.setProperty("lastSeedSweepAt", Instant.now().toString());
-        saveState(state);
-        System.out.println("Seed import complete. Artists: " + artistRepo.count()
-                + ", imported: " + imported + ", failed: " + failed);
+            state.setProperty("lastSeedSweepAt", Instant.now().toString());
+            saveState(state);
+            System.out.println("Seed import complete. Artists: " + artistRepo.count()
+                    + ", imported: " + imported + ", failed: " + failed);
+        }
     }
 
     private void pauseBetweenImports() throws InterruptedException {
