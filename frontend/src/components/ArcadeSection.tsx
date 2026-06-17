@@ -58,11 +58,7 @@ const MODE_COPY: Record<GameMode, { kicker: string; title: string; description: 
 function ArcadeSectionComponent() {
     const [selectedGame, setSelectedGame] = useState<GameMode>('guess')
     const [gameView, setGameView] = useState<'hub' | 'active'>('hub')
-    const { artistCount, songCount, releaseCount, catalog } = useArcadeCatalog()
-
-    if (!catalog) {
-        return <div className="arcade-section fade-in section-shell">Loading...</div>
-    }
+    const { loading, artistCount, songCount, releaseCount, catalog } = useArcadeCatalog()
 
     const totalArtists = catalog.artistCount || artistCount || catalog.playableArtists.length
     const totalTracks = catalog.songCount || songCount || catalog.playableTracks.length
@@ -101,7 +97,9 @@ function ArcadeSectionComponent() {
                     <span className="section-kicker">Arcade</span>
                     <h2 className="section-title">Play</h2>
                     <p className="game-description arcade-section__description">
-                        {`The flagship HipHopHub arcade runs on ${totalArtists.toLocaleString()} artists, ${totalTracks.toLocaleString()} tracks, ${totalReleases.toLocaleString()} releases, and ${catalog.playableLyrics.length.toLocaleString()} lyric rounds.`}
+                        {loading && totalArtists === 0
+                            ? 'Loading arcade catalog...'
+                            : `The flagship HipHopHub arcade runs on ${totalArtists.toLocaleString()} artists, ${totalTracks.toLocaleString()} tracks, ${totalReleases.toLocaleString()} releases, and ${catalog.playableLyrics.length.toLocaleString()} lyric rounds.`}
                     </p>
                 </div>
                 <div className="arcade-section__stats" aria-label="Arcade catalog stats">
@@ -143,3 +141,4 @@ function ArcadeSectionComponent() {
 
 const ArcadeSection = memo(ArcadeSectionComponent)
 export default ArcadeSection
+

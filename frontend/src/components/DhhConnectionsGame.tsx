@@ -1,4 +1,4 @@
-ï»¿import { memo, useMemo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import PlayGameFrame from './PlayGameFrame'
 import { useArcadeCatalog } from '../hooks/useArcadeCatalog'
 import type { ArcadeConnectionGroup, ArcadeConnectionPuzzle, GameCatalogArtist } from '../lib/gameCatalog'
@@ -56,7 +56,7 @@ const buildFallbackConnections = (artists: GameCatalogArtist[]): ArcadeConnectio
                 id: key,
                 category: bucket.category,
                 label: bucket.label,
-                clue: `${bucket.category} Â· ${bucket.label}`,
+                clue: `${bucket.category} · ${bucket.label}`,
                 artistNames: names.slice(0, 4),
             })
         }
@@ -151,7 +151,7 @@ function DhhConnectionsGameComponent({ onBack }: { onBack: () => void }) {
         if (matched) {
             setSolvedGroups(prev => [...prev, matched.id])
             setScore(prev => prev + 250)
-            setMessage(`${matched.label} solved Â· ${matched.clue}`)
+            setMessage(`${matched.label} solved · ${matched.clue}`)
         } else {
             setAttemptsLeft(prev => Math.max(0, prev - 1))
             setMessage('That group does not share the same connection.')
@@ -213,6 +213,11 @@ function DhhConnectionsGameComponent({ onBack }: { onBack: () => void }) {
         >
             {loading && !puzzle ? (
                 <div className="arcade-skeleton arcade-skeleton--body" />
+            ) : !loading && !puzzle ? (
+                <div className="arcade-result-card arcade-result-card--summary">
+                    <h4>Loading catalog...</h4>
+                    <p>The arcade data is being fetched. Hang tight - this usually takes a few seconds.</p>
+                </div>
             ) : gameOver ? (
                 <div className="arcade-result-card arcade-result-card--summary">
                     <h4>{solvedGroups.length === puzzle?.groups.length ? 'Board cleared' : 'Run over'}</h4>

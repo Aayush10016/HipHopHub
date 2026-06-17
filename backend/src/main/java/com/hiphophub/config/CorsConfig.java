@@ -18,14 +18,19 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class CorsConfig {
 
-    private static final List<String> LOCAL_ORIGINS = List.of(
-            "http://localhost:3000",
-            "http://localhost:5173",
-            "http://127.0.0.1:3000",
-            "http://127.0.0.1:5173");
+    /** Wildcard patterns for local development on any port */
+    private static final List<String> LOCAL_PATTERNS = List.of(
+            "http://localhost:*",
+            "http://127.0.0.1:*");
 
     /** Vercel deployment patterns (wildcards need allowedOriginPatterns) */
     private static final List<String> DEPLOYED_PATTERNS = List.of(
+            "https://*.vercel.app");
+
+    /** Combined patterns for convenience */
+    private static final List<String> ALL_PATTERNS = List.of(
+            "http://localhost:*",
+            "http://127.0.0.1:*",
             "https://*.vercel.app");
 
     /**
@@ -37,8 +42,7 @@ public class CorsConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/api/**")
-                        .allowedOrigins(LOCAL_ORIGINS.toArray(new String[0]))
-                        .allowedOriginPatterns(DEPLOYED_PATTERNS.toArray(new String[0]))
+                        .allowedOriginPatterns(ALL_PATTERNS.toArray(new String[0]))
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*")
                         .allowCredentials(false);
@@ -52,8 +56,7 @@ public class CorsConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(LOCAL_ORIGINS);
-        config.setAllowedOriginPatterns(DEPLOYED_PATTERNS);
+        config.setAllowedOriginPatterns(ALL_PATTERNS);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(false);

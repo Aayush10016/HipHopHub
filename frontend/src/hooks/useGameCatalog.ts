@@ -172,8 +172,8 @@ export function useGameCatalog() {
             } catch (err) {
                 console.error('Failed to load game catalog:', err)
                 if (cancelled) return
-                setError('Could not load the arcade catalog.')
-                setLoading(false)
+                // Retry on error — the backend may not be ready yet
+                scheduleRetry()
             }
         }
 
@@ -230,3 +230,4 @@ export function useGameCatalog() {
         releasesByArtistId,
     }
 }
+

@@ -226,6 +226,11 @@ function SceneDecoderGameComponent({ onBack }: { onBack: () => void }) {
         >
             {loading && questionDeck.length === 0 ? (
                 <div className="arcade-skeleton arcade-skeleton--body" />
+            ) : questionDeck.length === 0 ? (
+                <div className="arcade-result-card arcade-result-card--summary">
+                    <h4>Loading catalog...</h4>
+                    <p>The arcade data is being fetched. Hang tight - this usually takes a few seconds.</p>
+                </div>
             ) : !started || gameOver ? (
                 <div className="arcade-result-card arcade-result-card--summary">
                     <h4>{gameOver ? 'Scene Decoder complete' : 'Ready for Scene Decoder'}</h4>

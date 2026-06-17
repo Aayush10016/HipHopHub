@@ -253,6 +253,11 @@ function ArtistBlitzGameComponent({ onBack }: { onBack: () => void }) {
         >
             {loading && questionPool.length === 0 ? (
                 <div className="arcade-skeleton arcade-skeleton--body" />
+            ) : questionPool.length === 0 ? (
+                <div className="arcade-result-card arcade-result-card--summary">
+                    <h4>Loading catalog...</h4>
+                    <p>The arcade data is being fetched. Hang tight - this usually takes a few seconds.</p>
+                </div>
             ) : !started || gameOver ? (
                 <div className="arcade-result-card arcade-result-card--summary">
                     <h4>{gameOver ? 'Artist Blitz complete' : 'Ready for Artist Blitz'}</h4>

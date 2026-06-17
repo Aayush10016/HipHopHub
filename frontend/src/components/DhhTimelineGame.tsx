@@ -172,6 +172,11 @@ function DhhTimelineGameComponent({ onBack }: { onBack: () => void }) {
         >
             {loading && eventPool.length === 0 ? (
                 <div className="arcade-skeleton arcade-skeleton--body" />
+            ) : eventPool.length === 0 ? (
+                <div className="arcade-result-card arcade-result-card--summary">
+                    <h4>Loading catalog...</h4>
+                    <p>The arcade data is being fetched. Hang tight - this usually takes a few seconds.</p>
+                </div>
             ) : !started || gameOver ? (
                 <div className="arcade-result-card arcade-result-card--summary">
                     <h4>{gameOver ? 'Timeline run complete' : 'Ready for DHH Timeline'}</h4>
