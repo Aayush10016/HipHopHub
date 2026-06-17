@@ -203,7 +203,7 @@ public class LandingController {
             return cachedLandingTracks;
         }
 
-        List<Song> refreshed = new ArrayList<>(songRepository.findLatestPlayableSongs(PageRequest.of(0, 500)).stream()
+        List<Song> refreshed = new ArrayList<>(songRepository.findAllPlayableSongs().stream()
                 .filter(song -> song.getAlbum() != null && song.getAlbum().getArtist() != null)
                 .toList());
         cachedLandingTracks = refreshed;

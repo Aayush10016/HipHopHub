@@ -271,24 +271,11 @@ export default function LandingPage() {
                     ]
                 }
 
-                let diversifiedTrack: LandingTrack | null = null
                 if (songPoolResult.status === 'fulfilled' && songPoolResult.value.ok) {
                     const poolPayload = (await songPoolResult.value.json()) as LandingSongPoolItem[]
                     const songPool = (poolPayload || [])
                         .map(normalizeSongPoolTrack)
                         .filter((track): track is LandingTrack => !!track)
-
-                    const picked = pickLeastRecent(
-                        songPool,
-                        track => track.artistName,
-                        readRecentValues('hiphophub:landing-track-recent-artists'),
-                        rotationSeed + 29
-                    )
-
-                    if (picked) {
-                        diversifiedTrack = picked
-                        writeRecentValue('hiphophub:landing-track-recent-artists', picked.artistName, 8)
-                    }
 
                     nextSceneStats = [
                         nextSceneStats[0],
@@ -297,7 +284,11 @@ export default function LandingPage() {
                     ]
                 }
 
-                const finalTrack = diversifiedTrack || overviewTrack
+                if (overviewTrack?.artistName) {
+                    writeRecentValue('hiphophub:landing-track-recent-artists', overviewTrack.artistName, 8)
+                }
+
+                const finalTrack = overviewTrack
                 const finalTrivia = (fallbackTrivia.length > 0 ? fallbackTrivia : triviaFromOverview).slice(0, 3)
 
                 if (!cancelled) {

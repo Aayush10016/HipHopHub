@@ -86,6 +86,15 @@ public interface SongRepository extends JpaRepository<Song, Long> {
             JOIN FETCH s.album a
             JOIN FETCH a.artist ar
             WHERE s.previewUrl IS NOT NULL
+            ORDER BY s.id ASC
+            """)
+    List<Song> findAllPlayableSongs();
+
+    @Query("""
+            SELECT s FROM Song s
+            JOIN FETCH s.album a
+            JOIN FETCH a.artist ar
+            WHERE s.previewUrl IS NOT NULL
             ORDER BY a.releaseDate DESC, s.id DESC
             """)
     List<Song> findLatestPlayableSongs(Pageable pageable);

@@ -406,7 +406,7 @@ public class SongController {
                 }
             }
 
-            List<Song> refreshed = new ArrayList<>(songRepository.findLatestPlayableSongs(PageRequest.of(0, 600)).stream()
+            List<Song> refreshed = new ArrayList<>(songRepository.findAllPlayableSongs().stream()
                     .filter(this::isPlayableSong)
                     .filter(song -> !dhhOnly || isDhhSong(song))
                     .toList());
