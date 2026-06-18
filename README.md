@@ -1,6 +1,6 @@
 # 🎵 HipHopHub
 
-A modern, interactive community platform for hip-hop music fans to discover new releases, explore artists, play music games, and compete on leaderboards.
+A modern, interactive community platform for hip-hop music fans to discover new releases, explore artists, play music games, and compete on leaderboards.   
 
 Access the website here - https://hip-hop-hub.vercel.app/
 ## ✨ Features
