@@ -13,7 +13,7 @@ Access the website here - https://hip-hop-hub.vercel.app/
 - 📊 **User Stats** - Track your progress and achievements
 
 ## 🎯 Featured Artists
-There are total of 75 Artist some of them are
+There are total of 67 Artist some of them are
 - Seedhe Maut
 - Raftaar
 - Chaar Diwari
