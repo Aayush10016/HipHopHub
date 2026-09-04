@@ -205,6 +205,7 @@ public class LandingController {
 
         List<Song> refreshed = new ArrayList<>(songRepository.findAllPlayableSongs().stream()
                 .filter(song -> song.getAlbum() != null && song.getAlbum().getArtist() != null)
+                .filter(song -> musicImportService.shouldFeatureArtistInDhhCatalog(song.getAlbum().getArtist()))
                 .toList());
         cachedLandingTracks = refreshed;
         cachedLandingTracksAt = now;

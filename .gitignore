@@ -46,3 +46,8 @@ run-audit-*.cmd
 frontend/fix-css*.cjs
 CHATGPT_WEBSITE_HANDOFF.md
 CLAUDE_CODE_HANDOFF.md
+
+# Local API response snapshots
+/catalog.json
+/overview.json
+/topsongs.json

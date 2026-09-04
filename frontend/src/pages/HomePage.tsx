@@ -365,15 +365,18 @@ export default function HomePage() {
         setTopSongCurrentTime({})
     }, [topSongs])
 
-    const filteredArtists = useMemo(() => {
-        if (!searchQuery) return []
-        const uniqueByName = Array.from(
+    const allUniqueArtists = useMemo(() => {
+        return Array.from(
             new Map(artists.map(artist => [artist.name.toLowerCase(), artist])).values()
         )
-        return uniqueByName.filter(artist =>
+    }, [artists])
+
+    const filteredArtists = useMemo(() => {
+        if (!searchQuery) return []
+        return allUniqueArtists.filter(artist =>
             artist.name.toLowerCase().includes(searchQuery.toLowerCase())
         ).slice(0, 5)
-    }, [artists, searchQuery])
+    }, [allUniqueArtists, searchQuery])
 
     const resolveSongCover = (song: Song | null) => {
         if (!song) return undefined
@@ -885,9 +888,9 @@ export default function HomePage() {
                                 </div>
                                 <p className="section-sub">Open full artist profiles with songs, releases, facts, tours, and games</p>
                             </div>
-                            {filteredArtists.length > 0 ? (
+                            {allUniqueArtists.length > 0 ? (
                                 <div className="artists-grid">
-                                    {filteredArtists.map((artist) => (
+                                    {allUniqueArtists.map((artist) => (
                                         <div
                                             key={artist.id}
                                             className="artist-card card"
