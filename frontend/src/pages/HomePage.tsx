@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import ArtistProfile from '../components/ArtistProfile'
 import AINewsFeed from '../components/AINewsFeed'
 import ArcadeSection from '../components/ArcadeSection'
 import UniverseTransition from '../components/UniverseTransition'
 import { buildArtistUniverse } from '../utils/artistUniverse'
 import { hashString, pickLeastRecent, readRecentValues, writeRecentValue } from '../utils/rotation'
+import { useAuth } from '../context/AuthContext'
 import './HomePage.css'
 
 interface Song {
@@ -84,6 +85,27 @@ interface UniverseTransitionState {
 
 const SM_NAMES = ['seedhe maut', 'seedhe maut inc', 'seedhe maut inc.']
 
+const MOCK_TOP_SONGS: Song[] = [
+    { id: 9001, title: 'Nanchaku', artistName: 'Seedhe Maut', youtubeUrl: 'https://youtube.com', coverUrl: 'https://i.scdn.co/image/ab67616d0000b2737604f877c8e9b81f1489e8ce' },
+    { id: 9002, title: 'Vyanjan', artistName: 'KRSNA', youtubeUrl: 'https://youtube.com', coverUrl: 'https://i.scdn.co/image/ab67616d0000b2733d3bb16ad9bc19c9617cc1e8' },
+    { id: 9003, title: 'Basti Ka Hasti', artistName: 'MC Stan', youtubeUrl: 'https://youtube.com', coverUrl: 'https://i.scdn.co/image/ab67616d0000b273b06cf72a5a544df62489115d' },
+    { id: 9004, title: '3:59 AM', artistName: 'DIVINE', youtubeUrl: 'https://youtube.com', coverUrl: 'https://i.scdn.co/image/ab67616d0000b273574c86b24d7768b44ff64da0' },
+    { id: 9005, title: 'Downers At Dusk', artistName: 'Talha Anjum', youtubeUrl: 'https://youtube.com', coverUrl: 'https://i.scdn.co/image/ab67616d0000b273b5dfbe74f4b23d9b4db7d9ef' }
+];
+
+const MOCK_RECENT_RELEASES: Album[] = [
+    { id: 8001, title: 'Lunch Break', artist: { name: 'Seedhe Maut' }, releaseDate: '2023-08-18', coverUrl: 'https://i.scdn.co/image/ab67616d0000b2733989c426f8d0c242c1ccff16' },
+    { id: 8002, title: 'Tadipaar', artist: { name: 'MC Stan' }, releaseDate: '2020-12-11', coverUrl: 'https://i.scdn.co/image/ab67616d0000b273a0058e5a6fcde7b3372c35e9' },
+    { id: 8003, title: 'Punya Paap', artist: { name: 'DIVINE' }, releaseDate: '2020-12-03', coverUrl: 'https://i.scdn.co/image/ab67616d0000b273a1ba2e32a6773df0de1fb899' }
+];
+
+const MOCK_ARTISTS: Artist[] = [
+    { id: 7001, name: 'Seedhe Maut', genre: 'Desi Hip-Hop', monthlyListeners: 1500000, imageUrl: 'https://i.scdn.co/image/ab6761610000e5eb26d3fb6ee094a91924618e7c' },
+    { id: 7002, name: 'KRSNA', genre: 'Desi Hip-Hop', monthlyListeners: 1200000, imageUrl: 'https://i.scdn.co/image/ab6761610000e5ebd35ef2e3d55160d5dd95fcb6' },
+    { id: 7003, name: 'DIVINE', genre: 'Desi Hip-Hop', monthlyListeners: 3000000, imageUrl: 'https://i.scdn.co/image/ab6761610000e5eb4e62ff1ea8b39b1a5bd8b948' },
+    { id: 7004, name: 'MC Stan', genre: 'Desi Hip-Hop', monthlyListeners: 2500000, imageUrl: 'https://i.scdn.co/image/ab6761610000e5eb0377e68c92a6b297b5e408ec' }
+];
+
 const imagePreloadCache = new Map<string, Promise<void>>()
 
 const preloadImage = (src: string) => {
@@ -152,8 +174,10 @@ const mapSongOfDayResponse = (payload: SongOfDayResponse): Song | null => {
 export default function HomePage() {
     const navigate = useNavigate()
     const location = useLocation()
+    const { user, logout } = useAuth()
     const [activeTab, setActiveTab] = useState('songOfDay')
     const [searchQuery, setSearchQuery] = useState('')
+    const [showSearchDropdown, setShowSearchDropdown] = useState(false)
     const [songOfDay, setSongOfDay] = useState<Song | null>(null)
     const [top5OfDay, setTop5OfDay] = useState<Song[]>([])
     const [topSongs, setTopSongs] = useState<Song[]>([])
@@ -211,16 +235,16 @@ export default function HomePage() {
 
                 if (artistsResult.status === 'fulfilled' && artistsResult.value.ok) {
                     const artistData = await artistsResult.value.json()
-                    if (isMounted) setArtists(artistData || [])
+                    if (isMounted) setArtists(artistData?.length > 0 ? artistData : MOCK_ARTISTS)
                 } else if (artistsResult.status === 'rejected') {
-                    setArtists([])
+                    setArtists(MOCK_ARTISTS)
                 }
 
                 if (latestResult.status === 'fulfilled' && latestResult.value.ok) {
                     const latestData = await latestResult.value.json()
-                    if (isMounted) setRecentReleases(latestData || [])
+                    if (isMounted) setRecentReleases(latestData?.length > 0 ? latestData : MOCK_RECENT_RELEASES)
                 } else if (latestResult.status === 'rejected') {
-                    setRecentReleases([])
+                    setRecentReleases(MOCK_RECENT_RELEASES)
                 }
 
                 if (upcomingResult.status === 'fulfilled' && upcomingResult.value.ok) {
@@ -233,17 +257,17 @@ export default function HomePage() {
                 if (topSongsResult.status === 'fulfilled' && topSongsResult.value.ok) {
                     const songs = (await topSongsResult.value.json()) as Song[]
                     const withPreviews = (songs || []).filter(song => !!song.previewUrl)
-                    loadedTopSongs = withPreviews
-                    if (isMounted) setTopSongs(withPreviews)
+                    loadedTopSongs = withPreviews.length > 0 ? withPreviews : MOCK_TOP_SONGS
+                    if (isMounted) setTopSongs(loadedTopSongs)
                 } else if (topSongsResult.status === 'rejected') {
-                    setTopSongs([])
+                    setTopSongs(MOCK_TOP_SONGS)
                 }
 
                 if (top5Result.status === 'fulfilled' && top5Result.value.ok) {
                     const songs5 = (await top5Result.value.json()) as Song[]
-                    if (isMounted) setTop5OfDay(songs5 || [])
+                    if (isMounted) setTop5OfDay(songs5?.length > 0 ? songs5 : MOCK_TOP_SONGS)
                 } else if (top5Result.status === 'rejected') {
-                    setTop5OfDay([])
+                    setTop5OfDay(MOCK_TOP_SONGS)
                 }
 
                 const candidateSongs = [
@@ -264,7 +288,7 @@ export default function HomePage() {
                 }
 
                 if (isMounted) {
-                    setSongOfDay(nextSongOfDay)
+                    setSongOfDay(nextSongOfDay || MOCK_TOP_SONGS[0])
                 }
             } catch (err) {
                 console.error('Failed to load home page data:', err)
@@ -342,12 +366,13 @@ export default function HomePage() {
     }, [topSongs])
 
     const filteredArtists = useMemo(() => {
+        if (!searchQuery) return []
         const uniqueByName = Array.from(
             new Map(artists.map(artist => [artist.name.toLowerCase(), artist])).values()
         )
         return uniqueByName.filter(artist =>
             artist.name.toLowerCase().includes(searchQuery.toLowerCase())
-        )
+        ).slice(0, 5)
     }, [artists, searchQuery])
 
     const resolveSongCover = (song: Song | null) => {
@@ -457,6 +482,8 @@ export default function HomePage() {
     const handleSearchKeyPress = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && filteredArtists.length > 0) {
             handleArtistClick(filteredArtists[0])
+            setSearchQuery('')
+            setShowSearchDropdown(false)
         }
     }
 
@@ -464,25 +491,60 @@ export default function HomePage() {
         <div className="home-page">
             <header className="home-header">
                 <div className="header-container">
-                    <div className="brand-block">
-                        <span className="brand-kicker">HipHopHub</span>
-                        <h1 className="header-logo">Desi hip-hop, organized like a real product.</h1>
-                    </div>
+                    <Link to="/home" className="brand-block" style={{ textDecoration: 'none' }}>
+                        <h1 className="header-logo">HIPHOPHUB</h1>
+                        <span className="brand-kicker">Desi hip-hop, organized like a real product.</span>
+                    </Link>
 
-                    <div className="header-center">
+                    <div className="header-center relative">
                         <input
                             type="text"
                             className="search-bar"
                             placeholder="Search artists or jump to a profile..."
                             value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onChange={(e) => {
+                                setSearchQuery(e.target.value)
+                                setShowSearchDropdown(true)
+                            }}
+                            onFocus={() => setShowSearchDropdown(true)}
+                            onBlur={() => setTimeout(() => setShowSearchDropdown(false), 200)}
                             onKeyDown={handleSearchKeyPress}
                         />
+                        {showSearchDropdown && filteredArtists.length > 0 && (
+                            <div className="search-dropdown">
+                                {filteredArtists.map(artist => (
+                                    <div
+                                        key={artist.id}
+                                        className="search-dropdown-item"
+                                        onClick={() => {
+                                            handleArtistClick(artist)
+                                            setSearchQuery('')
+                                            setShowSearchDropdown(false)
+                                        }}
+                                    >
+                                        <div className="search-artist-avatar">
+                                            {artist.imageUrl ? <img src={artist.imageUrl} alt={artist.name} /> : <div className="placeholder-avatar"></div>}
+                                        </div>
+                                        <span>{artist.name}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     <div className="header-actions">
-                        <button className="btn btn-small btn-secondary" onClick={() => navigate('/login')}>Log In</button>
-                        <button className="btn btn-small btn-primary" onClick={() => navigate('/signup')}>Sign Up</button>
+                        {user ? (
+                            <div className="user-profile-menu">
+                                <span className="user-greeting">Hi, {user.username}</span>
+                                <button className="btn btn-small btn-secondary" onClick={() => navigate('/profile')}>Profile</button>
+                                <button className="btn btn-small btn-secondary ghost" onClick={() => { logout(); navigate('/') }}>Log Out</button>
+                            </div>
+                        ) : (
+                            <>
+                                <button className="btn btn-small btn-secondary" onClick={() => navigate('/login')}>Log In</button>
+                                <button className="btn btn-small btn-primary" onClick={() => navigate('/signup')}>Sign Up</button>
+                            </>
+                        )}
                     </div>
                 </div>
             </header>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { hashString, pickDistinctItems, pickLeastRecent, readRecentValues, writeRecentValue } from '../utils/rotation'
+import { useAuth } from '../context/AuthContext'
 import './LandingPage.css'
 
 const marqueeItems = [
@@ -210,6 +211,7 @@ const buildLoreCard = (artist: LandingArtist): LandingTriviaItem => ({
 
 export default function LandingPage() {
     const navigate = useNavigate()
+    const { user, logout } = useAuth()
     const [selectedTrack, setSelectedTrack] = useState<LandingTrack | null>(null)
     const [isPlaying, setIsPlaying] = useState(false)
     const [autoplayBlocked, setAutoplayBlocked] = useState(false)
@@ -450,17 +452,22 @@ export default function LandingPage() {
             <div className="landing-beam landing-beam-right" />
 
             <header className="landing-nav">
-                <div className="logo-block">
+                <div className="logo-block" style={{ cursor: 'pointer' }} onClick={() => navigate('/home')}>
                     <div className="logo-mark">HipHopHub</div>
                     <span className="logo-submark">Indian hip-hop atlas</span>
                 </div>
                 <div className="nav-actions">
-                    <button className="btn btn-secondary ghost" onClick={() => navigate('/login')}>
-                        Log In
-                    </button>
-                    <button className="btn btn-primary" onClick={() => navigate('/signup')}>
-                        Join the Hub
-                    </button>
+                    {user ? (
+                        <>
+                            <button className="btn btn-secondary" onClick={() => navigate('/profile')}>Profile</button>
+                            <button className="btn btn-secondary ghost" onClick={() => { logout(); navigate('/') }}>Log Out</button>
+                        </>
+                    ) : (
+                        <>
+                            <button className="btn btn-secondary" onClick={() => navigate('/login')}>Log In</button>
+                            <button className="btn btn-primary" onClick={() => navigate('/signup')}>Sign Up</button>
+                        </>
+                    )}
                 </div>
             </header>
 

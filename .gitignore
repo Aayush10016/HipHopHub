@@ -30,3 +30,19 @@ data/
 # Misc
 backend/curl
 backend/*.html
+
+# Local agent/project tooling and generated artifacts
+.trail/
+$null
+data-audit/
+backend/src/data-audit/
+frontend/src_backup/
+outputs/
+work/
+ui-ux-pro-max-skill/
+audit-*.log
+backend-*-audit.*.log
+run-audit-*.cmd
+frontend/fix-css*.cjs
+CHATGPT_WEBSITE_HANDOFF.md
+CLAUDE_CODE_HANDOFF.md

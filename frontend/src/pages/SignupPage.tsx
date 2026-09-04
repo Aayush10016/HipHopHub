@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import './AuthPages.css'
 
 export default function SignupPage() {
     const navigate = useNavigate()
+    const { login } = useAuth()
     const [username, setUsername] = useState('')
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
@@ -28,7 +30,7 @@ export default function SignupPage() {
                 return
             }
 
-            localStorage.setItem('hiphophub_user', JSON.stringify(data))
+            login(data)
             navigate('/home')
         } catch (err) {
             console.error('Signup failed:', err)
