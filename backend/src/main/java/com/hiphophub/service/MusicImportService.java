@@ -454,11 +454,7 @@ public class MusicImportService {
         }
 
         String key = normalizeKey(artist.getName());
-        if (!PUBLIC_DHH_ARTIST_KEYS.contains(key) && !hasCatalogFallback(artist.getName())) {
-            return false;
-        }
-
-        return hasStoredCatalogSongs(artist.getId()) || hasCatalogFallback(artist.getName());
+        return PUBLIC_DHH_ARTIST_KEYS.contains(key) || hasCatalogFallback(artist.getName());
     }
 
     private boolean hasStoredCatalogSongs(Long artistId) {
