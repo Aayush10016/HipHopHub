@@ -78,23 +78,18 @@ public class AlbumController {
      * Get latest releases (last 30 days)
      */
     @GetMapping("/latest")
-    public List<AlbumDTO> getLatestReleases(@RequestParam(defaultValue = "all") String scope) {
-        List<Integer> windows = List.of(30, 60, 90, 180, 365);
-        for (Integer windowDays : windows) {
-            List<AlbumDTO> matches = applyScope(albumRepository.findLatestReleases(LocalDate.now().minusDays(windowDays)), scope)
-                    .stream()
-                    .sorted(Comparator
-                            .comparing((Album album) -> album.getReleaseDate() != null ? album.getReleaseDate() : LocalDate.MIN)
-                            .reversed()
-                            .thenComparing(Album::getId, Comparator.reverseOrder()))
-                    .map(this::toDTO)
-                    .collect(Collectors.toList());
-            if (!matches.isEmpty()) {
-                return matches;
-            }
-        }
-
-        return List.of();
+    public List<AlbumDTO> getLatestReleases(
+            @RequestParam(defaultValue = "all") String scope,
+            @RequestParam(defaultValue = "30") int days) {
+        int normalizedDays = Math.max(1, Math.min(days, 30));
+        return applyScope(albumRepository.findLatestReleases(LocalDate.now().minusDays(normalizedDays)), scope)
+                .stream()
+                .sorted(Comparator
+                        .comparing((Album album) -> album.getReleaseDate() != null ? album.getReleaseDate() : LocalDate.MIN)
+                        .reversed()
+                        .thenComparing(Album::getId, Comparator.reverseOrder()))
+                .map(this::toDTO)
+                .collect(Collectors.toList());
     }
 
     /**

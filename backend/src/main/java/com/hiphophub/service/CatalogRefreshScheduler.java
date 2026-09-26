@@ -66,7 +66,7 @@ public class CatalogRefreshScheduler {
             List<Artist> candidates = artistRepository.findAll().stream()
                     .filter(artist -> DhhArtistClassifier.isDhhArtist(artist.getName(), artist.getGenre()))
                     .filter(this::isRefreshCandidate)
-                    .sorted(Comparator.comparing(this::latestReleaseDateOrMin))
+                    .sorted(Comparator.comparing(this::latestReleaseDateOrMin).reversed())
                     .limit(Math.max(1, maxArtistsPerRun))
                     .toList();
 

@@ -151,31 +151,14 @@ public class SongController {
     public List<SongDTO> getTopDhhSongs(
             @RequestParam(defaultValue = "30") int days,
             @RequestParam(defaultValue = "20") int limit) {
-        int normalizedDays = Math.max(1, Math.min(days, 365));
+        int normalizedDays = Math.max(1, Math.min(days, 30));
         int normalizedLimit = Math.max(1, Math.min(limit, 100));
-        List<Integer> windows = List.of(normalizedDays, 60, 90, 180, 365);
         PageRequest pageRequest = PageRequest.of(0, Math.max(normalizedLimit * 8, 80));
 
-        for (Integer windowDays : windows) {
-            List<SongDTO> matches = songRepository.findPlayableSongsReleasedAfter(LocalDate.now().minusDays(windowDays), pageRequest).stream()
-                    .filter(this::isDhhSong)
-                    .sorted(Comparator
-                            .comparing((Song song) -> song.getAlbum().getReleaseDate())
-                            .reversed()
-                            .thenComparing(Song::getId, Comparator.reverseOrder()))
-                    .limit(normalizedLimit)
-                    .map(this::convertToDTO)
-                    .collect(Collectors.toList());
-
-            if (!matches.isEmpty()) {
-                return matches;
-            }
-        }
-
-        return songRepository.findLatestPlayableSongs(PageRequest.of(0, Math.max(normalizedLimit * 8, 80))).stream()
+        return songRepository.findPlayableSongsReleasedAfter(LocalDate.now().minusDays(normalizedDays), pageRequest).stream()
                 .filter(this::isDhhSong)
                 .sorted(Comparator
-                        .comparing((Song song) -> releaseDateOrMin(song.getAlbum()))
+                        .comparing((Song song) -> song.getAlbum().getReleaseDate())
                         .reversed()
                         .thenComparing(Song::getId, Comparator.reverseOrder()))
                 .limit(normalizedLimit)

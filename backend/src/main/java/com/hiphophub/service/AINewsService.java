@@ -88,8 +88,8 @@ public class AINewsService {
     private static final int MIN_ITEMS = 8;
     private static final Duration CACHE_TTL = Duration.ofMinutes(3);
     private static final Duration MAX_NEWS_AGE = Duration.ofDays(7);
-    private static final int INTERNAL_RECENT_RELEASE_DAYS = 60;
-    private static final int INTERNAL_FALLBACK_RELEASE_DAYS = 180;
+    private static final int INTERNAL_RECENT_RELEASE_DAYS = 7;
+    private static final int INTERNAL_FALLBACK_RELEASE_DAYS = 7;
     private static final int INTERNAL_UPCOMING_WINDOW_DAYS = 60;
     private static final String DEFAULT_BASE_QUERY =
             "(desi hip hop OR indian hip hop OR dhh OR rap india OR seedhe maut OR raftaar OR kr$na OR divine OR emiway OR ikka OR king OR mc stan)";
