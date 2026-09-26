@@ -1,8 +1,8 @@
 package com.hiphophub.controller;
-
 import com.hiphophub.model.ArcadeScore;
 import com.hiphophub.model.User;
 import com.hiphophub.repository.ArcadeScoreRepository;
+
 import com.hiphophub.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
