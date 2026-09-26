@@ -1,8 +1,9 @@
 package com.hiphophub.repository;
 
 import com.hiphophub.model.Album;
-import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
@@ -42,6 +43,9 @@ public interface AlbumRepository extends JpaRepository<Album, Long> {
      */
     @Query("SELECT a FROM Album a WHERE a.releaseDate > :today ORDER BY a.releaseDate ASC")
     List<Album> findUpcomingReleases(LocalDate today);
+
+    @Query("SELECT MAX(a.releaseDate) FROM Album a WHERE a.artist.id = :artistId")
+    Optional<LocalDate> findLatestReleaseDateByArtistId(@Param("artistId") Long artistId);
 
     /**
      * Find albums by type

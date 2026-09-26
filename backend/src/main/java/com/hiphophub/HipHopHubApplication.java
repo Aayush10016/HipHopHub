@@ -2,6 +2,7 @@ package com.hiphophub;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * Main Application Class for HipHopHub Backend
@@ -13,6 +14,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * - Property support
  */
 @SpringBootApplication
+@EnableScheduling
 public class HipHopHubApplication {
 
     public static void main(String[] args) {

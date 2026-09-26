@@ -87,7 +87,7 @@ public class AINewsService {
     private static final int MAX_ITEMS = 12;
     private static final int MIN_ITEMS = 8;
     private static final Duration CACHE_TTL = Duration.ofMinutes(3);
-    private static final Duration MAX_NEWS_AGE = Duration.ofHours(24);
+    private static final Duration MAX_NEWS_AGE = Duration.ofDays(7);
     private static final int INTERNAL_RECENT_RELEASE_DAYS = 60;
     private static final int INTERNAL_FALLBACK_RELEASE_DAYS = 180;
     private static final int INTERNAL_UPCOMING_WINDOW_DAYS = 60;
@@ -275,8 +275,8 @@ public class AINewsService {
         List<NewsItemDTO> items = new ArrayList<>();
         items.add(new NewsItemDTO(
                 "fallback-1",
-                "No major DHH update in last 24 hours",
-                "This feed is strict and only shows fresh stories from the previous day. It auto-refreshes every 2 minutes.",
+                "No major DHH update in the last week",
+                "This feed is strict and only shows fresh stories from the last week. It auto-refreshes every few minutes.",
                 "Update Watch",
                 "Releases",
                 "Just now",
@@ -556,7 +556,7 @@ public class AINewsService {
 
     private Optional<List<RawNewsItem>> fetchGoogleRssByQuery(String query) {
         try {
-            String strictQuery = "(" + query + ") when:1d";
+            String strictQuery = "(" + query + ") when:" + Math.max(1, MAX_NEWS_AGE.toDays()) + "d";
             String url = "https://news.google.com/rss/search?q="
                     + URLEncoder.encode(strictQuery, StandardCharsets.UTF_8)
                     + "&hl=en-IN&gl=IN&ceid=IN:en";
@@ -628,7 +628,7 @@ public class AINewsService {
         try {
             String url = REDDIT_RSS_SEARCH_URL
                     + "?q=" + URLEncoder.encode(query, StandardCharsets.UTF_8)
-                    + "&restrict_sr=on&sort=new&t=day";
+                    + "&restrict_sr=on&sort=new&t=week";
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
