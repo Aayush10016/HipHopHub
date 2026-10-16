@@ -63,13 +63,13 @@ export default function ProfilePage() {
             <header className="home-header">
                 <div className="header-container">
                     <div className="brand-block" onClick={() => navigate('/home')} style={{ cursor: 'pointer', textDecoration: 'none' }}>
-                        <h1 className="header-logo">HIPHOPHUB</h1>
-                        <span className="brand-kicker">Desi hip-hop, organized like a real product.</span>
+                        <span className="header-logo">HIPHOPHUB</span>
+                        <span className="brand-kicker">Independent sound. Shared culture.</span>
                     </div>
                 </div>
             </header>
 
-            <main className="profile-content container">
+            <main id="main-content" className="profile-content container">
                 <div className="profile-header card">
                     <div className="profile-avatar-large">
                         {profile.username.charAt(0).toUpperCase()}

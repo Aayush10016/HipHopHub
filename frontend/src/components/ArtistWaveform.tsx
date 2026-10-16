@@ -52,7 +52,6 @@ function ArtistWaveform({ color, opacity = 0.08, className = '' }: Props) {
 
         const drawWave = (
             w: number,
-            h: number,
             amplitude: number,
             frequency: number,
             phase: number,
@@ -85,9 +84,9 @@ function ArtistWaveform({ color, opacity = 0.08, className = '' }: Props) {
             phaseRef.current += 0.008
 
             // 3 overlapping waves at different depths
-            drawWave(w, h, 18, 4, phaseRef.current, h * 0.6, opacity * 0.7)
-            drawWave(w, h, 12, 6, phaseRef.current * 1.3, h * 0.65, opacity * 0.5)
-            drawWave(w, h, 8, 8, phaseRef.current * 0.7, h * 0.7, opacity * 0.3)
+            drawWave(w, 18, 4, phaseRef.current, h * 0.6, opacity * 0.7)
+            drawWave(w, 12, 6, phaseRef.current * 1.3, h * 0.65, opacity * 0.5)
+            drawWave(w, 8, 8, phaseRef.current * 0.7, h * 0.7, opacity * 0.3)
 
             rafRef.current = requestAnimationFrame(animate)
         }

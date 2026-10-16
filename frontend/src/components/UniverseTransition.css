@@ -17,11 +17,11 @@
 }
 
 .universe-transition--entering {
-    animation: utFadeIn 520ms ease-out forwards;
+    animation: utFadeIn 160ms ease-out forwards;
 }
 
 .universe-transition--exiting {
-    animation: utFadeOut 460ms ease-in forwards;
+    animation: utFadeOut 240ms ease-in forwards;
 }
 
 .ut-shutter,

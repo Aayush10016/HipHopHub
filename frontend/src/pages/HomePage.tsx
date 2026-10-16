@@ -1,10 +1,14 @@
+import PlaybackMeter from '../components/PlaybackMeter'
+import ListeningLinks from '../components/ListeningLinks'
+import { artistPortrait } from '../utils/portraits'
+import { uniqueReleases } from '../utils/releases'
+import Artwork from '../components/Artwork'
+import { request } from '../utils/request'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import ArtistProfile from '../components/ArtistProfile'
 import AINewsFeed from '../components/AINewsFeed'
 import ArcadeSection from '../components/ArcadeSection'
-import UniverseTransition from '../components/UniverseTransition'
-import { buildArtistUniverse } from '../utils/artistUniverse'
 import { hashString, pickLeastRecent, readRecentValues, writeRecentValue } from '../utils/rotation'
 import { useAuth } from '../context/AuthContext'
 import './HomePage.css'
@@ -40,6 +44,9 @@ interface Album {
     id: number
     title: string
     releaseDate?: string
+    type?: string
+    albumType?: string
+    sourceUrl?: string
     coverImageUrl?: string
     coverUrl?: string
     youtubeUrl?: string
@@ -70,66 +77,6 @@ interface NewsStory {
     source?: string
 }
 
-interface UniverseTransitionState {
-    active: boolean
-    artistName: string
-    artist: Artist
-    logoUrl?: string
-    accentColor: string
-    label: string
-    transitionType: 'legacy' | 'pulse' | 'cinematic' | 'split'
-    nameEffect: 'classic' | 'sharp' | 'soft-glow' | 'chrome' | 'shimmer' | 'warm-pulse'
-    markText: string
-    route: string
-}
-
-const SM_NAMES = ['seedhe maut', 'seedhe maut inc', 'seedhe maut inc.']
-
-const MOCK_TOP_SONGS: Song[] = [
-    { id: 9001, title: 'Nanchaku', artistName: 'Seedhe Maut', youtubeUrl: 'https://youtube.com', coverUrl: 'https://i.scdn.co/image/ab67616d0000b2737604f877c8e9b81f1489e8ce' },
-    { id: 9002, title: 'Vyanjan', artistName: 'KRSNA', youtubeUrl: 'https://youtube.com', coverUrl: 'https://i.scdn.co/image/ab67616d0000b2733d3bb16ad9bc19c9617cc1e8' },
-    { id: 9003, title: 'Basti Ka Hasti', artistName: 'MC Stan', youtubeUrl: 'https://youtube.com', coverUrl: 'https://i.scdn.co/image/ab67616d0000b273b06cf72a5a544df62489115d' },
-    { id: 9004, title: '3:59 AM', artistName: 'DIVINE', youtubeUrl: 'https://youtube.com', coverUrl: 'https://i.scdn.co/image/ab67616d0000b273574c86b24d7768b44ff64da0' },
-    { id: 9005, title: 'Downers At Dusk', artistName: 'Talha Anjum', youtubeUrl: 'https://youtube.com', coverUrl: 'https://i.scdn.co/image/ab67616d0000b273b5dfbe74f4b23d9b4db7d9ef' }
-];
-
-const MOCK_RECENT_RELEASES: Album[] = [
-    { id: 8001, title: 'Lunch Break', artist: { name: 'Seedhe Maut' }, releaseDate: '2023-08-18', coverUrl: 'https://i.scdn.co/image/ab67616d0000b2733989c426f8d0c242c1ccff16' },
-    { id: 8002, title: 'Tadipaar', artist: { name: 'MC Stan' }, releaseDate: '2020-12-11', coverUrl: 'https://i.scdn.co/image/ab67616d0000b273a0058e5a6fcde7b3372c35e9' },
-    { id: 8003, title: 'Punya Paap', artist: { name: 'DIVINE' }, releaseDate: '2020-12-03', coverUrl: 'https://i.scdn.co/image/ab67616d0000b273a1ba2e32a6773df0de1fb899' }
-];
-
-const MOCK_ARTISTS: Artist[] = [
-    { id: 7001, name: 'Seedhe Maut', genre: 'Desi Hip-Hop', monthlyListeners: 1500000, imageUrl: 'https://i.scdn.co/image/ab6761610000e5eb26d3fb6ee094a91924618e7c' },
-    { id: 7002, name: 'KRSNA', genre: 'Desi Hip-Hop', monthlyListeners: 1200000, imageUrl: 'https://i.scdn.co/image/ab6761610000e5ebd35ef2e3d55160d5dd95fcb6' },
-    { id: 7003, name: 'DIVINE', genre: 'Desi Hip-Hop', monthlyListeners: 3000000, imageUrl: 'https://i.scdn.co/image/ab6761610000e5eb4e62ff1ea8b39b1a5bd8b948' },
-    { id: 7004, name: 'MC Stan', genre: 'Desi Hip-Hop', monthlyListeners: 2500000, imageUrl: 'https://i.scdn.co/image/ab6761610000e5eb0377e68c92a6b297b5e408ec' }
-];
-
-const imagePreloadCache = new Map<string, Promise<void>>()
-
-const preloadImage = (src: string) => {
-    if (!imagePreloadCache.has(src)) {
-        imagePreloadCache.set(src, new Promise<void>((resolve) => {
-            const img = new Image()
-            img.onload = () => resolve()
-            img.onerror = () => resolve()
-            img.src = src
-        }))
-    }
-
-    return imagePreloadCache.get(src) as Promise<void>
-}
-
-const resolveSeedheMautArtist = (artists: Artist[], fallback?: Artist | null) => {
-    if (fallback) return fallback
-
-    return artists.find(candidate => {
-        const normalized = candidate.name.toLowerCase().trim()
-        return SM_NAMES.some(name => normalized === name || normalized.includes(name))
-    }) || null
-}
-
 const isValidDate = (date?: string) => {
     if (!date) return false
     return !Number.isNaN(new Date(date).getTime())
@@ -137,7 +84,7 @@ const isValidDate = (date?: string) => {
 
 const formatDate = (date?: string) => {
     if (!isValidDate(date)) return 'Date unavailable'
-    return new Date(date as string).toLocaleDateString()
+    return new Date(date as string).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 const getSongArtistName = (song: Song | null | undefined) => {
@@ -188,19 +135,19 @@ export default function HomePage() {
     const [selectedArtistId, setSelectedArtistId] = useState<number | null>(null)
     const [selectedArtist, setSelectedArtist] = useState<Artist | null>(null)
     const [loading, setLoading] = useState(true)
+    const [dataError, setDataError] = useState(false)
+    const [previewTime, setPreviewTime] = useState(0)
     const [isSongPlaying, setIsSongPlaying] = useState(false)
     const [topSongPlayingId, setTopSongPlayingId] = useState<number | null>(null)
     const [topSongCurrentTime, setTopSongCurrentTime] = useState<Record<number, number>>({})
     const [artistImageErrorMap, setArtistImageErrorMap] = useState<Record<number, boolean>>({})
-    const [universeTransition, setUniverseTransition] = useState<UniverseTransitionState | null>(null)
-    const [isPreparingUniverse, setIsPreparingUniverse] = useState(false)
 
     useEffect(() => {
         let isMounted = true
 
         const fetchSongOfDay = async () => {
             try {
-                const res = await fetch('/api/songs/song-of-day')
+                const res = await request('/api/songs/song-of-day')
                 if (res.ok) {
                     const data = await res.json()
                     if (data?.id && data?.previewUrl) {
@@ -219,12 +166,12 @@ export default function HomePage() {
             try {
                 const rotationSeed = hashString(new Date().toDateString())
                 const results = await Promise.allSettled([
-                    fetchSongOfDay(),
-                    fetch('/api/artists?scope=dhh'),
-                    fetch('/api/albums/latest?scope=dhh'),
-                    fetch('/api/albums/upcoming?scope=dhh'),
-                    fetch('/api/songs/top/dhh?days=30&limit=30'),
-                    fetch('/api/songs/top5-of-day')
+                    fetchSongOfDay().then(song => { if (isMounted && song) setSongOfDay(song); return song }),
+                    request('/api/artists?scope=dhh').then(async res => { if (!res.ok) throw new Error('Catalog unavailable'); const data = await res.clone().json(); if (isMounted) setArtists(data || []); return res }),
+                    request('/api/albums/latest?scope=dhh'),
+                    request('/api/albums/upcoming?scope=dhh'),
+                    request('/api/songs/top/dhh?days=30&limit=30'),
+                    request('/api/songs/top5-of-day')
                 ])
 
                 if (!isMounted) return
@@ -235,21 +182,21 @@ export default function HomePage() {
 
                 if (artistsResult.status === 'fulfilled' && artistsResult.value.ok) {
                     const artistData = await artistsResult.value.json()
-                    if (isMounted) setArtists(artistData?.length > 0 ? artistData : MOCK_ARTISTS)
+                    if (isMounted) setArtists(artistData?.length > 0 ? artistData : [])
                 } else if (artistsResult.status === 'rejected') {
-                    setArtists(MOCK_ARTISTS)
+                    setArtists([]); setDataError(true)
                 }
 
                 if (latestResult.status === 'fulfilled' && latestResult.value.ok) {
                     const latestData = await latestResult.value.json()
-                    if (isMounted) setRecentReleases(latestData?.length > 0 ? latestData : MOCK_RECENT_RELEASES)
+                    if (isMounted) setRecentReleases(uniqueReleases(latestData || []))
                 } else if (latestResult.status === 'rejected') {
-                    setRecentReleases(MOCK_RECENT_RELEASES)
+                    setRecentReleases([])
                 }
 
                 if (upcomingResult.status === 'fulfilled' && upcomingResult.value.ok) {
                     const upcomingData = await upcomingResult.value.json()
-                    if (isMounted) setUpcomingReleases(upcomingData || [])
+                    if (isMounted) setUpcomingReleases(uniqueReleases(upcomingData || []))
                 } else if (upcomingResult.status === 'rejected') {
                     setUpcomingReleases([])
                 }
@@ -257,17 +204,17 @@ export default function HomePage() {
                 if (topSongsResult.status === 'fulfilled' && topSongsResult.value.ok) {
                     const songs = (await topSongsResult.value.json()) as Song[]
                     const withPreviews = (songs || []).filter(song => !!song.previewUrl)
-                    loadedTopSongs = withPreviews.length > 0 ? withPreviews : MOCK_TOP_SONGS
+                    loadedTopSongs = withPreviews.length > 0 ? withPreviews : []
                     if (isMounted) setTopSongs(loadedTopSongs)
                 } else if (topSongsResult.status === 'rejected') {
-                    setTopSongs(MOCK_TOP_SONGS)
+                    setTopSongs([])
                 }
 
                 if (top5Result.status === 'fulfilled' && top5Result.value.ok) {
                     const songs5 = (await top5Result.value.json()) as Song[]
-                    if (isMounted) setTop5OfDay(songs5?.length > 0 ? songs5 : MOCK_TOP_SONGS)
+                    if (isMounted) setTop5OfDay(songs5?.length > 0 ? songs5 : [])
                 } else if (top5Result.status === 'rejected') {
-                    setTop5OfDay(MOCK_TOP_SONGS)
+                    setTop5OfDay([])
                 }
 
                 const candidateSongs = [
@@ -288,7 +235,7 @@ export default function HomePage() {
                 }
 
                 if (isMounted) {
-                    setSongOfDay(nextSongOfDay || MOCK_TOP_SONGS[0])
+                    setSongOfDay(nextSongOfDay || [][0])
                 }
             } catch (err) {
                 console.error('Failed to load home page data:', err)
@@ -311,35 +258,6 @@ export default function HomePage() {
             isMounted = false
         }
     }, [])
-
-    useEffect(() => {
-        if (activeTab !== 'upcoming' || upcomingReleases.length > 0 || releaseRadar.length > 0) {
-            return
-        }
-
-        let cancelled = false
-
-        fetch('/api/ai-news')
-            .then(res => res.ok ? res.json() : null)
-            .then(payload => {
-                if (cancelled || !payload) return
-                const stories = (payload?.stories || []) as NewsStory[]
-                setReleaseRadar(
-                    stories
-                        .filter(story => story.category === 'Releases')
-                        .filter(story => story.time.toLowerCase().startsWith('in ')
-                            || /upcoming|soon|announce|tease|expected/i.test(`${story.title} ${story.summary}`))
-                        .slice(0, 6)
-                )
-            })
-            .catch(err => {
-                console.error('Failed to load release radar fallback:', err)
-            })
-
-        return () => {
-            cancelled = true
-        }
-    }, [activeTab, upcomingReleases.length, releaseRadar.length])
 
     useEffect(() => {
         const state = location.state as { openArtistId?: number; openArtist?: Artist; activeTab?: string } | null
@@ -368,7 +286,7 @@ export default function HomePage() {
     const allUniqueArtists = useMemo(() => {
         return Array.from(
             new Map(artists.map(artist => [artist.name.toLowerCase(), artist])).values()
-        )
+        ).sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }))
     }, [artists])
 
     const filteredArtists = useMemo(() => {
@@ -392,34 +310,8 @@ export default function HomePage() {
         return `0:${String(safe).padStart(2, '0')}`
     }
 
-    const openDirectSongYoutube = async (song: Song | null) => {
-        if (!song) return
-
-        try {
-            const res = await fetch(`/api/youtube/song/${song.id}`)
-            if (res.ok) {
-                const payload = await res.json()
-                if (payload?.url?.startsWith('https://www.youtube.com/watch?v=')) {
-                    window.open(payload.url, '_blank', 'noopener,noreferrer')
-                }
-            }
-        } catch (err) {
-            console.error(`Failed to resolve direct YouTube URL for song ${song.id}:`, err)
-        }
-    }
-
-    const openDirectAlbumYoutube = async (album: Album) => {
-        try {
-            const res = await fetch(`/api/youtube/album/${album.id}`)
-            if (res.ok) {
-                const payload = await res.json()
-                if (payload?.url?.startsWith('https://www.youtube.com/watch?v=')) {
-                    window.open(payload.url, '_blank', 'noopener,noreferrer')
-                }
-            }
-        } catch (err) {
-            console.error(`Failed to resolve direct YouTube URL for album ${album.id}:`, err)
-        }
+    const openDirectSongYoutube = (song: Song | null) => {
+        if (song) window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(getSongArtistName(song) + ' ' + song.title + ' official audio')}`, '_blank', 'noopener,noreferrer')
     }
 
     const toggleTopSongPreview = async (song: Song) => {
@@ -450,39 +342,12 @@ export default function HomePage() {
         }
     }
 
-    const handleArtistClick = async (artist: Artist) => {
-        if (isPreparingUniverse) return
-
-        const normalizedName = artist.name.toLowerCase().trim()
-        const isSeedheMaut = SM_NAMES.some(name => normalizedName === name || normalizedName.includes(name))
-        const targetArtist = isSeedheMaut ? (resolveSeedheMautArtist(artists, artist) || artist) : artist
-        const universe = buildArtistUniverse(targetArtist.name, targetArtist.genre, targetArtist.bio, [])
-        const route = isSeedheMaut ? '/universe/seedhe-maut' : `/universe/artist/${targetArtist.id}`
-
-        setIsPreparingUniverse(true)
-        try {
-            if (universe.logoUrl) {
-                await preloadImage(universe.logoUrl)
-            }
-
-            setUniverseTransition({
-                active: true,
-                artistName: targetArtist.name,
-                artist: targetArtist,
-                logoUrl: universe.logoUrl,
-                accentColor: universe.palette.primary,
-                label: universe.label,
-                transitionType: universe.transitionType,
-                nameEffect: universe.nameEffect,
-                markText: universe.markText,
-                route,
-            })
-        } finally {
-            setIsPreparingUniverse(false)
-        }
+    const handleArtistClick = (artist: Artist) => {
+        navigate(`/universe/artist/${artist.id}`, { state: { artist } })
     }
 
     const handleSearchKeyPress = (e: React.KeyboardEvent) => {
+        if (e.key === 'Escape') { setShowSearchDropdown(false); return }
         if (e.key === 'Enter' && filteredArtists.length > 0) {
             handleArtistClick(filteredArtists[0])
             setSearchQuery('')
@@ -495,15 +360,16 @@ export default function HomePage() {
             <header className="home-header">
                 <div className="header-container">
                     <Link to="/home" className="brand-block" style={{ textDecoration: 'none' }}>
-                        <h1 className="header-logo">HIPHOPHUB</h1>
-                        <span className="brand-kicker">Desi hip-hop, organized like a real product.</span>
+                        <span className="header-logo">HIPHOPHUB</span>
+                        <span className="brand-kicker">Independent sound. Shared culture.</span>
                     </Link>
 
                     <div className="header-center relative">
                         <input
                             type="text"
                             className="search-bar"
-                            placeholder="Search artists or jump to a profile..."
+                            placeholder="Find your artist…"
+                            aria-label="Search artists"
                             value={searchQuery}
                             onChange={(e) => {
                                 setSearchQuery(e.target.value)
@@ -519,6 +385,8 @@ export default function HomePage() {
                                     <div
                                         key={artist.id}
                                         className="search-dropdown-item"
+                                        role="button" tabIndex={0}
+                                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); void handleArtistClick(artist); setSearchQuery(''); setShowSearchDropdown(false) } }}
                                         onClick={() => {
                                             handleArtistClick(artist)
                                             setSearchQuery('')
@@ -526,7 +394,7 @@ export default function HomePage() {
                                         }}
                                     >
                                         <div className="search-artist-avatar">
-                                            {artist.imageUrl ? <img src={artist.imageUrl} alt={artist.name} /> : <div className="placeholder-avatar"></div>}
+                                            {artist.imageUrl ? <Artwork src={artistPortrait(artist.id)} alt={artist.name} /> : <div className="placeholder-avatar"></div>}
                                         </div>
                                         <span>{artist.name}</span>
                                     </div>
@@ -552,44 +420,46 @@ export default function HomePage() {
                 </div>
             </header>
 
-            <div className="tabs-container">
+            <nav className="tabs-container" aria-label="Explore HipHopHub">
                 <div className="tabs">
-                    <button className={`tab ${activeTab === 'songOfDay' ? 'active' : ''}`} onClick={() => setActiveTab('songOfDay')}>
+                    <button className={`tab ${activeTab === 'songOfDay' ? 'active' : ''}`} aria-current={activeTab === 'songOfDay' ? 'page' : undefined} onClick={() => setActiveTab('songOfDay')}>
                         Spotlight
                     </button>
-                    <button className={`tab ${activeTab === 'topSongs' ? 'active' : ''}`} onClick={() => setActiveTab('topSongs')}>
+                    <button className={`tab ${activeTab === 'topSongs' ? 'active' : ''}`} aria-current={activeTab === 'topSongs' ? 'page' : undefined} onClick={() => setActiveTab('topSongs')}>
                         Top Songs
                     </button>
-                    <button className={`tab ${activeTab === 'recentReleases' ? 'active' : ''}`} onClick={() => setActiveTab('recentReleases')}>
+                    <button className={`tab ${activeTab === 'recentReleases' ? 'active' : ''}`} aria-current={activeTab === 'recentReleases' ? 'page' : undefined} onClick={() => setActiveTab('recentReleases')}>
                         Recent
                     </button>
-                    <button className={`tab ${activeTab === 'upcoming' ? 'active' : ''}`} onClick={() => setActiveTab('upcoming')}>
+                    <button className={`tab ${activeTab === 'upcoming' ? 'active' : ''}`} aria-current={activeTab === 'upcoming' ? 'page' : undefined} onClick={() => setActiveTab('upcoming')}>
                         Upcoming
                     </button>
-                    <button className={`tab ${activeTab === 'artists' ? 'active' : ''}`} onClick={() => setActiveTab('artists')}>
+                    <button className={`tab ${activeTab === 'artists' ? 'active' : ''}`} aria-current={activeTab === 'artists' ? 'page' : undefined} onClick={() => setActiveTab('artists')}>
                         Artists
                     </button>
-                    <button className={`tab ${activeTab === 'news' ? 'active' : ''}`} onClick={() => setActiveTab('news')}>
-                        News / AI
+                    <button className={`tab ${activeTab === 'news' ? 'active' : ''}`} aria-current={activeTab === 'news' ? 'page' : undefined} onClick={() => setActiveTab('news')}>
+                        The Feed
                     </button>
-                    <button className={`tab ${activeTab === 'game' ? 'active' : ''}`} onClick={() => setActiveTab('game')}>
+                    <button className={`tab ${activeTab === 'game' ? 'active' : ''}`} aria-current={activeTab === 'game' ? 'page' : undefined} onClick={() => setActiveTab('game')}>
                         Play
                     </button>
                     {selectedArtistId && (
-                        <button className={`tab ${activeTab === 'artistProfile' ? 'active' : ''}`} onClick={() => setActiveTab('artistProfile')}>
+                        <button className={`tab ${activeTab === 'artistProfile' ? 'active' : ''}`} aria-current={activeTab === 'artistProfile' ? 'page' : undefined} onClick={() => setActiveTab('artistProfile')}>
                             Artist Profile
                         </button>
                     )}
                 </div>
-            </div>
+            </nav>
 
-            <main className="home-content">
-                <div className="container">
+            <main id="main-content" className="home-content">
+                <div className="container stage-view" key={activeTab}>
+                    {dataError && <div className="catalog-notice" role="alert">The catalog is taking a break. Try again in a moment. <button onClick={() => window.location.reload()}>Retry ↗</button></div>}
+                    {activeTab === 'songOfDay' && <section className="discovery-intro" aria-label="Daily discovery"><div><span className="section-kicker">THE INDEPENDENT FREQUENCY / DESI HIP-HOP</span><h1>GOOD MUSIC.<br/><em>CLOSE TO HOME.</em></h1></div><div className="intro-note"><span className="issue-mark">HH / 001</span><p>New sounds. Familiar streets.<br/>Your next obsession starts here.</p><button onClick={() => setActiveTab('artists')}>Explore the artists <span>↗</span></button></div></section>}
                     {activeTab === 'songOfDay' && (
                         <div className="song-of-day-section fade-in section-shell">
                             <div className="section-header">
                                 <div>
-                                    <span className="section-kicker">Spotlight rotation</span>
+                                    <span className="section-kicker">01 / IN THE SPOTLIGHT</span>
                                     <h2 className="section-title">Song of the Day</h2>
                                 </div>
                                 <span className="pill small">30s preview</span>
@@ -600,51 +470,44 @@ export default function HomePage() {
                                         <div className="song-cover-shell">
                                             <div className="song-cover">
                                                 {resolveSongCover(songOfDay) ? (
-                                                    <img src={resolveSongCover(songOfDay)} alt={songOfDay.title} />
+                                                    <Artwork src={resolveSongCover(songOfDay)} alt={songOfDay.title} />
                                                 ) : (
                                                     <div className="song-cover-placeholder">No cover</div>
                                                 )}
                                             </div>
                                             <div className="song-cover-meta">
-                                                <span>Daily pick</span>
+                                                <span>Daily pick</span><PlaybackMeter active={isSongPlaying} />
                                                 <span>{songOfDay.previewUrl ? 'Preview ready' : 'Audio unavailable'}</span>
                                             </div>
                                         </div>
                                         <div className="song-info">
                                             <span className="song-kicker">Curated listen</span>
-                                            <h3 className="song-title">{songOfDay.title}</h3>
+                                            <h3 className="song-title" title={songOfDay.title}>{songOfDay.title.split(/\s*\(feat\./i)[0]}</h3>{songOfDay.title.length > 65 && <details className="track-credits"><summary>Full title & credits</summary><p>{songOfDay.title}</p></details>}
                                             <p className="song-artist">{resolveSongArtist(songOfDay)}</p>
-                                            <p className="song-album">{songOfDay.album?.title || 'Unknown Album'}</p>
+                                            <p className="song-album">{songOfDay.album?.title || 'Unknown Album'}</p><ListeningLinks title={songOfDay.title} artist={resolveSongArtist(songOfDay)} youtubeUrl={songOfDay.youtubeUrl} />
                                             {songOfDay.previewUrl ? (
                                                 <div className="song-player-controls">
                                                     <button className="big-play" onClick={() => {
                                                         const audioEl = document.getElementById('song-of-day-player') as HTMLAudioElement | null
                                                         if (audioEl) {
-                                                            audioEl.paused ? audioEl.play() : audioEl.pause()
+                                                            audioEl.paused ? void audioEl.play().catch(() => setIsSongPlaying(false)) : audioEl.pause()
                                                         }
                                                     }}>
                                                         {isSongPlaying ? 'Pause' : 'Play'}
                                                     </button>
                                                     <div className="player-bar">
                                                         <div className="player-progress">
-                                                            <div className="player-progress-fill" />
+                                                            <div className="player-progress-fill" style={{width: `${Math.min(100, previewTime / 30 * 100)}%`}} />
                                                         </div>
                                                         <div className="player-meta">
                                                             <span>Preview</span>
                                                             <span>0:30</span>
                                                         </div>
                                                     </div>
-                                                    {songOfDay.youtubeUrl && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => openDirectSongYoutube(songOfDay)}
-                                                            className="yt-link-btn"
-                                                        >
-                                                            ▶ Play on YouTube
-                                                        </button>
-                                                    )}
+
                                                     <audio
                                                         id="song-of-day-player"
+                                                onTimeUpdate={e => setPreviewTime(e.currentTarget.currentTime)}
                                                         src={songOfDay.previewUrl}
                                                         preload="none"
                                                         onPlay={() => setIsSongPlaying(true)}
@@ -668,16 +531,17 @@ export default function HomePage() {
                                         </div>
                                         <div className="spotlight-list">
                                             {top5OfDay.map((song, index) => (
-                                                <button
+                                                <div className="spotlight-entry" key={song.id}><button
                                                     key={song.id}
                                                     type="button"
                                                     className="spotlight-row"
-                                                    disabled={!song.youtubeUrl}
-                                                    onClick={() => openDirectSongYoutube(song)}
+
+                                                    aria-label={`Listen to ${song.title}`}
+                                                    onClick={() => { if (song.previewUrl) { setSongOfDay(song); setPreviewTime(0) } else { void openDirectSongYoutube(song) } }}
                                                 >
                                                     <span className="spotlight-rank">0{index + 1}</span>
                                                     {resolveSongCover(song) ? (
-                                                        <img className="spotlight-thumb" src={resolveSongCover(song)} alt={song.title} />
+                                                        <Artwork className="spotlight-thumb" src={resolveSongCover(song)} alt={song.title} />
                                                     ) : (
                                                         <span className="spotlight-thumb placeholder" />
                                                     )}
@@ -685,7 +549,7 @@ export default function HomePage() {
                                                         <strong>{song.title}</strong>
                                                         <small>{resolveSongArtist(song)}</small>
                                                     </span>
-                                                </button>
+                                                </button><ListeningLinks title={song.title} artist={resolveSongArtist(song)} youtubeUrl={song.youtubeUrl} /></div>
                                             ))}
                                             {top5OfDay.length === 0 && (
                                                 <div className="spotlight-empty">Top songs are still syncing.</div>
@@ -699,6 +563,7 @@ export default function HomePage() {
                         </div>
                     )}
 
+                    {activeTab === 'songOfDay' && allUniqueArtists.length > 0 && <section className="universe-discover"><div className="section-header"><div><span className="section-kicker">02 / PEOPLE BEHIND THE RECORDS</span><h2 className="section-title">A WORLD OF THEIR OWN.</h2></div><button className="universe-all" onClick={() => setActiveTab('artists')}>All artists ↗</button></div><div className="universe-mini-grid">{allUniqueArtists.filter(a => ['seedhe maut','kr$na','divine','mc stan'].includes(a.name.toLowerCase())).slice(0,4).map(a => <button key={a.id} className="universe-mini" onClick={() => handleArtistClick(a)}><Artwork src={artistPortrait(a.id)} alt={a.name} loading="lazy"/><span><small>ENTER THE UNIVERSE</small><strong>{a.name}</strong></span><b aria-hidden="true">↗</b></button>)}</div></section>}
                     {activeTab === 'topSongs' && (
                         <div className="top-songs-section fade-in section-shell">
                             <div className="section-header">
@@ -720,7 +585,7 @@ export default function HomePage() {
                                                     <p>{resolveSongArtist(song)}</p>
                                                 </div>
                                                 <div className="song-card-media">
-                                                    {cover && <img className="song-thumb" src={cover} alt={song.title} />}
+                                                    {cover && <Artwork className="song-thumb" src={cover} alt={song.title} />}
                                                     {song.previewUrl ? (
                                                         <div className="top-song-player">
                                                             <div className="top-song-controls">
@@ -764,15 +629,7 @@ export default function HomePage() {
                                                         <span className="preview-unavailable">Preview unavailable</span>
                                                     )}
                                                 </div>
-                                                {song.youtubeUrl && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => openDirectSongYoutube(song)}
-                                                        className="yt-link-btn"
-                                                    >
-                                                        ▶ Play on YouTube
-                                                    </button>
-                                                )}
+                                                <ListeningLinks title={song.title} artist={resolveSongArtist(song)} youtubeUrl={song.youtubeUrl} />
                                             </div>
                                         )
                                     })}
@@ -798,24 +655,16 @@ export default function HomePage() {
                                         <div key={album.id} className="album-card card">
                                             <div className="album-cover">
                                                 {album.coverImageUrl || album.coverUrl ? (
-                                                    <img src={album.coverImageUrl || album.coverUrl} alt={album.title} />
+                                                    <Artwork src={album.coverImageUrl || album.coverUrl} alt={album.title} />
                                                 ) : (
                                                     <div className="album-cover-placeholder">No cover</div>
                                                 )}
                                             </div>
                                             <span className="album-kicker">Recent drop</span>
                                             <h4>{album.title}</h4>
-                                            <p>{album.artist?.name}</p>
+                                            <p>{!album.sourceUrl && (album.type || album.albumType) === 'APPEARS_ON' ? 'Featuring ' : ''}{album.artist?.name}</p>{album.sourceUrl && <a className="release-source" href={album.sourceUrl} target="_blank" rel="noopener noreferrer">Release credits ↗</a>}
                                             <p className="release-date">{formatDate(album.releaseDate)}</p>
-                                            {album.youtubeUrl && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => openDirectAlbumYoutube(album)}
-                                                    className="yt-link-btn"
-                                                >
-                                                    ▶ Play on YouTube
-                                                </button>
-                                            )}
+                                            <ListeningLinks title={album.title} artist={album.artist?.name} youtubeUrl={album.youtubeUrl} />
                                         </div>
                                     ))}
                                 </div>
@@ -832,7 +681,7 @@ export default function HomePage() {
                                     <span className="section-kicker">Forward radar</span>
                                     <h2 className="section-title">Upcoming Albums</h2>
                                 </div>
-                                <span className="pill small">AI radar</span>
+                                <span className="pill small">Announcement watch</span>
                             </div>
                             {upcomingReleases.length > 0 ? (
                                 <div className="releases-grid">
@@ -840,24 +689,16 @@ export default function HomePage() {
                                         <div key={album.id} className="album-card card">
                                             <div className="album-cover">
                                                 {album.coverImageUrl || album.coverUrl ? (
-                                                    <img src={album.coverImageUrl || album.coverUrl} alt={album.title} />
+                                                    <Artwork src={album.coverImageUrl || album.coverUrl} alt={album.title} />
                                                 ) : (
                                                     <div className="album-cover-placeholder">No cover</div>
                                                 )}
                                             </div>
                                             <span className="album-kicker">Announced</span>
                                             <h4>{album.title}</h4>
-                                            <p>{album.artist?.name}</p>
+                                            <p>{!album.sourceUrl && (album.type || album.albumType) === 'APPEARS_ON' ? 'Featuring ' : ''}{album.artist?.name}</p>{album.sourceUrl && <a className="release-source" href={album.sourceUrl} target="_blank" rel="noopener noreferrer">Release credits ↗</a>}
                                             <p className="release-date">{formatDate(album.releaseDate)}</p>
-                                            {album.youtubeUrl && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => openDirectAlbumYoutube(album)}
-                                                    className="yt-link-btn"
-                                                >
-                                                    ▶ Play on YouTube
-                                                </button>
-                                            )}
+                                            <ListeningLinks title={album.title} artist={album.artist?.name} youtubeUrl={album.youtubeUrl} />
                                         </div>
                                     ))}
                                 </div>
@@ -874,7 +715,7 @@ export default function HomePage() {
                                     ))}
                                 </div>
                             ) : (
-                                <p className="empty-message">{loading ? 'Loading upcoming releases...' : 'No upcoming DHH albums are available yet.'}</p>
+                                <p className="empty-message">{loading ? 'Loading upcoming releases...' : 'No confirmed album announcements in our catalog. Explore The Feed for sourced releases and upcoming shows.'}</p>
                             )}
                         </div>
                     )}
@@ -884,9 +725,9 @@ export default function HomePage() {
                             <div className="section-header">
                                 <div>
                                     <span className="section-kicker">Artist directory</span>
-                                    <h2 className="section-title">Featured Artists</h2>
+                                    <h2 className="section-title">ENTER THEIR WORLD.</h2>
                                 </div>
-                                <p className="section-sub">Open full artist profiles with songs, releases, facts, tours, and games</p>
+                                <p className="section-sub">The voices shaping the scene. Pick an artist. Find your frequency.</p>
                             </div>
                             {allUniqueArtists.length > 0 ? (
                                 <div className="artists-grid">
@@ -894,13 +735,17 @@ export default function HomePage() {
                                         <div
                                             key={artist.id}
                                             className="artist-card card"
+                                            role="button" tabIndex={0}
+                                            aria-label={`Enter ${artist.name} universe`}
+                                            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); void handleArtistClick(artist) } }}
                                             onClick={() => handleArtistClick(artist)}
                                         >
                                             <div className="artist-image">
                                                 {!artistImageErrorMap[artist.id] ? (
-                                                    <img
-                                                        src={`/api/images/artist/${artist.id}`}
+                                                    <Artwork
+                                                        src={artistPortrait(artist.id)}
                                                         alt={artist.name}
+                                                        loading="lazy" decoding="async"
                                                         onError={() => setArtistImageErrorMap(prev => ({ ...prev, [artist.id]: true }))}
                                                     />
                                                 ) : (
@@ -942,34 +787,7 @@ export default function HomePage() {
                 </div>
             </main>
 
-            {/* Universe transition overlay */}
-            {universeTransition?.active && (
-                <UniverseTransition
-                    artistName={universeTransition.artistName}
-                    logoUrl={universeTransition.logoUrl}
-                    markText={universeTransition.markText}
-                    accentColor={universeTransition.accentColor}
-                    label={universeTransition.label}
-                    transitionType={universeTransition.transitionType}
-                    nameEffect={universeTransition.nameEffect}
-                    duration={2600}
-                    onComplete={() => {
-                        const artist = universeTransition.artist
-                        const route = universeTransition.route
-                        setUniverseTransition(null)
-                        navigate(route, {
-                            state: {
-                                artist,
-                                returnState: {
-                                    openArtistId: artist.id,
-                                    openArtist: artist,
-                                    activeTab: 'artistProfile'
-                                }
-                            }
-                        })
-                    }}
-                />
-            )}
+            <footer className="site-footer"><span>HIPHOPHUB®</span><p>For the heads. For the culture. </p><Link to="/">Back to the beginning ↗</Link></footer>
         </div>
     )
 }

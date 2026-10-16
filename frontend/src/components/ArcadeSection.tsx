@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react'
+import { memo, useState } from 'react'
 import CompleteLyricGame from './CompleteLyricGame'
 import ArtistBlitzGame from './ArtistBlitzGame'
 import DhhConnectionsGame from './DhhConnectionsGame'
@@ -99,7 +99,7 @@ function ArcadeSectionComponent() {
                     <p className="game-description arcade-section__description">
                         {loading && totalArtists === 0
                             ? 'Loading arcade catalog...'
-                            : `The flagship HipHopHub arcade runs on ${totalArtists.toLocaleString()} artists, ${totalTracks.toLocaleString()} tracks, ${totalReleases.toLocaleString()} releases, and ${catalog.playableLyrics.length.toLocaleString()} lyric rounds.`}
+                            : `Test your knowledge of ${totalArtists.toLocaleString()} artists, ${totalTracks.toLocaleString()} tracks, ${totalReleases.toLocaleString()} releases, and ${catalog.playableLyrics.length.toLocaleString()} lyric rounds. Pick your challenge.`}
                     </p>
                 </div>
                 <div className="arcade-section__stats" aria-label="Arcade catalog stats">

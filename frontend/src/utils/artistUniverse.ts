@@ -94,9 +94,9 @@ const SPECIAL_THEMES: Record<string, ArtistThemeOverride> = {
     },
     'divine': {
         palette: {
-            primary: '#6da0ff',
-            secondary: '#1d365f',
-            tertiary: '#090f1b',
+            primary: '#e6af61',
+            secondary: '#5d391e',
+            tertiary: '#17100b',
             text: '#edf4ff',
             surface: 'rgba(9, 15, 27, 0.82)',
         },
@@ -125,6 +125,22 @@ const SPECIAL_THEMES: Record<string, ArtistThemeOverride> = {
         transitionType: 'pulse',
         nameEffect: 'warm-pulse',
     },
+}
+
+
+const STAGE_PALETTES: Record<string, { primary: string; secondary: string; tertiary: string }> = {
+    'seedhe-maut': { primary: '#ffb39d', secondary: '#652c23', tertiary: '#35201b' },
+    'calm': { primary: '#aedbff', secondary: '#214c7b', tertiary: '#182d48' },
+    'encore-abj': { primary: '#ffd0aa', secondary: '#694128', tertiary: '#38291d' },
+    'kr-na': { primary: '#bdd5ff', secondary: '#244175', tertiary: '#1b2947' },
+    'divine': { primary: '#ffd29b', secondary: '#64402a', tertiary: '#382c25' },
+    'mc-stan': { primary: '#c6d7da', secondary: '#344c50', tertiary: '#222e30' },
+    'emiway-bantai': { primary: '#ffbf9e', secondary: '#663a2c', tertiary: '#3c2726' },
+    'raftaar': { primary: '#ffba94', secondary: '#713d2c', tertiary: '#402a27' },
+    'dhanji': { primary: '#ffe3a0', secondary: '#6b532a', tertiary: '#3d3425' },
+    'bella': { primary: '#b7efd7', secondary: '#28584b', tertiary: '#1c3534' },
+    'prabh-deep': { primary: '#a9f2ed', secondary: '#1c5b63', tertiary: '#19383f' },
+    'nanku': { primary: '#f1d0a6', secondary: '#624b30', tertiary: '#352c22' },
 }
 
 const GENERIC_EFFECTS: NameEffect[] = ['classic', 'sharp', 'soft-glow', 'chrome', 'shimmer', 'warm-pulse']
@@ -274,7 +290,12 @@ export const buildArtistUniverse = (
     const slug = normalizeArtistName(safeName)
     const baseHash = hashString(`${safeName}|${genre || ''}`)
     const override = getThemeOverride(slug)
-    const palette = override?.palette || buildSeededPalette(safeName, genre)
+    const seedPalette = override?.palette || buildSeededPalette(safeName, genre)
+    const rawHue = baseHash % 360
+    // Keep seeded worlds out of the violet/magenta range.
+    const stageHue = rawHue >= 245 && rawHue <= 335 ? (rawHue - 245) * 1.6 + 20 : rawHue
+    const stagePalette = STAGE_PALETTES[slug] || { primary: hslToHex(stageHue, 55, 79), secondary: hslToHex(stageHue, 32, 27), tertiary: hslToHex(stageHue, 23, 17) }
+    const palette = { ...seedPalette, ...stagePalette, text: '#f7f2ea' }
     const transitionType = override?.transitionType || GENERIC_TRANSITIONS[baseHash % GENERIC_TRANSITIONS.length]
     const nameEffect = override?.nameEffect || GENERIC_EFFECTS[(baseHash >> 2) % GENERIC_EFFECTS.length]
     const releaseYears = buildReleaseYears(albums)
@@ -284,6 +305,11 @@ export const buildArtistUniverse = (
     const watermark = markText
 
     const style: CSSProperties = {
+        '--world-accent': palette.primary,
+        '--world-base': palette.tertiary,
+        '--world-colour': palette.secondary,
+        '--world-panel': rgba(palette.tertiary, 0.75),
+        '--world-soft': rgba(palette.primary, 0.13),
         '--artist-accent-a': rgba(palette.primary, 0.22),
         '--artist-accent-b': rgba(palette.secondary, 0.18),
         '--artist-accent-c': rgba(palette.primary, 0.08),

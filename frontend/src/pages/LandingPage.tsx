@@ -1,6 +1,10 @@
+import PlaybackMeter from '../components/PlaybackMeter'
+import ListeningLinks from '../components/ListeningLinks'
+import Artwork from '../components/Artwork'
+import { request } from '../utils/request'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { hashString, pickDistinctItems, pickLeastRecent, readRecentValues, writeRecentValue } from '../utils/rotation'
+import { hashString, pickDistinctItems, writeRecentValue } from '../utils/rotation'
 import { useAuth } from '../context/AuthContext'
 import './LandingPage.css'
 
@@ -13,7 +17,7 @@ const marqueeItems = [
     'Guess-the-track game'
 ]
 
-const DEFAULT_COVER = 'https://images.unsplash.com/photo-1464375117522-1311d6a5b81f?auto=format&fit=crop&w=1200&q=80'
+const DEFAULT_COVER = '/assets/record-sleeve.svg'
 
 interface LandingTrack {
     id?: number
@@ -145,7 +149,7 @@ const normalizeSongPoolTrack = (song: LandingSongPoolItem): LandingTrack | null 
 
 const fetchLandingTrack = async (): Promise<LandingTrack | null> => {
     try {
-        const songRes = await fetch('/api/songs/random')
+        const songRes = await request('/api/songs/random')
         if (songRes.ok) {
             const song = normalizeRandomSong(await songRes.json())
             if (song) {
@@ -157,7 +161,7 @@ const fetchLandingTrack = async (): Promise<LandingTrack | null> => {
     }
 
     try {
-        const fallbackRes = await fetch('/api/landing/background-song')
+        const fallbackRes = await request('/api/landing/background-song')
         if (fallbackRes.ok) {
             const fallback = normalizeFallbackSong(await fallbackRes.json())
             if (fallback) {
@@ -219,8 +223,8 @@ export default function LandingPage() {
     const [undergroundArtists, setUndergroundArtists] = useState<LandingArtist[]>([])
     const [triviaItems, setTriviaItems] = useState<LandingTriviaItem[]>([])
     const [sceneControlStats, setSceneControlStats] = useState<SceneControlStat[]>([
-        { label: 'Artists', value: '0' },
-        { label: 'Playable cuts', value: '0' },
+        { label: 'Artists', value: '—' },
+        { label: 'Playable cuts', value: '—' },
         { label: 'Daily rotations', value: '3' }
     ])
     const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -235,9 +239,9 @@ export default function LandingPage() {
 
             try {
                 const [overviewResult, artistResult, songPoolResult] = await Promise.allSettled([
-                    fetch('/api/landing/overview'),
-                    fetch('/api/artists?scope=dhh'),
-                    fetch('/api/songs/top/dhh?days=365&limit=36')
+                    request('/api/landing/overview'),
+                    request('/api/artists?scope=dhh'),
+                    request('/api/songs/top/dhh?days=365&limit=36')
                 ])
 
                 let overviewTrack: LandingTrack | null = null
@@ -365,7 +369,7 @@ export default function LandingPage() {
 
         audio.autoplay = true
         audio.preload = 'auto'
-        audio.playsInline = true
+        audio.setAttribute('playsinline', '')
         audio.muted = true
         setIsMuted(true)
         audio.currentTime = 0
@@ -416,30 +420,13 @@ export default function LandingPage() {
         setIsMuted(nextMuted)
     }
 
-    const openYouTube = async () => {
-        if (!selectedTrack?.id) return
-
-        try {
-            const res = await fetch(`/api/youtube/song/${selectedTrack.id}`)
-            if (res.ok) {
-                const payload = await res.json()
-                if (payload?.url?.startsWith('https://www.youtube.com/watch?v=')) {
-                    window.open(payload.url, '_blank', 'noopener,noreferrer')
-                }
-            }
-        } catch (err) {
-            console.error('Failed to resolve direct YouTube URL for landing track:', err)
-        }
-    }
-
     return (
-        <div className="landing-page">
+        <div id="main-content" className="landing-page">
             <audio
                 ref={audioRef}
                 className="background-audio"
                 src={selectedTrack?.previewUrl || ''}
-                autoPlay
-                playsInline
+                                playsInline
                 preload="auto"
                 muted={isMuted}
                 onPlay={() => setIsPlaying(true)}
@@ -473,12 +460,12 @@ export default function LandingPage() {
 
             <section className="landing-hero">
                 <div className="hero-text fade-in">
-                    <div className="hero-copy-stack">
+                    <div className="hero-copy-stack"><span className="landing-eyebrow">INDEPENDENT SOUND. SHARED CULTURE.</span>
                         <h1 className="landing-logo">
-                            Discover Desi hip-hop, curated.
+                            <span>BEYOND</span><span>THE <em>HYPE.</em></span>
                         </h1>
                         <p className="landing-tagline">
-                            Live previews, artist universes, underground radar, and scene context — built for enthusiasts, not algorithms.
+                            From the underground to your everyday rotation. Discover the voices, records, and stories moving Desi hip-hop.
                         </p>
                     </div>
 
@@ -487,14 +474,14 @@ export default function LandingPage() {
                             className="btn btn-primary btn-landing"
                             onClick={() => navigate('/home')}
                         >
-                            Enter HipHopHub
+                            Find your frequency ↗
                         </button>
                     </div>
 
                     <div className="scene-control-room">
                         <div className="scene-control-copy">
-                            <span className="scene-control-kicker">Scene Control Room</span>
-                            <p>Jump into artist profiles, latest playable cuts, and the arcade without leaving the hero.</p>
+                            <span className="scene-control-kicker">THE SCENE IS YOURS.</span>
+                            <p>Dig into the artists. Put a record on. Test how deep your knowledge goes.</p>
                         </div>
                         <div className="scene-control-stats">
                             {sceneControlStats.map((stat) => (
@@ -516,12 +503,12 @@ export default function LandingPage() {
                     <div className="now-playing-card">
                         <div className="np-header">
                             <span className="pill small">Now playing</span>
-                            <span className="pulse-dot" />
+                            <PlaybackMeter active={isPlaying} />
                         </div>
                         <div className="np-body">
                             <div className="np-cover-shell">
                                 <div className="np-cover">
-                                    <img src={heroCover} alt={selectedTrack?.title || 'HipHopHub mix'} />
+                                    <Artwork src={heroCover} alt={selectedTrack?.title || 'HipHopHub mix'} />
                                     <div className="floating-eq" />
                                 </div>
                                 <div className="np-caption-row">
@@ -534,7 +521,7 @@ export default function LandingPage() {
                                     <button className="np-play" disabled={!canPlay} onClick={handleTogglePlay}>
                                         {canPlay ? (isPlaying ? '⏸ Pause' : '▶ Play') : 'No preview'}
                                     </button>
-                                    <button className="np-play" disabled={!canPlay} onClick={toggleMute}>
+                                    <button className="np-play" aria-label={isMuted ? 'Unmute preview' : 'Mute preview'} disabled={!canPlay} onClick={toggleMute}>
                                         {isMuted ? '🔇' : '🔊'}
                                     </button>
                                 </div>
@@ -545,11 +532,7 @@ export default function LandingPage() {
                                     <span>Random cut</span>
                                     <span>{selectedTrack?.previewUrl ? 'Ready' : 'Syncing'}</span>
                                 </div>
-                                {selectedTrack?.id && selectedTrack?.youtubeUrl && (
-                                    <button type="button" className="np-yt" onClick={openYouTube}>
-                                        ▶ YouTube
-                                    </button>
-                                )}
+                                {selectedTrack && <ListeningLinks title={selectedTrack.title} artist={selectedTrack.artistName} youtubeUrl={selectedTrack.youtubeUrl} />}
                                 {autoplayBlocked && (
                                     <p className="autoplay-hint">Tap Play to start.</p>
                                 )}
@@ -572,7 +555,7 @@ export default function LandingPage() {
                                         key={artist.id}
                                         type="button"
                                         className="landing-list-row"
-                                        onClick={() => navigate('/home')}
+                                        onClick={() => navigate(`/universe/artist/${artist.id}`, { state: { artist } })}
                                     >
                                         <span className="landing-rank">{artist.name.charAt(0)}</span>
                                         <span className="landing-copy">
@@ -612,7 +595,7 @@ export default function LandingPage() {
                 </div>
             </section>
 
-            <section className="marquee" aria-label="HipHopHub capabilities">
+            <section className="marquee" aria-label="Explore music, artists, and culture">
                 <div className="marquee-track">
                     {[...marqueeItems, ...marqueeItems, ...marqueeItems, ...marqueeItems].map((item, idx) => (
                         <span key={idx} className="chip">{item}</span>

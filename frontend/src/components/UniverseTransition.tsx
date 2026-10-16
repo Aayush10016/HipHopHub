@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import type { NameEffect, TransitionType } from '../utils/artistUniverse'
 import './UniverseTransition.css'
@@ -30,6 +30,8 @@ function UniverseTransition({
 }: UniverseTransitionProps) {
     const [phase, setPhase] = useState<Phase>('preparing')
     const [assetsReady, setAssetsReady] = useState(!logoUrl)
+    const onCompleteRef = useRef(onComplete)
+    onCompleteRef.current = onComplete
 
     useEffect(() => {
         if (!logoUrl) {
@@ -38,6 +40,7 @@ function UniverseTransition({
         }
 
         let cancelled = false
+        const fallbackTimer = window.setTimeout(() => setAssetsReady(true), 900)
         const img = new Image()
         img.onload = () => {
             if (!cancelled) setAssetsReady(true)
@@ -49,15 +52,17 @@ function UniverseTransition({
 
         return () => {
             cancelled = true
+            window.clearTimeout(fallbackTimer)
         }
     }, [logoUrl])
 
     useEffect(() => {
         if (!assetsReady) return
 
-        const fadeInDelay = 520
-        const holdDuration = Math.max(duration - 980, 1800)
-        const exitDuration = 460
+        const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        const fadeInDelay = reduced ? 0 : 160
+        const holdDuration = reduced ? 0 : Math.max(duration - 400, 200)
+        const exitDuration = reduced ? 0 : 240
 
         setPhase('entering')
 
@@ -65,7 +70,7 @@ function UniverseTransition({
         const exitTimer = window.setTimeout(() => setPhase('exiting'), fadeInDelay + holdDuration)
         const completeTimer = window.setTimeout(() => {
             setPhase('done')
-            onComplete()
+            onCompleteRef.current()
         }, fadeInDelay + holdDuration + exitDuration)
 
         return () => {
@@ -73,7 +78,7 @@ function UniverseTransition({
             window.clearTimeout(exitTimer)
             window.clearTimeout(completeTimer)
         }
-    }, [assetsReady, duration, onComplete])
+    }, [assetsReady, duration])
 
     const subtitle = label || `ENTERING THE ${artistName.toUpperCase()} UNIVERSE`
     const safeMark = useMemo(() => (markText || artistName.slice(0, 2)).toUpperCase(), [artistName, markText])
@@ -93,6 +98,7 @@ function UniverseTransition({
             aria-label={subtitle}
             style={{ '--ut-accent': accentColor } as CSSProperties}
         >
+            <button className="ut-skip" onClick={onComplete}>Skip intro ↗</button>
             <div className="ut-shutter ut-shutter--left" aria-hidden="true" />
             <div className="ut-shutter ut-shutter--right" aria-hidden="true" />
             <div className="ut-glow" />

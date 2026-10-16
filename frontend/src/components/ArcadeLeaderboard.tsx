@@ -77,7 +77,7 @@ export default function ArcadeLeaderboard({ mode, title }: { mode: 'RAPID_FIRE' 
                             <span className="arcade-board-rank">#{index + 1}</span>
                             <strong className="arcade-board-name">{index === 0 ? <><span className="arcade-board-crown">? </span>{entry.username}</> : entry.username}</strong>
                             <span className="arcade-board-score">{entry.bestPoints}</span>
-                            <span className="arcade-board-streak">{entry.streak || '—'}</span>
+                            <span className="arcade-board-streak">{entry.streak || 'â€”'}</span>
                         </div>
                     ))}
                 </div>

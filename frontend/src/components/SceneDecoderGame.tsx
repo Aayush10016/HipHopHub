@@ -62,7 +62,7 @@ const buildFallbackSceneQuestions = (artists: GameCatalogArtist[], releases: Gam
                     prompt: `Which collective is linked with ${artist.name}?`,
                     answer: collective,
                     options: buildOptions(collective, collectives),
-                    explanation: `${artist.name} is mapped to ${collective} in the verified catalog.`,
+                    explanation: `${artist.name} is mapped to ${collective} in the catalog.`,
                 })
             }
         }
@@ -76,7 +76,7 @@ const buildFallbackSceneQuestions = (artists: GameCatalogArtist[], releases: Gam
                     prompt: `Which label is connected to ${artist.name}?`,
                     answer: label,
                     options: buildOptions(label, labels),
-                    explanation: `${artist.name} is associated with ${label} in the verified catalog.`,
+                    explanation: `${artist.name} is associated with ${label} in the catalog.`,
                 })
             }
         }
@@ -91,7 +91,7 @@ const buildFallbackSceneQuestions = (artists: GameCatalogArtist[], releases: Gam
             prompt: `Which year did "${release.title}" release?`,
             answer: year,
             options: buildOptions(year, years),
-            explanation: `${release.title} is stored with a ${year} release date in the verified catalog.`,
+            explanation: `${release.title} is stored with a ${year} release date in the catalog.`,
         })
     })
 
@@ -206,7 +206,7 @@ function SceneDecoderGameComponent({ onBack }: { onBack: () => void }) {
                             <span className="arcade-game-chip">Did-you-know trivia mode</span>
                         </div>
                         <h3>{current.prompt}</h3>
-                        <p>Answer first, then get a context note pulled from the verified catalog.</p>
+                        <p>Answer first, then get a context note pulled from the catalog.</p>
                     </div>
                 </div>
             ) : undefined}

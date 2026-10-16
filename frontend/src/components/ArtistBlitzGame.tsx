@@ -24,8 +24,6 @@ const buildOptions = (answer: string, pool: string[], size = 4) => {
 
 const buildFallbackBlitzQuestions = (artists: GameCatalogArtist[], songs: GameCatalogSong[], releases: GameCatalogRelease[]) => {
     const artistNames = artists.map(artist => artist.name)
-    const cities = unique(artists.map(artist => artist.city || ''))
-    const labels = unique(artists.flatMap(artist => artist.labels || []))
     const years = unique(releases.map(release => (release.releaseDate || '').slice(0, 4)).filter(Boolean))
 
     const questions: ArcadeArtistQuestion[] = []

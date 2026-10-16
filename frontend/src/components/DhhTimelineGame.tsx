@@ -152,7 +152,7 @@ function DhhTimelineGameComponent({ onBack }: { onBack: () => void }) {
                             <span className="arcade-game-chip">Drag or tap to place</span>
                         </div>
                         <h3>Arrange the releases from earliest to latest.</h3>
-                        <p>Only official dated releases from the verified HipHopHub catalog are used here.</p>
+                        <p>Only official dated releases from the HipHopHub catalog are used here.</p>
                     </div>
                 </div>
             ) : undefined}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import './DHHMascot.css';
 
 const TRIVIA = [
@@ -110,10 +110,7 @@ export default function DHHMascot() {
         setTimeout(() => setBubbleVisible(false), 5000);
     };
 
-    useEffect(() => {
-        const interval = setInterval(showRandomFact, 18000);
-        return () => clearInterval(interval);
-    }, []);
+
 
     const handleClick = () => {
         showRandomFact();
@@ -126,9 +123,9 @@ export default function DHHMascot() {
                     <p>{TRIVIA[triviaIndex]}</p>
                 </div>
             )}
-            <div className="dhh-mascot" onClick={handleClick}>
+            <button className="dhh-mascot" aria-label="Show a hip-hop fact" onClick={handleClick}>
                 <img src="/mascot_clean.png" alt="DHH Mascot" />
-            </div>
+            </button>
         </div>
     );
 }

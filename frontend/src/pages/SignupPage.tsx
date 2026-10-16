@@ -41,17 +41,17 @@ export default function SignupPage() {
     }
 
     return (
-        <div className="auth-page">
+        <div id="main-content" className="auth-page"><div className="auth-editorial"><a href="/">HIPHOPHUB®</a><span>FOR THE HEADS.<br/>FOR THE CULTURE.</span><p>Your place in the scene starts here.</p></div>
             <div className="auth-container card">
                 <h1 className="auth-title">Join HipHopHub</h1>
                 <p className="auth-subtitle">Create your account</p>
 
                 <form onSubmit={handleSignup} className="auth-form">
                     <div className="form-group">
-                        <label>Username</label>
+                        <label htmlFor="username">Username</label>
                         <input
                             type="text"
-                            value={username}
+                            id="username" autoComplete="username" value={username}
                             onChange={(e) => setUsername(e.target.value)}
                             placeholder="username"
                             required
@@ -59,10 +59,10 @@ export default function SignupPage() {
                     </div>
 
                     <div className="form-group">
-                        <label>Email</label>
+                        <label htmlFor="email">Email</label>
                         <input
                             type="email"
-                            value={email}
+                            id="email" autoComplete="email" value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             placeholder="your@email.com"
                             required
@@ -70,28 +70,28 @@ export default function SignupPage() {
                     </div>
 
                     <div className="form-group">
-                        <label>Password</label>
+                        <label htmlFor="password">Password</label>
                         <input
                             type="password"
-                            value={password}
+                            id="password" autoComplete="new-password" value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder="password"
                             required
                         />
                     </div>
 
-                    <button type="submit" className="btn btn-primary auth-btn">
+                    <button type="submit" disabled={loading} className="btn btn-primary auth-btn">
                         {loading ? 'Creating account...' : 'Sign Up'}
                     </button>
                 </form>
 
-                {error && <p className="auth-error">{error}</p>}
+                {error && <p role="alert" className="auth-error">{error}</p>}
 
                 <p className="auth-footer">
                     Already have an account?{' '}
-                    <span className="auth-link" onClick={() => navigate('/login')}>
+                    <button type="button" className="auth-link" onClick={() => navigate('/login')}>
                         Log In
-                    </span>
+                    </button>
                 </p>
 
                 <button className="btn btn-secondary mt-md" onClick={() => navigate('/')}>

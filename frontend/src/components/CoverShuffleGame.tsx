@@ -36,7 +36,7 @@ export default function CoverShuffleGame() {
     useEffect(() => {
         fetch('/api/songs/top/dhh?days=365&limit=60')
             .then(res => res.ok ? res.json() : [])
-            .then(data => setSongs(shuffle((data || []).filter((song: SongOption) => !!song.title)).slice(0, 20)))
+            .then((data: SongOption[]) => setSongs(shuffle((data || []).filter((song: SongOption) => !!song.title)).slice(0, 20)))
             .catch(() => setSongs([]))
     }, [])
 

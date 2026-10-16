@@ -1,0 +1,58 @@
+{
+  "checkedAt": "2026-10-15",
+  "stories": [
+    {
+      "id": "farhan-cover",
+      "title": "Farhan Khan on a changing independent scene",
+      "summary": "Rolling Stone India profiles Farhan Khan alongside Sanju Rathod and Anurag Saikia in its September/October cover story.",
+      "category": "Stories",
+      "date": "2026-10-09",
+      "source": "Rolling Stone India",
+      "url": "https://rollingstoneindia.com/indie-music-sanju-rathod-farhan-khan-anurag-saikia-cover-story/"
+    },
+    {
+      "id": "distortion",
+      "title": "distortion \u2014 Hurricane & DL91 Era",
+      "summary": "The artist credit on Apple Music names Hurricane and DL91 Era. The 18-track release arrived on 9 October.",
+      "category": "Releases",
+      "date": "2026-10-09",
+      "source": "Apple Music \u00b7 release credits",
+      "url": "https://music.apple.com/us/album/distortion/6818165582"
+    },
+    {
+      "id": "mad-dawg",
+      "title": "Karma releases MAD DAWG 101",
+      "summary": "One album, with guest appearances across its tracks. Apple Music lists Karma as the album artist, with 19 songs across two discs.",
+      "category": "Releases",
+      "date": "2026-10-08",
+      "source": "Apple Music \u00b7 release credits",
+      "url": "https://music.apple.com/us/album/mad-dawg-101/6819835426"
+    }
+  ],
+  "events": [
+    {
+      "id": -101,
+      "artistId": 8,
+      "artist": "Raftaar",
+      "venue": "Major Dhyan Chand National Stadium",
+      "city": "New Delhi",
+      "country": "India",
+      "eventDate": "2026-10-17T19:00:00+05:30",
+      "ticketUrl": "https://www.district.in/events/raftaar-live-concert-delhi-oct17-2026-buy-tickets",
+      "source": "District",
+      "title": "Raftaar \u00b7 Live in Delhi"
+    },
+    {
+      "id": -102,
+      "artistId": 3,
+      "artist": "Seedhe Maut",
+      "venue": "N.S.I.C. Exhibition Grounds",
+      "city": "New Delhi",
+      "country": "India",
+      "eventDate": "2026-11-01T19:30:00+05:30",
+      "ticketUrl": "https://www.bandsintown.com/e/1040229833-seedhe-maut-at-n.s.i.c-exhibition-grounds",
+      "source": "Bandsintown \u00b7 artist listing",
+      "title": "Seedhe Maut \u00b7 HorrorCon India"
+    }
+  ]
+}

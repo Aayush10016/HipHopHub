@@ -56,7 +56,7 @@ const buildFallbackConnections = (artists: GameCatalogArtist[]): ArcadeConnectio
                 id: key,
                 category: bucket.category,
                 label: bucket.label,
-                clue: `${bucket.category} · ${bucket.label}`,
+                clue: `${bucket.category} Â· ${bucket.label}`,
                 artistNames: names.slice(0, 4),
             })
         }
@@ -151,7 +151,7 @@ function DhhConnectionsGameComponent({ onBack }: { onBack: () => void }) {
         if (matched) {
             setSolvedGroups(prev => [...prev, matched.id])
             setScore(prev => prev + 250)
-            setMessage(`${matched.label} solved · ${matched.clue}`)
+            setMessage(`${matched.label} solved Â· ${matched.clue}`)
         } else {
             setAttemptsLeft(prev => Math.max(0, prev - 1))
             setMessage('That group does not share the same connection.')

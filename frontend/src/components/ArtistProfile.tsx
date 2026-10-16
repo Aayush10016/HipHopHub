@@ -1,7 +1,13 @@
+import ListeningLinks from './ListeningLinks'
+import { artistPortrait } from '../utils/portraits'
+import { confirmedEvents } from '../utils/sceneFeed'
+import Artwork from './Artwork'
+import { request } from '../utils/request'
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import GameComponent from '../components/GameComponent'
 import { buildArtistUniverse } from '../utils/artistUniverse'
 import './ArtistProfile.css'
+import ArtistAtmosphere from './ArtistAtmosphere'
 
 interface Artist {
     id: number
@@ -56,7 +62,7 @@ interface ArtistProfileProps {
 const getAlbumCover = (album: Album) => album.coverUrl || album.coverImageUrl
 
 const getBioLead = (bio?: string) => {
-    if (!bio) return 'A catalog view built around verified songs, releases, and scene context.'
+    if (!bio) return 'A catalog view built around songs, releases, and scene context.'
     const firstLine = bio.split('.')[0]?.trim() || bio.trim()
     return `${firstLine}${firstLine.endsWith('.') ? '' : '.'}`
 }
@@ -69,6 +75,8 @@ function ArtistProfile({ artistId, initialArtist, onBack }: ArtistProfileProps) 
     const [tours, setTours] = useState<Tour[]>([])
     const [facts, setFacts] = useState<Fact[]>([])
     const [loading, setLoading] = useState(true)
+    const [attempt, setAttempt] = useState(0)
+    const [partialData, setPartialData] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [activeSongId, setActiveSongId] = useState<number | null>(null)
     const [artistImageFailed, setArtistImageFailed] = useState(false)
@@ -78,6 +86,7 @@ function ArtistProfile({ artistId, initialArtist, onBack }: ArtistProfileProps) 
         let isMounted = true
         setLoading(true)
         setError(null)
+        setPartialData(false)
         setArtist(initialArtist || null)
         setAlbums([])
         setSongs([])
@@ -87,51 +96,33 @@ function ArtistProfile({ artistId, initialArtist, onBack }: ArtistProfileProps) 
         setSongCurrentTime({})
         setActiveSongId(null)
 
-        Promise.all([
-            fetch(`/api/artists/${artistId}`),
-            fetch(`/api/artists/${artistId}/albums`),
-            fetch(`/api/songs/artist/${artistId}`),
-            fetch(`/api/artists/${artistId}/tours`),
-            fetch(`/api/artists/${artistId}/facts`)
-        ])
-            .then(async ([artistRes, albumsRes, songsRes, toursRes, factsRes]) => {
-                if (!isMounted) return
-
-                if (artistRes.ok) {
-                    setArtist(await artistRes.json())
-                } else {
-                    setError('Artist not found')
-                }
-
-                if (albumsRes.ok) {
-                    setAlbums((await albumsRes.json()) || [])
-                }
-
-                if (songsRes.ok) {
-                    setSongs((await songsRes.json()) || [])
-                }
-
-                if (toursRes.ok) {
-                    setTours((await toursRes.json()) || [])
-                }
-
-                if (factsRes.ok) {
-                    setFacts((await factsRes.json()) || [])
-                }
-
-                setLoading(false)
-            })
-            .catch(err => {
-                if (!isMounted) return
-                console.error('Failed to fetch artist profile:', err)
-                setError('Artist not found')
-                setLoading(false)
-            })
+        const readResource = async (url: string) => {
+            const response = await request(url)
+            if (!response.ok) throw new Error('Resource unavailable')
+            return response.json()
+        }
+        Promise.allSettled([
+            readResource(`/api/artists/${artistId}`),
+            readResource(`/api/artists/${artistId}/albums`),
+            readResource(`/api/songs/artist/${artistId}`),
+            readResource(`/api/artists/${artistId}/tours`),
+            readResource(`/api/artists/${artistId}/facts`)
+        ]).then(([artistResult, albumsResult, songsResult, toursResult, factsResult]) => {
+            if (!isMounted) return
+            if (artistResult.status === 'fulfilled') setArtist(artistResult.value)
+            else if (!initialArtist) setError('We couldn’t load this artist. Please try again.')
+            if (albumsResult.status === 'fulfilled') setAlbums(albumsResult.value || [])
+            if (songsResult.status === 'fulfilled') setSongs(songsResult.value || [])
+            if (toursResult.status === 'fulfilled') setTours([...(toursResult.value || []), ...confirmedEvents.filter(e => e.artistId === artistId)].filter((e, i, all) => new Date(e.eventDate).getTime() >= Date.now() && all.findIndex(other => other.eventDate === e.eventDate && other.venue === e.venue) === i))
+            if (factsResult.status === 'fulfilled') setFacts(factsResult.value || [])
+            setPartialData([albumsResult, songsResult, toursResult, factsResult].some(result => result.status === 'rejected'))
+            setLoading(false)
+        })
 
         return () => {
             isMounted = false
         }
-    }, [artistId, initialArtist])
+    }, [artistId, initialArtist, attempt])
 
     useEffect(() => {
         setActiveSongId(null)
@@ -161,7 +152,7 @@ function ArtistProfile({ artistId, initialArtist, onBack }: ArtistProfileProps) 
     )
 
     const artistImageSrc = !artistImageFailed && displayArtist?.id
-        ? `/api/images/artist/${displayArtist.id}`
+        ? artistPortrait(displayArtist.id)
         : undefined
 
     const overviewStats = [
@@ -209,54 +200,12 @@ function ArtistProfile({ artistId, initialArtist, onBack }: ArtistProfileProps) 
         return `0:${String(safe).padStart(2, '0')}`
     }
 
-    const openDirectSongYoutube = useCallback(async (song: Song) => {
-        try {
-            const res = await fetch(`/api/youtube/song/${song.id}`)
-            if (res.ok) {
-                const payload = await res.json()
-                if (payload?.url?.startsWith('https://www.youtube.com/watch?v=')) {
-                    window.open(payload.url, '_blank', 'noopener,noreferrer')
-                }
-            }
-        } catch (err) {
-            console.error(`Failed to resolve direct YouTube URL for song ${song.id}:`, err)
-        }
-    }, [])
-
-    const openDirectAlbumYoutube = useCallback(async (album: Album) => {
-        try {
-            const res = await fetch(`/api/youtube/album/${album.id}`)
-            if (res.ok) {
-                const payload = await res.json()
-                if (payload?.url?.startsWith('https://www.youtube.com/watch?v=')) {
-                    window.open(payload.url, '_blank', 'noopener,noreferrer')
-                }
-            }
-        } catch (err) {
-            console.error(`Failed to resolve direct YouTube URL for album ${album.id}:`, err)
-        }
-    }, [])
-
-    const openDirectSingleYoutube = useCallback(async (album: Album) => {
-        try {
-            const res = await fetch(`/api/youtube/album/${album.id}`)
-            if (res.ok) {
-                const payload = await res.json()
-                if (payload?.url?.startsWith('https://www.youtube.com/watch?v=')) {
-                    window.open(payload.url, '_blank', 'noopener,noreferrer')
-                }
-            }
-        } catch (err) {
-            console.error(`Failed to resolve direct YouTube URL for single ${album.id}:`, err)
-        }
-    }, [])
-
     if (loading) {
-        return <div className="loading-profile">Loading artist profile...</div>
+        return <div className="loading-profile" role="status"><span className="section-kicker">TUNING INTO THE ARTIST</span><div className="loading-bars"><i/><i/><i/><i/><i/></div><p>Bringing the records into focus…</p></div>
     }
 
     if (error || !displayArtist) {
-        return <div className="error-profile">{error || 'Artist not found'}</div>
+        return <div role="alert" className="error-profile"><p>{error || 'Artist not found'}</p><button className="btn btn-primary" onClick={() => setAttempt(n => n + 1)}>Try again ↗</button><button className="btn btn-secondary" onClick={onBack}>Browse artists</button></div>
     }
 
     const themeId = artistUniverse.slug
@@ -268,7 +217,7 @@ function ArtistProfile({ artistId, initialArtist, onBack }: ArtistProfileProps) 
             data-artist-theme={themeId}
         >
 
-            {/* ═══ Layer 6: Content ═══ */}
+            <ArtistAtmosphere name={displayArtist.name} theme={themeId} images={artistUniverse.collageImages} />
             <button className="btn btn-secondary back-btn" onClick={onBack}>
                 Back to Artists
             </button>
@@ -276,7 +225,7 @@ function ArtistProfile({ artistId, initialArtist, onBack }: ArtistProfileProps) 
             <div className="artist-header card">
                 <div className="artist-header-image">
                     {artistImageSrc ? (
-                        <img
+                        <Artwork
                             src={artistImageSrc}
                             alt={displayArtist.name}
                             onError={() => setArtistImageFailed(true)}
@@ -287,17 +236,17 @@ function ArtistProfile({ artistId, initialArtist, onBack }: ArtistProfileProps) 
                 </div>
                 <div className="artist-header-info">
                     <span className="artist-kicker">Artist universe</span>
-                    <h1 className="artist-name">{displayArtist.name}</h1>
+                    <h1 tabIndex={-1} className="artist-name">{displayArtist.name}</h1>
                     {displayArtist.genre && <p className="artist-genre">{displayArtist.genre}</p>}
                     <p className="artist-lead">{getBioLead(displayArtist.bio)}</p>
                     <div className="artist-summary-row">
                         <div className="artist-summary-chip">
                             <strong>{songs.length}</strong>
-                            <span>verified songs</span>
+                            <span>tracks</span>
                         </div>
                         <div className="artist-summary-chip">
                             <strong>{albumsByType.length + eps.length + singles.length}</strong>
-                            <span>release entries</span>
+                            <span>releases</span>
                         </div>
                         <div className="artist-summary-chip">
                             <strong>{appearsOn.length}</strong>
@@ -320,7 +269,7 @@ function ArtistProfile({ artistId, initialArtist, onBack }: ArtistProfileProps) 
                 ))}
             </div>
 
-            <div className="profile-tabs">
+            <nav className="profile-tabs" aria-label="Artist catalog">
                 <button
                     className={`profile-tab ${activeTab === 'overview' ? 'active' : ''}`}
                     onClick={() => setActiveTab('overview')}
@@ -375,17 +324,14 @@ function ArtistProfile({ artistId, initialArtist, onBack }: ArtistProfileProps) 
                 >
                     Game
                 </button>
-            </div>
+            </nav>
 
+            {partialData && <div className="catalog-notice" role="alert">Some of this artist’s catalog could not load. <button onClick={() => setAttempt(n => n + 1)}>Retry ↗</button></div>}
             <div className="profile-content">
                 {activeTab === 'overview' && (
                     <div className="overview-section">
                         <div className="overview-story-grid">
-                            <div className="overview-story-card card">
-                                <span className="section-label">Catalog focus</span>
-                                <h3>Verified discography</h3>
-                                <p>{artistUniverse.profileLead}</p>
-                            </div>
+                            <div className="overview-story-card card"><span className="section-label">START DIGGING</span><h3>The records tell the story.</h3><p>Explore the full catalog, from early cuts to the latest releases.</p><button className="btn btn-primary" onClick={() => setActiveTab('songs')}>Explore {songs.length} tracks ↗</button></div>
 
                             <div className="overview-story-card card">
                                 <span className="section-label">Career timeline</span>
@@ -405,7 +351,7 @@ function ArtistProfile({ artistId, initialArtist, onBack }: ArtistProfileProps) 
                         {displayArtist.bio && (
                             <div className="bio-card card">
                                 <span className="section-label">Biography</span>
-                                <h3>Inside the artist universe</h3>
+                                <h3>Behind the sound</h3>
                                 <p>{displayArtist.bio}</p>
                             </div>
                         )}
@@ -434,7 +380,7 @@ function ArtistProfile({ artistId, initialArtist, onBack }: ArtistProfileProps) 
                                         <span className="song-number">{index + 1}</span>
                                         <div className="artist-song-cover">
                                             {song.coverUrl ? (
-                                                <img src={song.coverUrl} alt={song.title} />
+                                                <Artwork src={song.coverUrl} alt={song.title} />
                                             ) : (
                                                 <div className="artist-song-cover-placeholder" />
                                             )}
@@ -489,15 +435,7 @@ function ArtistProfile({ artistId, initialArtist, onBack }: ArtistProfileProps) 
                                                     />
                                                 </div>
                                             )}
-                                            {song.youtubeUrl && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => openDirectSongYoutube(song)}
-                                                    className="yt-link-btn"
-                                                >
-                                                    ▶ Play on YouTube
-                                                </button>
-                                            )}
+                                            <ListeningLinks title={song.title} artist={song.artistName || displayArtist.name} youtubeUrl={song.youtubeUrl} />
                                         </div>
                                     </div>
                                 ))}
@@ -520,13 +458,14 @@ function ArtistProfile({ artistId, initialArtist, onBack }: ArtistProfileProps) 
                                     <div key={album.id} className="album-item card">
                                         <div className="album-cover">
                                             {getAlbumCover(album) ? (
-                                                <img src={getAlbumCover(album)} alt={album.title} />
+                                                <Artwork src={getAlbumCover(album)} alt={album.title} />
                                             ) : (
                                                 <div className="album-placeholder" />
                                             )}
                                         </div>
                                         <h4>{album.title}</h4>
                                         <p>{new Date(album.releaseDate).getFullYear()}</p>
+                                        <ListeningLinks title={album.title} artist={displayArtist.name} youtubeUrl={album.youtubeUrl} />
                                     </div>
                                 ))}
                             </div>
@@ -548,7 +487,7 @@ function ArtistProfile({ artistId, initialArtist, onBack }: ArtistProfileProps) 
                                     <div key={ep.id} className="album-item card">
                                         <div className="album-cover">
                                             {getAlbumCover(ep) ? (
-                                                <img src={getAlbumCover(ep)} alt={ep.title} />
+                                                <Artwork src={getAlbumCover(ep)} alt={ep.title} />
                                             ) : (
                                                 <div className="album-placeholder" />
                                             )}
@@ -576,18 +515,14 @@ function ArtistProfile({ artistId, initialArtist, onBack }: ArtistProfileProps) 
                                     <div key={single.id} className="album-item card">
                                         <div className="album-cover">
                                             {getAlbumCover(single) ? (
-                                                <img src={getAlbumCover(single)} alt={single.title} />
+                                                <Artwork src={getAlbumCover(single)} alt={single.title} />
                                             ) : (
                                                 <div className="album-placeholder" />
                                             )}
                                         </div>
                                         <h4>{single.title}</h4>
                                         <p>{new Date(single.releaseDate).getFullYear()}</p>
-                                        {single.youtubeUrl && (
-                                            <button type="button" onClick={() => openDirectSingleYoutube(single)} className="yt-link-btn">
-                                                ▶ Play on YouTube
-                                            </button>
-                                        )}
+                                        <ListeningLinks title={single.title} artist={displayArtist.name} youtubeUrl={single.youtubeUrl} />
                                     </div>
                                 ))}
                             </div>
@@ -609,18 +544,14 @@ function ArtistProfile({ artistId, initialArtist, onBack }: ArtistProfileProps) 
                                     <div key={release.id} className="album-item card">
                                         <div className="album-cover">
                                             {getAlbumCover(release) ? (
-                                                <img src={getAlbumCover(release)} alt={release.title} />
+                                                <Artwork src={getAlbumCover(release)} alt={release.title} />
                                             ) : (
                                                 <div className="album-placeholder" />
                                             )}
                                         </div>
                                         <h4>{release.title}</h4>
                                         <p>{new Date(release.releaseDate).getFullYear()}</p>
-                                        {release.youtubeUrl && (
-                                            <button type="button" onClick={() => openDirectSingleYoutube(release)} className="yt-link-btn">
-                                                ▶ Play on YouTube
-                                            </button>
-                                        )}
+                                        <ListeningLinks title={release.title} artist={displayArtist.name} youtubeUrl={release.youtubeUrl} />
                                     </div>
                                 ))}
                             </div>
@@ -634,7 +565,7 @@ function ArtistProfile({ artistId, initialArtist, onBack }: ArtistProfileProps) 
                     <div className="tours-section">
                         <div className="section-heading-block">
                             <span className="section-label">Calendar</span>
-                            <h3>Upcoming Tours and Events</h3>
+                            <h3>Upcoming Tours and Events</h3><p className="section-sub">Ticket listings checked 15 October 2026. Dates and availability can change.</p>
                         </div>
                         {tours.length > 0 ? (
                             <div className="tours-list">
@@ -657,7 +588,7 @@ function ArtistProfile({ artistId, initialArtist, onBack }: ArtistProfileProps) 
                                 ))}
                             </div>
                         ) : (
-                            <p className="empty-message">No upcoming tours</p>
+                            <p className="empty-message">No confirmed upcoming dates in our current sources. Check the artist’s official channels for new announcements.</p>
                         )}
                     </div>
                 )}

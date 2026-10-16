@@ -40,17 +40,17 @@ export default function LoginPage() {
     }
 
     return (
-        <div className="auth-page">
+        <div id="main-content" className="auth-page"><div className="auth-editorial"><a href="/">HIPHOPHUB®</a><span>FOR THE HEADS.<br/>FOR THE CULTURE.</span><p>Your place in the scene starts here.</p></div>
             <div className="auth-container card">
                 <h1 className="auth-title">Welcome Back</h1>
                 <p className="auth-subtitle">Log in to HipHopHub</p>
 
                 <form onSubmit={handleLogin} className="auth-form">
                     <div className="form-group">
-                        <label>Email or Username</label>
+                        <label htmlFor="email">Email or Username</label>
                         <input
                             type="text"
-                            value={email}
+                            id="email" autoComplete="username" value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             placeholder="you@example.com or username"
                             required
@@ -58,28 +58,28 @@ export default function LoginPage() {
                     </div>
 
                     <div className="form-group">
-                        <label>Password</label>
+                        <label htmlFor="password">Password</label>
                         <input
                             type="password"
-                            value={password}
+                            id="password" autoComplete="current-password" value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder="password"
                             required
                         />
                     </div>
 
-                    <button type="submit" className="btn btn-primary auth-btn">
+                    <button type="submit" disabled={loading} className="btn btn-primary auth-btn">
                         {loading ? 'Logging in...' : 'Log In'}
                     </button>
                 </form>
 
-                {error && <p className="auth-error">{error}</p>}
+                {error && <p role="alert" className="auth-error">{error}</p>}
 
                 <p className="auth-footer">
                     Don't have an account?{' '}
-                    <span className="auth-link" onClick={() => navigate('/signup')}>
+                    <button type="button" className="auth-link" onClick={() => navigate('/signup')}>
                         Sign Up
-                    </span>
+                    </button>
                 </p>
 
                 <button className="btn btn-secondary mt-md" onClick={() => navigate('/')}>
